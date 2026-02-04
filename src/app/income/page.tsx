@@ -20,6 +20,7 @@ import {
   loadIncomeCategories,
   saveIncomeEntries,
   saveIncomeCategories,
+  SEED_INCOME_2021,
   TAX_EXPENSE_CATEGORIES,
 } from "@/lib/income";
 import * as XLSX from "xlsx";
@@ -61,8 +62,19 @@ export default function IncomePage() {
   const [editMonth, setEditMonth] = useState(1);
 
   const load = useCallback(async () => {
-    setIncomeEntries(loadIncomeEntries());
-    setCategories(loadIncomeCategories());
+    let entries = loadIncomeEntries();
+    if (entries.length === 0) {
+      entries = SEED_INCOME_2021;
+      saveIncomeEntries(entries);
+    }
+    setIncomeEntries(entries);
+
+    let cats = loadIncomeCategories();
+    if (!cats.includes("기타")) {
+      cats = [...cats, "기타"];
+      saveIncomeCategories(cats);
+    }
+    setCategories(cats);
     const [entries, kw, extras] = await Promise.all([
       loadEntries(),
       loadKeywords(),
