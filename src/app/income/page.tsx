@@ -8,7 +8,6 @@ import {
   DEFAULT_KEYWORDS,
   getCategoryForEntry,
   getKeywordsForMonth,
-  getAnnualTotalExpense,
   loadEntries,
   loadKeywords,
   loadMonthExtras,
@@ -205,11 +204,10 @@ export default function IncomePage() {
     [budgetAmountByTaxCategory]
   );
 
-  /** 해당 연도 지출: 2024·2025는 고정 총지출, 그 외는 세금·경비 집계 */
-  const effectiveYearExpense =
-    getAnnualTotalExpense(incomeYear) ?? taxExpenseTotalForYear;
+  /** 사업 및 경비 = 세금·경비 세부 항목 합계 (카드에 보이는 부가세/국민연금/건강보험/사업경비 등). 총 지출(고정값)과 다름 */
+  const businessAndExpense = taxExpenseTotalForYear;
   /** 연 순수익 = 총 매출 - 사업 및 경비 */
-  const yearNetProfit = yearIncomeTotal - effectiveYearExpense;
+  const yearNetProfit = yearIncomeTotal - businessAndExpense;
   /** 월 평균 수익 = 연 순수익 ÷ 12 */
   const monthNetProfit = yearNetProfit / 12;
 
@@ -725,9 +723,7 @@ export default function IncomePage() {
         <Card>
           <h3 className="text-[28px] font-semibold text-neutral-900">세금 및 경비</h3>
           <p className="mt-1 text-sm text-neutral-500">
-            {getAnnualTotalExpense(incomeYear) != null
-              ? `${incomeYear}년 세부 내역이에요. 연 순수익은 입력해주신 총 지출로 계산돼요.`
-              : `${incomeYear}년 가계부에서 자동 집계돼요.`}
+            {incomeYear}년 사업 및 경비 세부 내역이에요. 연 순수익 = 총매출 - 아래 합계.
           </p>
           <ul className="mt-4 space-y-2">
             {TAX_EXPENSE_CATEGORIES.map((cat) => {
@@ -746,16 +742,11 @@ export default function IncomePage() {
             })}
           </ul>
           <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-            <span className="font-semibold text-neutral-800">총합 (세부 합계)</span>
+            <span className="font-semibold text-neutral-800">사업 및 경비 합계</span>
             <span className="text-xl font-bold text-red-600">
               {formatNum(taxExpenseTotalForYear)}원
             </span>
           </div>
-          {getAnnualTotalExpense(incomeYear) != null && (
-            <p className="mt-2 text-xs text-neutral-500">
-              연 순수익 계산에 사용되는 총 지출: <span className="text-red-600 font-medium">{formatNum(effectiveYearExpense)}원</span>
-            </p>
-          )}
         </Card>
       </div>
 
