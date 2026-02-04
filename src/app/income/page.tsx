@@ -67,10 +67,23 @@ export default function IncomePage() {
 
   const load = useCallback(async () => {
     let entries = loadIncomeEntries();
-    if (entries.length === 0) {
-      entries = [...SEED_INCOME_2021, ...SEED_INCOME_2022, ...SEED_INCOME_2023, ...SEED_INCOME_2024, ...SEED_INCOME_2025];
-      saveIncomeEntries(entries);
+    const yearsPresent = new Set(entries.map((e) => e.year));
+    const seedByYear: [number, IncomeEntry[]][] = [
+      [2021, SEED_INCOME_2021],
+      [2022, SEED_INCOME_2022],
+      [2023, SEED_INCOME_2023],
+      [2024, SEED_INCOME_2024],
+      [2025, SEED_INCOME_2025],
+    ];
+    let changed = false;
+    for (const [year, seed] of seedByYear) {
+      if (!yearsPresent.has(year) && seed.length > 0) {
+        entries = [...entries, ...seed];
+        yearsPresent.add(year);
+        changed = true;
+      }
     }
+    if (changed) saveIncomeEntries(entries);
     setIncomeEntries(entries);
 
     let cats = loadIncomeCategories();
