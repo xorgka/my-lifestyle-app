@@ -13,10 +13,8 @@ import {
   EXCLUDE_FROM_MONTH_TOTAL,
   getCategoryForEntry,
   getKeywordsForMonth,
-  getThisWeekEnd,
   SEED_BUDGET_2024_TAX,
   SEED_BUDGET_2025_TAX,
-  getThisWeekStart,
   isExcludedFromMonthTotal,
   loadEntries,
   loadKeywords,
@@ -47,7 +45,7 @@ function formatDateLabel(dateStr: string): string {
   return `${m}월 ${day}일 (${week})`;
 }
 
-type ViewMode = "week" | "thisMonth" | "lastMonth" | "custom";
+type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
 /** 항목 자동완성 기본 추가 후보 */
 const ITEM_SUGGESTION_DEFAULTS = [
@@ -68,8 +66,11 @@ export default function FinancePage() {
   const [monthExtras, setMonthExtras] = useState<MonthExtraKeywords>({});
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [viewMode, setViewMode] = useState<ViewMode>("thisMonth");
+  const [yearMonthSelect, setYearMonthSelect] = useState(new Date().getMonth() + 1);
   const [customYear, setCustomYear] = useState(new Date().getFullYear());
   const [customMonth, setCustomMonth] = useState(new Date().getMonth() + 1);
+  const [periodDropdown, setPeriodDropdown] = useState<"yearMonth" | "custom" | null>(null);
+  const periodDropdownRef = useRef<HTMLDivElement>(null);
   const [newItem, setNewItem] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [showKeywordModal, setShowKeywordModal] = useState(false);
@@ -128,15 +129,12 @@ export default function FinancePage() {
     const y = now.getFullYear();
     const m = now.getMonth() + 1;
     if (viewMode === "thisMonth") return `${y}-${String(m).padStart(2, "0")}`;
-    if (viewMode === "lastMonth") {
-      const lm = m === 1 ? 12 : m - 1;
-      const ly = m === 1 ? y - 1 : y;
-      return `${ly}-${String(lm).padStart(2, "0")}`;
-    }
+    if (viewMode === "yearMonth")
+      return `${y}-${String(yearMonthSelect).padStart(2, "0")}`;
     if (viewMode === "custom")
       return `${customYear}-${String(customMonth).padStart(2, "0")}`;
     return toYearMonth(todayStr());
-  }, [viewMode, customYear, customMonth]);
+  }, [viewMode, yearMonthSelect, customYear, customMonth]);
 
   const keywordsForSelectedMonth = getKeywordsForMonth(
     keywords,
@@ -195,17 +193,16 @@ export default function FinancePage() {
     setSelectedSuggestionIndex(0);
   }, [itemSuggestionsFiltered.length]);
 
-  const weekStart = getThisWeekStart();
-  const weekEnd = getThisWeekEnd();
-  const thisWeekEntries = useMemo(
-    () =>
-      displayEntries.filter((e) => e.date >= weekStart && e.date <= weekEnd),
-    [displayEntries, weekStart, weekEnd]
-  );
-  const thisWeekTotal = useMemo(
-    () => thisWeekEntries.reduce((s, e) => s + e.amount, 0),
-    [thisWeekEntries]
-  );
+  useEffect(() => {
+    if (periodDropdown == null) return;
+    const handleClick = (e: MouseEvent) => {
+      if (periodDropdownRef.current && !periodDropdownRef.current.contains(e.target as Node)) {
+        setPeriodDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [periodDropdown]);
 
   const viewMonthEntries = useMemo(
     () =>
@@ -471,11 +468,9 @@ export default function FinancePage() {
     );
   };
 
-  /** 연도별 총 지출: 21·23 약 5천만원, 22·24·25 고정값, 2026년~ 가계부 입력 합계 */
+  /** 연도별 총 지출: 21·23 데이터 없음, 22·24·25 고정값, 2026년~ 가계부 입력 합계 */
   const FIXED_TOTAL_EXPENSE: Record<number, number> = {
-    2021: 50_000_000,
     2022: 55_234_232,
-    2023: 50_000_000,
     2024: 50_312_782,
     2025: 62_880_691,
   };
@@ -515,8 +510,7 @@ export default function FinancePage() {
       const 순수익: number | null =
         사업및경비 != null ? 매출 - 사업및경비 : null;
       const 월평균수익 = 순수익 != null && 12 > 0 ? 순수익 / 12 : 0;
-      const 지출약5천만 = y === 2021 || y === 2023;
-      return { year: y, 매출, 지출, 지출데이터있음, 지출약5천만, 순수익, 월평균수익 };
+      return { year: y, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
     });
   }, [incomeEntries, entries, keywords, monthExtras, seed2024Business, seed2025Business]);
 
@@ -789,96 +783,98 @@ export default function FinancePage() {
         </div>
       </Card>
 
-      {/* 보기: 이번주 / 이번달 / 지난달 / 특정 연·월 */}
+      {/* 보기: 이번달(고정) / 올해(1~12월 드롭다운) / 특정 연·월(연·월 드롭다운) */}
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900">기간별 보기</h2>
-        <div className="mt-3 mb-8 flex flex-wrap gap-2">
-          {(
-            [
-              { mode: "week" as ViewMode, label: "이번주" },
-              { mode: "thisMonth" as ViewMode, label: "이번달" },
-              { mode: "lastMonth" as ViewMode, label: "지난달" },
-              { mode: "custom" as ViewMode, label: "특정 연·월" },
-            ] as const
-          ).map(({ mode, label }) => (
+        <div ref={periodDropdownRef} className="mt-3 mb-8 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("thisMonth")}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              viewMode === "thisMonth"
+                ? "bg-neutral-800 text-white"
+                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            }`}
+          >
+            이번달
+          </button>
+          <div className="relative">
             <button
-              key={mode}
               type="button"
-              onClick={() => setViewMode(mode)}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                viewMode === mode
+              onClick={() => {
+                setViewMode("yearMonth");
+                setPeriodDropdown((d) => (d === "yearMonth" ? null : "yearMonth"));
+              }}
+              className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                viewMode === "yearMonth"
                   ? "bg-neutral-800 text-white"
                   : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
               }`}
             >
-              {label}
+              올해
+              <span className="text-[10px] opacity-80">▼</span>
             </button>
-          ))}
-        </div>
-        {viewMode === "custom" && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <select
-              value={customYear}
-              onChange={(e) => setCustomYear(Number(e.target.value))}
-              className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-            >
-              {years.map((y) => (
-                <option key={y} value={y}>{y}년</option>
-              ))}
-            </select>
-            <select
-              value={customMonth}
-              onChange={(e) => setCustomMonth(Number(e.target.value))}
-              className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-            >
-              {months.map((m) => (
-                <option key={m} value={m}>{m}월</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {viewMode === "week" && (
-          <div className="mt-4">
-            <div className="text-2xl font-semibold text-neutral-900">
-              이번주 총 지출: {formatNum(thisWeekTotal)}원
-            </div>
-            <p className="mt-1 text-sm text-neutral-500">
-              {weekStart} ~ {weekEnd} (일~토)
-            </p>
-            {thisWeekEntries.length > 0 && (
-              <ul className="mt-4 space-y-2">
-                {thisWeekEntries
-                  .sort((a, b) => a.date.localeCompare(b.date) || a.item.localeCompare(b.item))
-                  .map((e) => {
-                    const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
-                    const cat = getCategoryForEntry(e.item, kw);
-                    return (
-                      <li
-                        key={e.id}
-                        className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm ring-1 ring-neutral-100"
-                      >
-                        <div className="flex items-baseline gap-3">
-                          <span className="font-semibold text-neutral-900">{e.item}</span>
-                          <span className="text-sm font-medium text-neutral-500">
-                            {formatDateLabel(e.date)}
-                          </span>
-                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
-                            {CATEGORY_LABELS[cat]}
-                          </span>
-                        </div>
-                        <span className="text-lg font-semibold text-neutral-900">
-                          {formatNum(e.amount)}원
-                        </span>
-                      </li>
-                    );
-                  })}
-              </ul>
+            {periodDropdown === "yearMonth" && (
+              <div className="absolute left-0 top-full z-10 mt-1 min-w-[100px] rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
+                {months.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setYearMonthSelect(m);
+                      setViewMode("yearMonth");
+                      setPeriodDropdown(null);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-neutral-100"
+                  >
+                    {m}월
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-        )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("custom");
+                setPeriodDropdown((d) => (d === "custom" ? null : "custom"));
+              }}
+              className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                viewMode === "custom"
+                  ? "bg-neutral-800 text-white"
+                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+              }`}
+            >
+              특정 연·월
+              <span className="text-[10px] opacity-80">▼</span>
+            </button>
+            {periodDropdown === "custom" && (
+              <div className="absolute left-0 top-full z-10 mt-1 flex gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-lg">
+                <select
+                  value={customYear}
+                  onChange={(e) => setCustomYear(Number(e.target.value))}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                >
+                  {years.map((y) => (
+                    <option key={y} value={y}>{y}년</option>
+                  ))}
+                </select>
+                <select
+                  value={customMonth}
+                  onChange={(e) => setCustomMonth(Number(e.target.value))}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                >
+                  {months.map((m) => (
+                    <option key={m} value={m}>{m}월</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
 
-        {(viewMode === "thisMonth" || viewMode === "lastMonth" || viewMode === "custom") && (
+        {(viewMode === "thisMonth" || viewMode === "yearMonth" || viewMode === "custom") && (
           <div className="mt-4 space-y-4">
             <div>
               <div className="inline-flex items-center gap-1.5 text-2xl font-semibold text-neutral-900">
@@ -1456,7 +1452,7 @@ export default function FinancePage() {
                       {순수익표시}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">
-                      {row.지출약5천만 ? "약 5천만원" : row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
+                      {row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${저축값 !== null ? (저축값 >= 0 ? "text-blue-600" : "text-red-600") : "text-neutral-500"}`}
