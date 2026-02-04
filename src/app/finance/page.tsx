@@ -105,13 +105,7 @@ export default function FinancePage() {
         loadKeywords(),
         loadMonthExtras(),
       ]);
-      // 예전 시드가 저장돼 있으면 한 번 제거: 2026 전체, 2025 시드(id로 구분)
-      let list = e.filter((x) => !x.date.startsWith("2026"));
-      list = list.filter((x) => !x.id.startsWith("seed-tax-2025"));
-      if (list.length !== e.length) {
-        await saveEntries(list);
-      }
-      setEntries(list);
+      setEntries(Array.isArray(e) ? e : []);
       setKeywords(k);
       setMonthExtras(m);
       setIncomeEntries(loadIncomeEntries());
