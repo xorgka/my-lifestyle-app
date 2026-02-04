@@ -310,6 +310,7 @@ export default function FinancePage() {
       });
     setNewItem("");
     setNewAmount("");
+    setTimeout(() => itemInputRef.current?.focus(), 0);
   };
 
   const removeEntry = (id: string) => {
