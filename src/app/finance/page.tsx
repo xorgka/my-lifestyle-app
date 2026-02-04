@@ -223,6 +223,7 @@ export default function FinancePage() {
       세금: 0,
       생활비: 0,
       신용카드: 0,
+      기타: 0,
     };
     viewMonthEntries.forEach((e) => {
       const cat = getCategoryForEntry(e.item, keywordsForViewMonth);
@@ -271,6 +272,7 @@ export default function FinancePage() {
       세금: {},
       생활비: {},
       신용카드: {},
+      기타: {},
     };
     viewMonthEntries.forEach((e) => {
       const cat = getCategoryForEntry(e.item, keywordsForViewMonth);
