@@ -647,12 +647,14 @@ export default function FinancePage() {
               className="mt-1 block rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
             />
           </div>
-          <div className="relative min-w-[180px]">
+          <div className="relative min-w-[180px]" lang="ko">
             <label className="text-xs font-medium text-neutral-500">항목</label>
             <input
               ref={itemInputRef}
               type="text"
               lang="ko"
+              autoComplete="one-time-code"
+              inputMode="text"
               value={newItem}
               onChange={(e) => {
                 setNewItem(e.target.value);
@@ -685,7 +687,6 @@ export default function FinancePage() {
               }}
               placeholder="예: GPT, 배달, 악사보험"
               className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
-              autoComplete="off"
             />
             {itemSuggestionsOpen && itemSuggestionsFiltered.length > 0 && (
               <ul
