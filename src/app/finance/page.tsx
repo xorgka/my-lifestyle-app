@@ -288,9 +288,13 @@ export default function FinancePage() {
         alert("저장에 실패했습니다. 브라우저 콘솔(F12)을 확인하거나, Supabase 대시보드에서 budget_entries 테이블 RLS 정책을 확인해 주세요.");
       });
     setNewItem("");
-    setItemInputKey((k) => k + 1);
     setNewAmount("");
-    setTimeout(() => itemInputRef.current?.focus(), 0);
+    setTimeout(() => {
+      if (itemInputRef.current) {
+        itemInputRef.current.value = "";
+        itemInputRef.current.focus();
+      }
+    }, 0);
   };
 
   const removeEntry = (id: string) => {
