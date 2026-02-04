@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pretendard CDN import */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css");
+/* 인사이트 인용문용 세리프 (리디바당체 느낌) */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600&display=swap");
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  padding: 0;
+  margin: 0;
+  font-size: 18px;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  font-family: "Pretendard Variable", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background-color: #f5f5f7;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* Chrome/Safari는 keep-all 미지원 → 자식에서 공백 단위 <wbr /> 쓰는 컴포넌트로 보완 */
+
+.font-insight-serif {
+  font-family: "Noto Serif KR", "Georgia", serif;
+}
+
+.insight-quote-wrap {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 인사이트 카드용 은은한 페이퍼 텍스처 (배경 뒤에 깔림) */
+.insight-texture {
+  position: relative;
+}
+.insight-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.insight-texture > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 날씨 카드용 블루 그라데이션 + 질감 */
+.weather-card-texture {
+  position: relative;
+}
+.weather-card-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.weather-card-texture > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 위젯 카드용 그레인 텍스처 */
+.widget-grain-texture {
+  position: relative;
+  overflow: hidden;
+}
+.widget-grain-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  opacity: 0.12;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+.widget-grain-texture > * {
+  z-index: 1;
+}
+.widget-grain-texture > div,
+.widget-grain-texture > span:last-of-type {
+  position: relative;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d1d6 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #d1d1d6;
+  border-radius: 9999px;
+}
+

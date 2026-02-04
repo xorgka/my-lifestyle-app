@@ -1,0 +1,85 @@
+/**
+ * 일기: Supabase 연결 시 DB 사용, 없으면 localStorage
+ */
+
+import { supabase } from "./supabase";
+
+export type JournalEntry = {
+  date: string;
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+  important?: boolean;
+};
+
+const STORAGE_KEY = "my-lifestyle-journal";
+
+function loadFromStorage(): JournalEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as JournalEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(entries: JournalEntry[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {}
+}
+
+export async function loadJournalEntries(): Promise<JournalEntry[]> {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("journal_entries")
+      .select("date, content, important, created_at, updated_at")
+      .order("date", { ascending: false });
+    if (error) {
+      console.error("[journal] loadJournalEntries", error);
+      return loadFromStorage();
+    }
+    return (data ?? []).map((row) => ({
+      date: row.date,
+      content: row.content ?? "",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at ?? undefined,
+      important: row.important ?? false,
+    }));
+  }
+  return loadFromStorage();
+}
+
+export async function saveJournalEntries(entries: JournalEntry[]): Promise<void> {
+  if (supabase) {
+    for (const e of entries) {
+      const { error } = await supabase.from("journal_entries").upsert(
+        {
+          date: e.date,
+          content: e.content,
+          important: e.important ?? false,
+          updated_at: e.updatedAt ?? new Date().toISOString(),
+        },
+        { onConflict: "date" }
+      );
+      if (error) console.error("[journal] saveJournalEntries", e.date, error);
+    }
+    return;
+  }
+  saveToStorage(entries);
+}
+
+/** 특정 날짜 일기 삭제 (Supabase 또는 localStorage) */
+export async function deleteJournalEntry(date: string): Promise<void> {
+  if (supabase) {
+    const { error } = await supabase.from("journal_entries").delete().eq("date", date);
+    if (error) console.error("[journal] deleteJournalEntry", date, error);
+    return;
+  }
+  const list = loadFromStorage().filter((e) => e.date !== date);
+  saveToStorage(list);
+}
