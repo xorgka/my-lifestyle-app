@@ -107,6 +107,38 @@ function saveJson(key: string, value: unknown): void {
   } catch {}
 }
 
+/** 2024년 세금·경비 시드 (수입 페이지 세금 및 경비용). */
+export const SEED_BUDGET_2024_TAX: BudgetEntry[] = [
+  { id: "seed-tax-2024-01-1", date: "2024-01-01", item: "부가세", amount: 376_810 },
+  { id: "seed-tax-2024-01-2", date: "2024-01-01", item: "국민연금", amount: 1_031_860 },
+  { id: "seed-tax-2024-01-3", date: "2024-01-01", item: "건강보험", amount: 1_061_540 },
+  { id: "seed-tax-2024-02-1", date: "2024-02-01", item: "국민연금", amount: 107_770 },
+  { id: "seed-tax-2024-02-2", date: "2024-02-01", item: "건강보험", amount: 120_380 },
+  { id: "seed-tax-2024-03-1", date: "2024-03-01", item: "사업경비", amount: 206_285 },
+  { id: "seed-tax-2024-04-1", date: "2024-04-01", item: "국민연금", amount: 215_540 },
+  { id: "seed-tax-2024-04-2", date: "2024-04-01", item: "건강보험", amount: 240_760 },
+  { id: "seed-tax-2024-04-3", date: "2024-04-01", item: "사업경비", amount: 320_062 },
+  { id: "seed-tax-2024-05-1", date: "2024-05-01", item: "국민연금", amount: 107_770 },
+  { id: "seed-tax-2024-05-2", date: "2024-05-01", item: "건강보험", amount: 120_380 },
+  { id: "seed-tax-2024-05-3", date: "2024-05-01", item: "종합소득세", amount: 550_000 },
+  { id: "seed-tax-2024-05-4", date: "2024-05-01", item: "사업경비", amount: 547_221 },
+  { id: "seed-tax-2024-06-1", date: "2024-06-01", item: "사업경비", amount: 93_151 },
+  { id: "seed-tax-2024-07-1", date: "2024-07-01", item: "국민연금", amount: 215_540 },
+  { id: "seed-tax-2024-07-2", date: "2024-07-01", item: "건강보험", amount: 240_760 },
+  { id: "seed-tax-2024-07-3", date: "2024-07-01", item: "사업경비", amount: 126_820 },
+  { id: "seed-tax-2024-08-1", date: "2024-08-01", item: "사업경비", amount: 311_051 },
+  { id: "seed-tax-2024-09-1", date: "2024-09-01", item: "국민연금", amount: 215_540 },
+  { id: "seed-tax-2024-09-2", date: "2024-09-01", item: "건강보험", amount: 240_760 },
+  { id: "seed-tax-2024-09-3", date: "2024-09-01", item: "사업경비", amount: 129_593 },
+  { id: "seed-tax-2024-10-1", date: "2024-10-01", item: "국민연금", amount: 107_770 },
+  { id: "seed-tax-2024-10-2", date: "2024-10-01", item: "건강보험", amount: 120_380 },
+  { id: "seed-tax-2024-10-3", date: "2024-10-01", item: "사업경비", amount: 200_450 },
+  { id: "seed-tax-2024-11-1", date: "2024-11-01", item: "사업경비", amount: 189_654 },
+  { id: "seed-tax-2024-12-1", date: "2024-12-01", item: "국민연금", amount: 215_540 },
+  { id: "seed-tax-2024-12-2", date: "2024-12-01", item: "건강보험", amount: 240_760 },
+  { id: "seed-tax-2024-12-3", date: "2024-12-01", item: "사업경비", amount: 147_967 },
+];
+
 /** 2025년 세금·경비 시드 (수입 페이지 세금 및 경비용). 적용 후 가계부에 추가됨. */
 export const SEED_BUDGET_2025_TAX: BudgetEntry[] = [
   { id: "seed-tax-2025-01-1", date: "2025-01-01", item: "부가세", amount: 1_814_290 },
@@ -148,6 +180,16 @@ export const SEED_BUDGET_2025_TAX: BudgetEntry[] = [
   { id: "seed-tax-2025-12-2", date: "2025-12-01", item: "건강보험", amount: 215_540 },
   { id: "seed-tax-2025-12-3", date: "2025-12-01", item: "사업경비", amount: 303_148 },
 ];
+
+/** 2024·2025년은 세부 입력 없이 총 지출만 사용 (2026년부터 가계부 직접 입력) */
+export const ANNUAL_TOTAL_EXPENSE: Record<number, number> = {
+  2024: 50_312_782,
+  2025: 62_880_691,
+};
+
+export function getAnnualTotalExpense(year: number): number | undefined {
+  return ANNUAL_TOTAL_EXPENSE[year];
+}
 
 export async function loadEntries(): Promise<BudgetEntry[]> {
   if (supabase) return loadEntriesFromDb();

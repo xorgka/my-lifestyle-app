@@ -13,6 +13,7 @@ import {
   EXCLUDE_FROM_MONTH_TOTAL,
   getCategoryForEntry,
   getKeywordsForMonth,
+  getAnnualTotalExpense,
   getThisWeekEnd,
   getThisWeekStart,
   isExcludedFromMonthTotal,
@@ -97,7 +98,13 @@ export default function FinancePage() {
         loadKeywords(),
         loadMonthExtras(),
       ]);
-      setEntries(e);
+      // 예전 시드가 저장돼 있으면 한 번 제거: 2026 전체, 2025 시드(id로 구분)
+      let list = e.filter((x) => !x.date.startsWith("2026"));
+      list = list.filter((x) => !x.id.startsWith("seed-tax-2025"));
+      if (list.length !== e.length) {
+        await saveEntries(list);
+      }
+      setEntries(list);
       setKeywords(k);
       setMonthExtras(m);
       setIncomeEntries(loadIncomeEntries());
@@ -458,18 +465,19 @@ export default function FinancePage() {
     );
   };
 
-  /** 연도별 총 매출·지출·순수익·월평균수익 (수입 + 가계부 연동) */
+  /** 연도별 통계. 21~23년 총 지출 데이터 없음, 2024·2025 고정 총지출, 2026년부터 가계부 입력 */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
     return yearList.map((y) => {
       const 매출 = incomeEntries.filter((e) => e.year === y).reduce((s, e) => s + e.amount, 0);
-      const 지출 = entries
-        .filter((e) => e.date.startsWith(String(y)))
-        .reduce((s, e) => s + e.amount, 0);
+      const 지출데이터있음 = y >= 2024;
+      const 지출 =
+        getAnnualTotalExpense(y) ??
+        entries.filter((e) => e.date.startsWith(String(y))).reduce((s, e) => s + e.amount, 0);
       const 순수익 = 매출 - 지출;
       const 월평균수익 = 12 > 0 ? 순수익 / 12 : 0;
-      return { year: y, 매출, 지출, 순수익, 월평균수익 };
+      return { year: y, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
     });
   }, [incomeEntries, entries]);
 
@@ -835,7 +843,9 @@ export default function FinancePage() {
           <div className="mt-4 space-y-4">
             <div>
               <div className="inline-flex items-center gap-1.5 text-2xl font-semibold text-neutral-900">
-                <span>월 지출: {formatNum(viewMonthTotalDisplay)}원</span>
+                <span>
+                  {parseInt(yearMonthForView.split("-")[1], 10)}월 지출: {formatNum(viewMonthTotalDisplay)}원
+                </span>
                 <span
                   title={
                     viewMonthExcluded > 0
@@ -1368,11 +1378,9 @@ export default function FinancePage() {
         </div>
       )}
 
-      {/* 연도별 총 매출·순수익·월평균수익 한눈에 보기 */}
+      {/* 연도별 통계 */}
       <Card className="overflow-hidden">
-        <h2 className="text-lg font-semibold text-neutral-900">
-          연도별 총 매출 · 순수익 · 월평균수익
-        </h2>
+        <h2 className="text-lg font-semibold text-neutral-900">연도별 통계</h2>
         <p className="mt-1 text-sm text-neutral-500">
           수입 데이터와 연도별 총 지출을 반영해요.
         </p>
@@ -1398,7 +1406,7 @@ export default function FinancePage() {
                     {formatNum(row.매출)}원
                   </td>
                   <td className="px-4 py-3 text-right text-neutral-700">
-                    {formatNum(row.지출)}원
+                    {row.지출데이터있음 ? `${formatNum(row.지출)}원` : "데이터 없음"}
                   </td>
                   <td
                     className={`px-4 py-3 text-right font-medium ${row.순수익 >= 0 ? "text-neutral-900" : "text-red-600"}`}
