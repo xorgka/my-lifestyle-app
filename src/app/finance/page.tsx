@@ -20,6 +20,7 @@ import {
   loadEntries,
   loadKeywords,
   loadMonthExtras,
+  saveAnnualExpense,
   saveEntries,
   saveKeywords,
   saveMonthExtras,
@@ -103,7 +104,18 @@ export default function FinancePage() {
       setKeywords(k);
       setMonthExtras(m);
       setIncomeEntries(loadIncomeEntries());
-      setAnnualExpenseByYear(loadAnnualExpense());
+      let annualExpense = loadAnnualExpense();
+      let annualChanged = false;
+      if (annualExpense["2024"] == null) {
+        annualExpense = { ...annualExpense, "2024": 58_712_782 };
+        annualChanged = true;
+      }
+      if (annualExpense["2025"] == null) {
+        annualExpense = { ...annualExpense, "2025": 62_880_691 };
+        annualChanged = true;
+      }
+      if (annualChanged) saveAnnualExpense(annualExpense);
+      setAnnualExpenseByYear(annualExpense);
     } finally {
       setBudgetLoading(false);
     }
