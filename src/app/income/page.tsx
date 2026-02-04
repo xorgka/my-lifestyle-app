@@ -165,15 +165,16 @@ export default function IncomePage() {
     [budgetEntries, incomeYear, incomeMonth]
   );
 
-  /** 해당 연도 가계부에서 세금·경비 항목별 합계 (가계부 연동). 수입 페이지용으로 해당 연도 시드 포함 */
+  /** 해당 연도 세금·경비 항목별 합계. 2024·2025는 시드만 사용(가계부 데이터 제외), 그 외는 가계부 연동 */
   const budgetAmountByTaxCategory = useMemo(() => {
     const yearPrefix = String(incomeYear);
-    let entriesInYear = budgetEntries.filter((e) => e.date.startsWith(yearPrefix));
-    if (incomeYear === 2024 && !entriesInYear.some((e) => e.id.startsWith("seed-tax-2024"))) {
-      entriesInYear = [...entriesInYear, ...SEED_BUDGET_2024_TAX];
-    }
-    if (incomeYear === 2025 && !entriesInYear.some((e) => e.id.startsWith("seed-tax-2025"))) {
-      entriesInYear = [...entriesInYear, ...SEED_BUDGET_2025_TAX];
+    let entriesInYear: typeof budgetEntries;
+    if (incomeYear === 2024) {
+      entriesInYear = SEED_BUDGET_2024_TAX;
+    } else if (incomeYear === 2025) {
+      entriesInYear = SEED_BUDGET_2025_TAX;
+    } else {
+      entriesInYear = budgetEntries.filter((e) => e.date.startsWith(yearPrefix));
     }
     const result: Record<string, number> = {};
     TAX_EXPENSE_CATEGORIES.forEach((cat) => {
