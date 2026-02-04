@@ -20,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <meta httpEquiv="Content-Language" content="ko" />
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -27,7 +28,7 @@ export default function RootLayout({
           referrerPolicy="no-referrer"
         />
       </head>
-      <body className="bg-soft-bg font-sans antialiased">
+      <body lang="ko" className="bg-soft-bg font-sans antialiased">
         <DashboardShell>{children}</DashboardShell>
       </body>
     </html>

@@ -11,7 +11,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-4 py-7 md:px-10 md:py-10">
+    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-4 py-7 md:px-10 md:py-10">
       {/* 모바일: 상단 메뉴 버튼 */}
       <div className="fixed right-4 top-4 z-50 md:hidden">
         <button
