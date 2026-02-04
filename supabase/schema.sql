@@ -28,9 +28,9 @@ comment on table budget_entries is '가계부 지출 내역. 구글 시트 연�
 comment on column budget_entries.source is 'app: 앱 입력, sheets: 구글 시트에서 가져온 행';
 comment on column budget_entries.external_id is '구글 시트 행 ID 등 외부 연동 시 중복/갱신용';
 
--- 카테고리별 키워드 (고정비/사업경비/세금/생활비/신용카드)
+-- 카테고리별 키워드 (고정비/사업경비/세금/생활비/신용카드/기타)
 create table if not exists budget_keywords (
-  category text primary key check (category in ('고정비', '사업경비', '세금', '생활비', '신용카드')),
+  category text primary key check (category in ('고정비', '사업경비', '세금', '생활비', '신용카드', '기타')),
   keywords jsonb not null default '[]',
   updated_at timestamptz not null default now()
 );

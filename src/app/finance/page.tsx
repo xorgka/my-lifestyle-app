@@ -650,6 +650,7 @@ export default function FinancePage() {
             <input
               ref={itemInputRef}
               type="text"
+              lang="ko"
               value={newItem}
               onChange={(e) => {
                 setNewItem(e.target.value);

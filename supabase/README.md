@@ -6,6 +6,18 @@
 2. 왼쪽 **SQL Editor** → **New query**
 3. `schema.sql` 전체 내용 복사 후 붙여넣기 → **Run**
 
+### 기타 카테고리 추가 (이미 테이블을 만든 경우)
+
+`budget_keywords` 테이블을 예전에 만들었다면, SQL Editor에서 아래를 실행해 주세요.
+
+```sql
+alter table budget_keywords drop constraint if exists budget_keywords_category_check;
+alter table budget_keywords add constraint budget_keywords_category_check
+  check (category in ('고정비', '사업경비', '세금', '생활비', '신용카드', '기타'));
+insert into budget_keywords (category, keywords) values ('기타', '[]'::jsonb)
+on conflict (category) do update set keywords = excluded.keywords, updated_at = now();
+```
+
 ### 가계부 저장이 안 되고 새로고침하면 날아갈 때
 
 RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막혀서 저장이 안 됩니다.  
@@ -46,6 +58,7 @@ insert into budget_keywords (category, keywords) values
   ('사업경비', '["GPT","클로드","젠스파크","커서AI","그록","제미나이","아임웹","캡컷","타입캐스트","세무사"]'::jsonb),
   ('생활비', '["식비","편의점","강아지","배달","쿠팡","배민","컬리","외식"]'::jsonb),
   ('신용카드', '["악사보험","클라우드웨이즈","KT통신요금"]'::jsonb),
-  ('세금', '["부가세","종합소득세","자동차세","면허세"]'::jsonb)
+  ('세금', '["부가세","종합소득세","자동차세","면허세"]'::jsonb),
+  ('기타', '[]'::jsonb)
 on conflict (category) do update set keywords = excluded.keywords, updated_at = now();
 ```
