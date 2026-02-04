@@ -47,19 +47,6 @@ function formatDateLabel(dateStr: string): string {
 
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
-/** 항목 자동완성 기본 추가 후보 */
-const ITEM_SUGGESTION_DEFAULTS = [
-  "강아지 사료",
-  "주유소",
-  "쿠캣",
-  "아이스크림",
-  "KB카드출금",
-  "부가세",
-  "종합소득세",
-  "자동차세",
-  "면허세",
-];
-
 export default function FinancePage() {
   const [entries, setEntries] = useState<BudgetEntry[]>([]);
   const [keywords, setKeywords] = useState<CategoryKeywords>(DEFAULT_KEYWORDS);
@@ -72,6 +59,7 @@ export default function FinancePage() {
   const [periodDropdown, setPeriodDropdown] = useState<"yearMonth" | "custom" | null>(null);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
   const [newItem, setNewItem] = useState("");
+  const [itemInputKey, setItemInputKey] = useState(0);
   const [newAmount, setNewAmount] = useState("");
   const [showKeywordModal, setShowKeywordModal] = useState(false);
   const [addKeywordCategory, setAddKeywordCategory] = useState<CategoryId | null>(null);
@@ -80,8 +68,6 @@ export default function FinancePage() {
   const [pendingKeyword, setPendingKeyword] = useState<{ cat: CategoryId; value: string } | null>(null);
   const [categoryDetailModal, setCategoryDetailModal] = useState<CategoryId | null>(null);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
-  const [itemSuggestionsOpen, setItemSuggestionsOpen] = useState(false);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportYear, setExportYear] = useState(new Date().getFullYear());
@@ -92,7 +78,6 @@ export default function FinancePage() {
   const [dayDetailEditItem, setDayDetailEditItem] = useState("");
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
   const itemInputRef = useRef<HTMLInputElement>(null);
-  const itemSuggestionsRef = useRef<HTMLUListElement>(null);
 
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
 
@@ -152,40 +137,6 @@ export default function FinancePage() {
     () => displayEntries.filter((e) => e.date === selectedDate),
     [displayEntries, selectedDate]
   );
-
-  /** 항목 자동완성 후보: 기본 후보 + 등록 키워드 + 자주 쓰는 항목(2회 이상) */
-  const itemSuggestionCandidates = useMemo(() => {
-    const ym = toYearMonth(selectedDate);
-    const kw = getKeywordsForMonth(keywords, monthExtras, ym);
-    const fromKeywords = new Set<string>();
-    (Object.keys(kw) as CategoryId[]).forEach((cat) => {
-      kw[cat].forEach((w) => fromKeywords.add(w.trim()));
-    });
-    const countByItem: Record<string, number> = {};
-    entries.forEach((e) => {
-      const item = e.item.trim();
-      if (item) countByItem[item] = (countByItem[item] ?? 0) + 1;
-    });
-    const frequent = Object.entries(countByItem)
-      .filter(([, n]) => n >= 2)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 30)
-      .map(([item]) => item);
-    const combined = [...ITEM_SUGGESTION_DEFAULTS, ...fromKeywords, ...frequent];
-    return [...new Set(combined)].filter(Boolean).sort((a, b) => a.localeCompare(b));
-  }, [keywords, monthExtras, selectedDate, entries]);
-
-  const itemSuggestionsFiltered = useMemo(() => {
-    const q = newItem.trim().toLowerCase();
-    if (!q) return itemSuggestionCandidates.slice(0, 12);
-    return itemSuggestionCandidates.filter(
-      (s) => s.toLowerCase().includes(q) || s.toLowerCase().startsWith(q)
-    ).slice(0, 12);
-  }, [newItem, itemSuggestionCandidates]);
-
-  useEffect(() => {
-    setSelectedSuggestionIndex(0);
-  }, [itemSuggestionsFiltered.length]);
 
   useEffect(() => {
     if (periodDropdown == null) return;
@@ -289,7 +240,7 @@ export default function FinancePage() {
   }, [viewMonthEntries, keywordsForViewMonth]);
 
   const addEntry = () => {
-    const item = newItem.trim();
+    const item = (itemInputRef.current?.value ?? newItem).trim();
     const amount = Number(String(newAmount).replace(/,/g, ""));
     if (!item || !Number.isFinite(amount) || amount <= 0) return;
     const id = `e-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -305,6 +256,7 @@ export default function FinancePage() {
         alert("저장에 실패했습니다. 브라우저 콘솔(F12)을 확인하거나, Supabase 대시보드에서 budget_entries 테이블 RLS 정책을 확인해 주세요.");
       });
     setNewItem("");
+    setItemInputKey((k) => k + 1);
     setNewAmount("");
     setTimeout(() => itemInputRef.current?.focus(), 0);
   };
@@ -647,74 +599,32 @@ export default function FinancePage() {
               className="mt-1 block rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
             />
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date(selectedDate + "T12:00:00");
+              d.setDate(d.getDate() + 1);
+              setSelectedDate(d.toISOString().slice(0, 10));
+            }}
+            className="flex h-[42px] items-center rounded-lg border border-neutral-200 bg-white px-3 text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900"
+            title="다음 날"
+            aria-label="다음 날"
+          >
+            <span className="text-lg">→</span>
+          </button>
           <div className="relative min-w-[180px]" lang="ko">
             <label className="text-xs font-medium text-neutral-500">항목</label>
             <input
+              key={itemInputKey}
               ref={itemInputRef}
               type="text"
               lang="ko"
               autoComplete="one-time-code"
               inputMode="text"
-              value={newItem}
-              onChange={(e) => {
-                setNewItem(e.target.value);
-                setSelectedSuggestionIndex(0);
-                setItemSuggestionsOpen(true);
-              }}
-              onFocus={() => setItemSuggestionsOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setItemSuggestionsOpen(false), 150);
-              }}
-              onKeyDown={(e) => {
-                if (!itemSuggestionsOpen || itemSuggestionsFiltered.length === 0) return;
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setSelectedSuggestionIndex((i) =>
-                    i < itemSuggestionsFiltered.length - 1 ? i + 1 : 0
-                  );
-                } else if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setSelectedSuggestionIndex((i) =>
-                    i > 0 ? i - 1 : itemSuggestionsFiltered.length - 1
-                  );
-                } else if (e.key === "Enter" && itemSuggestionsFiltered.length > 0) {
-                  e.preventDefault();
-                  setNewItem(itemSuggestionsFiltered[selectedSuggestionIndex] ?? "");
-                  setItemSuggestionsOpen(false);
-                } else if (e.key === "Escape") {
-                  setItemSuggestionsOpen(false);
-                }
-              }}
-              placeholder="예: GPT, 배달, 악사보험"
+              defaultValue={newItem}
+              placeholder="예: 배달, 악사보험, GPT"
               className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
             />
-            {itemSuggestionsOpen && itemSuggestionsFiltered.length > 0 && (
-              <ul
-                ref={itemSuggestionsRef}
-                className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg"
-              >
-                {itemSuggestionsFiltered.map((s, i) => (
-                  <li key={s}>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setNewItem(s);
-                        setItemSuggestionsOpen(false);
-                        itemInputRef.current?.focus();
-                      }}
-                      className={`w-full px-3 py-2 text-left text-sm ${
-                        i === selectedSuggestionIndex
-                          ? "bg-slate-100 font-medium text-neutral-900"
-                          : "text-neutral-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
