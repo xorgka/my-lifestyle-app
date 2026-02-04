@@ -47,31 +47,23 @@ function formatDateLabel(dateStr: string): string {
 
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
-/** 항목 입력: 메모로 부모 리렌더 시에도 안 건드려서 한글 IME가 풀리지 않도록 함. 맨 앞 + autoFocus로 한글 입력 우선. */
+/** 항목 입력: props 고정해서 추가 후 리렌더 안 되게 함 → 한글 IME 유지. 값 비우기는 ref로만. */
 const ItemInput = memo(function ItemInput({
-  inputKey,
-  defaultValue,
   inputRef,
-  autoFocus,
 }: {
-  inputKey: number;
-  defaultValue: string;
   inputRef: React.RefObject<HTMLInputElement | null>;
-  autoFocus?: boolean;
 }) {
   return (
     <div className="relative min-w-[180px]" lang="ko">
       <label className="text-xs font-medium text-neutral-500">항목</label>
       <input
-        key={inputKey}
         ref={inputRef}
         type="text"
         lang="ko"
         autoComplete="off"
         spellCheck={false}
-        defaultValue={defaultValue}
+        defaultValue=""
         placeholder="예: 배달, 악사보험, GPT"
-        autoFocus={autoFocus}
         style={{ imeMode: "active" }}
         className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
       />
@@ -91,7 +83,6 @@ export default function FinancePage() {
   const [periodDropdown, setPeriodDropdown] = useState<"yearMonth" | "custom" | null>(null);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
   const [newItem, setNewItem] = useState("");
-  const [itemInputKey, setItemInputKey] = useState(0);
   const [newAmount, setNewAmount] = useState("");
   const [showKeywordModal, setShowKeywordModal] = useState(false);
   const [addKeywordCategory, setAddKeywordCategory] = useState<CategoryId | null>(null);
@@ -290,7 +281,10 @@ export default function FinancePage() {
     setNewItem("");
     setNewAmount("");
     setTimeout(() => {
-      if (itemInputRef.current) itemInputRef.current.value = "";
+      if (itemInputRef.current) {
+        itemInputRef.current.value = "";
+        itemInputRef.current.focus();
+      }
     }, 0);
   };
 
@@ -645,11 +639,7 @@ export default function FinancePage() {
           >
             <span className="text-lg">→</span>
           </button>
-          <ItemInput
-            inputKey={itemInputKey}
-            defaultValue={newItem}
-            inputRef={itemInputRef}
-          />
+          <ItemInput inputRef={itemInputRef} />
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
             <input
