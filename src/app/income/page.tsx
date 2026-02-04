@@ -1032,16 +1032,17 @@ export default function IncomePage() {
 
       {showCategoryModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4"
           onClick={() => {
             setShowCategoryModal(false);
             setNewCategoryName("");
           }}
         >
-          <div
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex min-h-[100dvh] items-center justify-center py-8">
+            <div
+              className="my-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
             <h3 className="text-lg font-semibold text-neutral-900">구분 관리</h3>
             <p className="mt-1 text-sm text-neutral-500">
               수입 구분을 추가하거나 삭제할 수 있어요.
@@ -1093,6 +1094,7 @@ export default function IncomePage() {
                 닫기
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

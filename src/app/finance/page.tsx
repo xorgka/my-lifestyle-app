@@ -1273,7 +1273,7 @@ export default function FinancePage() {
       {/* 키워드 관리 모달 */}
       {showKeywordModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4"
           onClick={() => {
             setShowKeywordModal(false);
             setAddKeywordCategory(null);
@@ -1281,10 +1281,11 @@ export default function FinancePage() {
             setPendingKeyword(null);
           }}
         >
-          <div
-            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex min-h-[100dvh] items-center justify-center py-8">
+            <div
+              className="my-auto max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
             <h3 className="text-lg font-semibold text-neutral-900">카테고리 키워드 관리</h3>
             <p className="mt-1 text-sm text-neutral-500">
               항목명에 포함된 키워드로 자동 분류돼요. 키워드는 추가·삭제할 수 있어요.
@@ -1409,6 +1410,7 @@ export default function FinancePage() {
                 닫기
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
