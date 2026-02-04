@@ -31,9 +31,23 @@ export async function loadEntriesFromDb(): Promise<BudgetEntryRow[]> {
   }));
 }
 
-/** 저장 후 앱에서 쓸 목록 반환 (새 행은 DB id로 갱신됨) */
+/** 저장 후 앱에서 쓸 목록 반환 (새 행은 DB id로 갱신됨). 삭제된 항목은 DB에서도 제거됨. */
 export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<BudgetEntryRow[]> {
   if (!supabase) return entries;
+  const keepIds = entries.filter((e) => isUuid(e.id)).map((e) => e.id);
+  const { data: existingRows } = await supabase
+    .from("budget_entries")
+    .select("id")
+    .eq("source", "app");
+  const existingIds = (existingRows ?? []).map((r) => String(r.id));
+  const toDelete = existingIds.filter((id) => !keepIds.includes(id));
+  if (toDelete.length > 0) {
+    const { error: delErr } = await supabase
+      .from("budget_entries")
+      .delete()
+      .in("id", toDelete);
+    if (delErr) console.error("[budgetDb] delete removed entries", delErr);
+  }
   const existing: BudgetEntryRow[] = [];
   const newEntries: BudgetEntryRow[] = [];
   for (const e of entries) {

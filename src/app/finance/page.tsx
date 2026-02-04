@@ -288,7 +288,12 @@ export default function FinancePage() {
       { id, date: selectedDate, item, amount },
     ];
     setEntries(next);
-    saveEntries(next).then((updated) => setEntries(updated)).catch(console.error);
+    saveEntries(next)
+      .then((updated) => setEntries(updated))
+      .catch((err) => {
+        console.error(err);
+        load();
+      });
     setNewItem("");
     setNewAmount("");
   };
@@ -296,7 +301,12 @@ export default function FinancePage() {
   const removeEntry = (id: string) => {
     const next = entries.filter((e) => e.id !== id);
     setEntries(next);
-    saveEntries(next).then((updated) => setEntries(updated)).catch(console.error);
+    saveEntries(next)
+      .then((updated) => setEntries(updated))
+      .catch((err) => {
+        console.error(err);
+        load();
+      });
   };
 
   const updateEntry = (id: string, item: string, amount: number) => {
@@ -306,7 +316,12 @@ export default function FinancePage() {
       e.id === id ? { ...e, item: trimmed, amount } : e
     );
     setEntries(next);
-    saveEntries(next).then((updated) => setEntries(updated)).catch(console.error);
+    saveEntries(next)
+      .then((updated) => setEntries(updated))
+      .catch((err) => {
+        console.error(err);
+        load();
+      });
   };
 
   const addKeywordToCategory = (cat: CategoryId, word: string, persist: boolean) => {
