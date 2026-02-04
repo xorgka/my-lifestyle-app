@@ -9,14 +9,11 @@ import {
   getCategoryForEntry,
   getKeywordsForMonth,
   loadEntries,
-  loadAnnualExpense,
   loadKeywords,
   loadMonthExtras,
   type MonthExtraKeywords,
-  saveAnnualExpense,
   saveEntries as saveBudgetEntries,
   SEED_BUDGET_2025_TAX,
-  SEED_BUDGET_2026_TAX,
 } from "@/lib/budget";
 import {
   type IncomeEntry,
@@ -69,9 +66,6 @@ export default function IncomePage() {
   const [editItem, setEditItem] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editMonth, setEditMonth] = useState(1);
-  /** 연도별 총 지출만 입력한 값 (세부 항목 없음). 키: "2024", "2025" 등 */
-  const [annualExpenseByYear, setAnnualExpenseByYear] = useState<Record<string, number>>({});
-  const [annualExpenseInput, setAnnualExpenseInput] = useState("");
 
   const load = useCallback(async () => {
     let entries = loadIncomeEntries();
@@ -108,12 +102,8 @@ export default function IncomePage() {
     ]);
     let finalBudgetEntries = budgetEntriesList;
     const has2025TaxSeed = budgetEntriesList.some((e) => e.id.startsWith("seed-tax-2025"));
-    const has2026TaxSeed = budgetEntriesList.some((e) => e.id.startsWith("seed-tax-2026"));
     if (!has2025TaxSeed && SEED_BUDGET_2025_TAX.length > 0) {
       finalBudgetEntries = [...finalBudgetEntries, ...SEED_BUDGET_2025_TAX];
-    }
-    if (!has2026TaxSeed && SEED_BUDGET_2026_TAX.length > 0) {
-      finalBudgetEntries = [...finalBudgetEntries, ...SEED_BUDGET_2026_TAX];
     }
     if (finalBudgetEntries !== budgetEntriesList) {
       await saveBudgetEntries(finalBudgetEntries);
@@ -121,20 +111,6 @@ export default function IncomePage() {
     setBudgetEntries(finalBudgetEntries);
     setBudgetKeywords(kw);
     setBudgetMonthExtras(extras);
-    let annualExpense = loadAnnualExpense();
-    let annualChanged = false;
-    // 2024는 총 지출만 입력 (세부 없음). 2025는 세부 항목 있음 → 2025 총액 사용 안 함
-    if (annualExpense["2025"] != null) {
-      const { "2025": _, ...rest } = annualExpense;
-      annualExpense = rest;
-      annualChanged = true;
-    }
-    if (annualExpense["2024"] == null) {
-      annualExpense = { ...annualExpense, "2024": 58_712_782 };
-      annualChanged = true;
-    }
-    if (annualChanged) saveAnnualExpense(annualExpense);
-    setAnnualExpenseByYear(annualExpense);
   }, []);
 
   useEffect(() => {
@@ -146,10 +122,6 @@ export default function IncomePage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    setAnnualExpenseInput("");
-  }, [incomeYear]);
 
   const incomeEntriesForYear = useMemo(
     () => incomeEntries.filter((e) => e.year === incomeYear),
@@ -198,10 +170,13 @@ export default function IncomePage() {
     [budgetEntries, incomeYear, incomeMonth]
   );
 
-  /** 해당 연도 가계부에서 세금·경비 항목별 합계 (가계부 연동) */
+  /** 해당 연도 가계부에서 세금·경비 항목별 합계 (가계부 연동). 수입 페이지용으로 해당 연도 시드 포함 */
   const budgetAmountByTaxCategory = useMemo(() => {
     const yearPrefix = String(incomeYear);
-    const entriesInYear = budgetEntries.filter((e) => e.date.startsWith(yearPrefix));
+    let entriesInYear = budgetEntries.filter((e) => e.date.startsWith(yearPrefix));
+    if (incomeYear === 2025 && !entriesInYear.some((e) => e.id.startsWith("seed-tax-2025"))) {
+      entriesInYear = [...entriesInYear, ...SEED_BUDGET_2025_TAX];
+    }
     const result: Record<string, number> = {};
     TAX_EXPENSE_CATEGORIES.forEach((cat) => {
       result[cat] = 0;
@@ -215,7 +190,7 @@ export default function IncomePage() {
       else if (lower.includes("종합소득세")) result["종합소득세"] += e.amount;
       else if (lower.includes("국민연금")) result["국민연금"] += e.amount;
       else if (lower.includes("건강보험")) result["건강보험"] += e.amount;
-      else if (cat === "사업경비") result["사업경비"] += e.amount;
+      else if (lower.includes("사업경비") || cat === "사업경비") result["사업경비"] += e.amount;
       else if (lower.includes("자동차세") || lower.includes("면허세")) result["기타"] += e.amount;
     }
     return result;
@@ -231,11 +206,8 @@ export default function IncomePage() {
     [budgetAmountByTaxCategory]
   );
 
-  /** 해당 연도에 "총 지출만" 입력했으면 그 값, 아니면 세금·경비 합계 */
-  const effectiveYearExpense = annualExpenseByYear[String(incomeYear)] ?? taxExpenseTotalForYear;
-
-  /** 연 순수익 = 총 매출 - (총 지출 또는 세금·경비) */
-  const yearNetProfit = yearIncomeTotal - effectiveYearExpense;
+  /** 연 순수익 = 총 매출 - 세금·경비 */
+  const yearNetProfit = yearIncomeTotal - taxExpenseTotalForYear;
 
   /** 월 순수익 = 총 수입(연도) / 현재 달 (평균). 선택 연도가 올해가 아니면 12로 나눔 */
   const currentMonthNum =
@@ -757,98 +729,29 @@ export default function IncomePage() {
         <Card>
           <h3 className="text-[28px] font-semibold text-neutral-900">세금 및 경비</h3>
           <p className="mt-1 text-sm text-neutral-500">
-            {annualExpenseByYear[String(incomeYear)] != null
-              ? `${incomeYear}년은 총 지출만 입력된 상태예요.`
-              : `${incomeYear}년 가계부에서 자동 집계돼요.`}
+            {incomeYear}년 가계부에서 자동 집계돼요.
           </p>
-          {annualExpenseByYear[String(incomeYear)] != null ? (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3">
-                <span className="font-medium text-neutral-800">총 지출 (세부 미입력)</span>
-                <span className="font-medium text-neutral-700">
-                  {formatNum(annualExpenseByYear[String(incomeYear)] ?? 0)}원
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-                <span className="font-semibold text-neutral-800">총합</span>
-                <span className="text-xl font-bold text-neutral-900">
-                  {formatNum(annualExpenseByYear[String(incomeYear)] ?? 0)}원
-                </span>
-              </div>
-            </div>
-          ) : (
-            <>
-              <ul className="mt-4 space-y-2">
-                {TAX_EXPENSE_CATEGORIES.map((cat) => {
-                  const fromBudget = budgetAmountByTaxCategory[cat] ?? 0;
-                  return (
-                    <li
-                      key={cat}
-                      className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3"
-                    >
-                      <span className="font-medium text-neutral-800">{cat}</span>
-                      <span className="font-medium text-neutral-700">
-                        {formatNum(fromBudget)}원
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-                <span className="font-semibold text-neutral-800">총합</span>
-                <span className="text-xl font-bold text-neutral-900">
-                  {formatNum(taxExpenseTotalForYear)}원
-                </span>
-              </div>
-            </>
-          )}
-          <div className="mt-4 border-t border-neutral-200 pt-4">
-            <p className="text-xs font-medium text-neutral-500">
-              {incomeYear}년 총 지출만 입력하기 (세부 항목 없이)
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                value={
-                  annualExpenseByYear[String(incomeYear)] != null && !annualExpenseInput
-                    ? String(annualExpenseByYear[String(incomeYear)])
-                    : annualExpenseInput
-                }
-                onChange={(e) => setAnnualExpenseInput(e.target.value)}
-                placeholder="금액 입력 후 저장"
-                className="w-40 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const n = Number(String(annualExpenseInput).replace(/,/g, ""));
-                  if (!Number.isFinite(n) || n < 0) return;
-                  const next = { ...annualExpenseByYear, [String(incomeYear)]: n };
-                  setAnnualExpenseByYear(next);
-                  saveAnnualExpense(next);
-                  setAnnualExpenseInput("");
-                }}
-                className="rounded-lg bg-neutral-800 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-              >
-                저장
-              </button>
-              {annualExpenseByYear[String(incomeYear)] != null && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = { ...annualExpenseByYear };
-                    delete next[String(incomeYear)];
-                    setAnnualExpenseByYear(next);
-                    saveAnnualExpense(next);
-                    setAnnualExpenseInput("");
-                  }}
-                  className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+          <ul className="mt-4 space-y-2">
+            {TAX_EXPENSE_CATEGORIES.map((cat) => {
+              const fromBudget = budgetAmountByTaxCategory[cat] ?? 0;
+              return (
+                <li
+                  key={cat}
+                  className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3"
                 >
-                  총 지출만 입력 해제
-                </button>
-              )}
-            </div>
+                  <span className="font-medium text-neutral-800">{cat}</span>
+                  <span className="font-medium text-neutral-700">
+                    {formatNum(fromBudget)}원
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
+            <span className="font-semibold text-neutral-800">총합</span>
+            <span className="text-xl font-bold text-neutral-900">
+              {formatNum(taxExpenseTotalForYear)}원
+            </span>
           </div>
         </Card>
       </div>

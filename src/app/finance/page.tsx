@@ -16,11 +16,9 @@ import {
   getThisWeekEnd,
   getThisWeekStart,
   isExcludedFromMonthTotal,
-  loadAnnualExpense,
   loadEntries,
   loadKeywords,
   loadMonthExtras,
-  saveAnnualExpense,
   saveEntries,
   saveKeywords,
   saveMonthExtras,
@@ -89,7 +87,6 @@ export default function FinancePage() {
   const itemSuggestionsRef = useRef<HTMLUListElement>(null);
 
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
-  const [annualExpenseByYear, setAnnualExpenseByYear] = useState<Record<string, number>>({});
 
   const [budgetLoading, setBudgetLoading] = useState(true);
   const load = useCallback(async () => {
@@ -104,20 +101,6 @@ export default function FinancePage() {
       setKeywords(k);
       setMonthExtras(m);
       setIncomeEntries(loadIncomeEntries());
-      let annualExpense = loadAnnualExpense();
-      let annualChanged = false;
-      // 2025는 세부 항목 사용 → 저장된 2025 총액 제거
-      if (annualExpense["2025"] != null) {
-        const { "2025": _, ...rest } = annualExpense;
-        annualExpense = rest;
-        annualChanged = true;
-      }
-      if (annualExpense["2024"] == null) {
-        annualExpense = { ...annualExpense, "2024": 58_712_782 };
-        annualChanged = true;
-      }
-      if (annualChanged) saveAnnualExpense(annualExpense);
-      setAnnualExpenseByYear(annualExpense);
     } finally {
       setBudgetLoading(false);
     }
@@ -475,20 +458,20 @@ export default function FinancePage() {
     );
   };
 
-  /** 연도별 총 매출·지출·순수익·월평균수익 (수입 데이터 + 연도별 총 지출 연동) */
+  /** 연도별 총 매출·지출·순수익·월평균수익 (수입 + 가계부 연동) */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
     return yearList.map((y) => {
       const 매출 = incomeEntries.filter((e) => e.year === y).reduce((s, e) => s + e.amount, 0);
-      const 지출 =
-        annualExpenseByYear[String(y)] ??
-        entries.filter((e) => e.date.startsWith(String(y))).reduce((s, e) => s + e.amount, 0);
+      const 지출 = entries
+        .filter((e) => e.date.startsWith(String(y)))
+        .reduce((s, e) => s + e.amount, 0);
       const 순수익 = 매출 - 지출;
       const 월평균수익 = 12 > 0 ? 순수익 / 12 : 0;
       return { year: y, 매출, 지출, 순수익, 월평균수익 };
     });
-  }, [incomeEntries, annualExpenseByYear, entries]);
+  }, [incomeEntries, entries]);
 
   return (
     <div className="min-w-0 space-y-6">
