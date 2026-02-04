@@ -484,7 +484,7 @@ export default function FinancePage() {
   const seed2024Business = useMemo(() => SEED_BUDGET_2024_TAX.reduce((s, e) => s + e.amount, 0), []);
   const seed2025Business = useMemo(() => SEED_BUDGET_2025_TAX.reduce((s, e) => s + e.amount, 0), []);
 
-  /** 연도별 통계. 총 지출 = 위 고정값 표시용. 순수익 = 매출 - 사업 및 경비 (항상 이 공식. 24·25는 시드, 2026+는 세금·사업경비만 합산) */
+  /** 연도별 통계. 총 지출 = 위 고정값 표시용. 순수익 = 매출 - 사업 및 경비 (항상 이 공식. 21~23은 사업·경비 없음→데이터 없음, 24·25 시드, 2026+ 세금·사업경비만) */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
@@ -497,7 +497,7 @@ export default function FinancePage() {
           : null);
       const 지출데이터있음 = 지출표시값 != null;
       const 지출 = 지출표시값 ?? 0;
-      const 사업및경비 =
+      const 사업및경비: number | null =
         y === 2024
           ? seed2024Business
           : y === 2025
@@ -511,9 +511,10 @@ export default function FinancePage() {
                     return cat === "세금" || cat === "사업경비";
                   })
                   .reduce((s, e) => s + e.amount, 0)
-              : 지출;
-      const 순수익 = 지출데이터있음 ? 매출 - 사업및경비 : 0;
-      const 월평균수익 = 12 > 0 ? 순수익 / 12 : 0;
+              : null;
+      const 순수익: number | null =
+        사업및경비 != null ? 매출 - 사업및경비 : null;
+      const 월평균수익 = 순수익 != null && 12 > 0 ? 순수익 / 12 : 0;
       const 지출약5천만 = y === 2021 || y === 2023;
       return { year: y, 매출, 지출, 지출데이터있음, 지출약5천만, 순수익, 월평균수익 };
     });
@@ -1436,8 +1437,10 @@ export default function FinancePage() {
             </thead>
             <tbody>
               {yearlySummary.map((row) => {
-                const 저축값 = row.지출데이터있음 ? row.순수익 - row.지출 : null;
+                const 순수익있음 = row.순수익 != null;
+                const 저축값 = row.지출데이터있음 && 순수익있음 ? row.순수익! - row.지출 : null;
                 const noExpense = !row.지출데이터있음;
+                const 순수익표시 = noExpense || !순수익있음 ? "데이터 없음" : formatManwon(row.순수익!);
                 return (
                   <tr
                     key={row.year}
@@ -1448,9 +1451,9 @@ export default function FinancePage() {
                       {formatManwon(row.매출)}
                     </td>
                     <td
-                      className={`px-4 py-3 text-right font-medium ${noExpense ? "text-neutral-500" : row.순수익 >= 0 ? "text-blue-600" : "text-red-600"}`}
+                      className={`px-4 py-3 text-right font-medium ${!순수익있음 ? "text-neutral-500" : row.순수익! >= 0 ? "text-blue-600" : "text-red-600"}`}
                     >
-                      {noExpense ? "데이터 없음" : formatManwon(row.순수익)}
+                      {순수익표시}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">
                       {row.지출약5천만 ? "약 5천만원" : row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
@@ -1460,8 +1463,8 @@ export default function FinancePage() {
                     >
                       {저축값 !== null ? formatManwon(저축값) : "데이터 없음"}
                     </td>
-                    <td className={`px-4 py-3 text-right ${noExpense ? "text-neutral-500" : row.월평균수익 >= 0 ? "text-blue-600" : "text-red-600"}`}>
-                      {noExpense ? "데이터 없음" : formatManwon(Math.round(row.월평균수익))}
+                    <td className={`px-4 py-3 text-right ${!순수익있음 ? "text-neutral-500" : row.월평균수익 >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                      {!순수익있음 ? "데이터 없음" : formatManwon(Math.round(row.월평균수익))}
                     </td>
                   </tr>
                 );
