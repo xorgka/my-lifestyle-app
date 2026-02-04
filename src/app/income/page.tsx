@@ -367,79 +367,77 @@ export default function IncomePage() {
         subtitle="연도·월별로 수입을 입력하고, 총 매출·순수익을 한눈에 보세요."
       />
 
-      {/* 모바일: 연도 가운데 → 구분관리/내보내기 위 → 검색창 아래. PC: 연도+버튼 한 줄, 검색 다음 줄 */}
+      {/* 1행: 검색창 + 구분관리 + 내보내기 */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="order-1 flex w-full flex-wrap justify-center gap-2 sm:w-auto sm:justify-start">
-          {YEARS.map((y) => (
+        <div className="relative flex min-w-0 flex-1 items-center sm:min-w-[180px] md:max-w-md">
+          <span className="pointer-events-none absolute left-3 text-neutral-400" aria-hidden>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            placeholder="구분, 항목으로 검색"
+            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm text-neutral-800 placeholder:text-neutral-400"
+          />
+          {searchQuery && (
             <button
-              key={y}
               type="button"
-              onClick={() => setIncomeYear(y)}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                incomeYear === y
-                  ? "bg-neutral-800 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+              aria-label="검색 지우기"
             >
-              {y}년
-            </button>
-          ))}
-        </div>
-        <div className="order-2 flex w-full flex-wrap justify-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
-          <button
-            type="button"
-            onClick={() => setShowCategoryModal(true)}
-            className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
-          >
-            구분 관리
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowExportModal(true)}
-            className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
-          >
-            내보내기 (엑셀)
-          </button>
-        </div>
-        <div className="order-3 flex w-full flex-wrap items-center gap-2 sm:flex-1">
-          <div className="relative flex min-w-0 flex-1 items-center sm:min-w-[200px] md:max-w-md">
-            <span className="pointer-events-none absolute left-3 text-neutral-400" aria-hidden>
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              placeholder="구분, 항목으로 검색"
-              className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm text-neutral-800 placeholder:text-neutral-400"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
-                aria-label="검색 지우기"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-          {searchQuery.trim() && (
-            <span className="text-sm text-neutral-500">
-              검색 결과 <strong className="text-neutral-700">{filteredEntriesForYear.length}</strong>건
-            </span>
+            </button>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCategoryModal(true)}
+          className="shrink-0 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+        >
+          구분 관리
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowExportModal(true)}
+          className="shrink-0 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+        >
+          내보내기 (엑셀)
+        </button>
+        {searchQuery.trim() && (
+          <span className="text-sm text-neutral-500">
+            검색 결과 <strong className="text-neutral-700">{filteredEntriesForYear.length}</strong>건
+          </span>
+        )}
+      </div>
+
+      {/* 2행: 연도 선택 */}
+      <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+        {YEARS.map((y) => (
+          <button
+            key={y}
+            type="button"
+            onClick={() => setIncomeYear(y)}
+            className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+              incomeYear === y
+                ? "bg-neutral-800 text-white"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+            }`}
+          >
+            {y}년
+          </button>
+        ))}
       </div>
 
       {searchQuery.trim() && (
