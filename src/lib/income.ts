@@ -62,6 +62,29 @@ export const SEED_INCOME_2021: IncomeEntry[] = [
   { id: "seed-2021-12-1", year: 2021, month: 12, category: "애드센스", item: "수입", amount: 12_223_024 },
 ];
 
+/** 2022년 수입 시드 데이터 */
+export const SEED_INCOME_2022: IncomeEntry[] = [
+  { id: "seed-2022-1-1", year: 2022, month: 1, category: "애드센스", item: "수입", amount: 10_045_785 },
+  { id: "seed-2022-2-1", year: 2022, month: 2, category: "기타", item: "수입", amount: 967_000 },
+  { id: "seed-2022-2-2", year: 2022, month: 2, category: "애드센스", item: "수입", amount: 7_538_774 },
+  { id: "seed-2022-3-1", year: 2022, month: 3, category: "기타", item: "수입", amount: 967_000 },
+  { id: "seed-2022-3-2", year: 2022, month: 3, category: "애드센스", item: "수입", amount: 9_204_661 },
+  { id: "seed-2022-4-1", year: 2022, month: 4, category: "기타", item: "수입", amount: 522_180 },
+  { id: "seed-2022-4-2", year: 2022, month: 4, category: "애드센스", item: "수입", amount: 10_038_521 },
+  { id: "seed-2022-5-1", year: 2022, month: 5, category: "기타", item: "수입", amount: 967_000 },
+  { id: "seed-2022-5-2", year: 2022, month: 5, category: "애드센스", item: "수입", amount: 7_198_180 },
+  { id: "seed-2022-6-1", year: 2022, month: 6, category: "애드센스", item: "수입", amount: 9_350_086 },
+  { id: "seed-2022-7-1", year: 2022, month: 7, category: "기타", item: "수입", amount: 483_500 },
+  { id: "seed-2022-7-2", year: 2022, month: 7, category: "애드센스", item: "수입", amount: 10_060_326 },
+  { id: "seed-2022-8-1", year: 2022, month: 8, category: "기타", item: "수입", amount: 1_500_000 },
+  { id: "seed-2022-8-2", year: 2022, month: 8, category: "애드센스", item: "수입", amount: 9_364_666 },
+  { id: "seed-2022-9-1", year: 2022, month: 9, category: "애드센스", item: "수입", amount: 5_407_322 },
+  { id: "seed-2022-10-1", year: 2022, month: 10, category: "기타", item: "수입", amount: 69_694 },
+  { id: "seed-2022-10-2", year: 2022, month: 10, category: "애드센스", item: "수입", amount: 4_679_612 },
+  { id: "seed-2022-11-1", year: 2022, month: 11, category: "애드센스", item: "수입", amount: 5_027_117 },
+  { id: "seed-2022-12-1", year: 2022, month: 12, category: "애드센스", item: "수입", amount: 2_942_126 },
+];
+
 export function saveIncomeEntries(entries: IncomeEntry[]): void {
   saveJson(INCOME_ENTRIES_KEY, entries);
 }

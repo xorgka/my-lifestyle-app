@@ -21,6 +21,7 @@ import {
   saveIncomeEntries,
   saveIncomeCategories,
   SEED_INCOME_2021,
+  SEED_INCOME_2022,
   TAX_EXPENSE_CATEGORIES,
 } from "@/lib/income";
 import * as XLSX from "xlsx";
@@ -64,7 +65,7 @@ export default function IncomePage() {
   const load = useCallback(async () => {
     let entries = loadIncomeEntries();
     if (entries.length === 0) {
-      entries = SEED_INCOME_2021;
+      entries = [...SEED_INCOME_2021, ...SEED_INCOME_2022];
       saveIncomeEntries(entries);
     }
     setIncomeEntries(entries);
@@ -75,12 +76,12 @@ export default function IncomePage() {
       saveIncomeCategories(cats);
     }
     setCategories(cats);
-    const [entries, kw, extras] = await Promise.all([
+    const [budgetEntriesList, kw, extras] = await Promise.all([
       loadEntries(),
       loadKeywords(),
       loadMonthExtras(),
     ]);
-    setBudgetEntries(entries);
+    setBudgetEntries(budgetEntriesList);
     setBudgetKeywords(kw);
     setBudgetMonthExtras(extras);
   }, []);
