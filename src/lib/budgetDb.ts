@@ -31,6 +31,23 @@ export async function loadEntriesFromDb(): Promise<BudgetEntryRow[]> {
   }));
 }
 
+/** 새 행 하나만 삽입. 반환된 행(id 포함)을 앱에 추가하면 됨. */
+export async function insertEntryToDb(entry: BudgetEntryRow): Promise<BudgetEntryRow> {
+  if (!supabase) return entry;
+  const { data, error } = await supabase
+    .from("budget_entries")
+    .insert({ date: entry.date, item: entry.item, amount: entry.amount, source: "app" })
+    .select("id, date, item, amount")
+    .single();
+  if (error) throw error;
+  return {
+    id: String(data.id),
+    date: data.date,
+    item: data.item,
+    amount: Number(data.amount),
+  };
+}
+
 /** 저장 후 앱에서 쓸 목록 반환 (새 행은 DB id로 갱신됨). 삭제된 항목은 DB에서도 제거됨. */
 export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<BudgetEntryRow[]> {
   if (!supabase) return entries;

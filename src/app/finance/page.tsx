@@ -16,6 +16,7 @@ import {
   SEED_BUDGET_2024_TAX,
   SEED_BUDGET_2025_TAX,
   isExcludedFromMonthTotal,
+  insertEntry,
   loadEntries,
   loadKeywords,
   loadMonthExtras,
@@ -47,33 +48,38 @@ function formatDateLabel(dateStr: string): string {
 
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
-/** 항목 입력: contentEditable로 한글 IME가 input보다 안정적으로 유지되도록 함. */
+/** iframe 안에 input을 넣어 문서를 lang=ko로 고정 → 한글 IME 유지 시도 */
+const ITEM_IFRAME_SRCDOC = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"></head><body style="margin:0;padding:0"><input type="text" id="item" lang="ko" autocomplete="off" placeholder="예: 배달, 악사보험, GPT" style="width:100%;padding:8px 12px;border:none;border-radius:0;font-size:14px;box-sizing:border-box;outline:none" /></body></html>`;
+
 const ItemInput = memo(function ItemInput({
-  inputRef,
+  iframeRef,
   onEnterKey,
 }: {
-  inputRef: React.RefObject<HTMLDivElement | null>;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
   onEnterKey?: () => void;
 }) {
+  const iframeLoaded = useCallback(() => {
+    const doc = iframeRef.current?.contentDocument;
+    const input = doc?.getElementById("item") as HTMLInputElement | null;
+    if (!input) return;
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onEnterKey?.();
+      }
+    });
+  }, [iframeRef, onEnterKey]);
+
   return (
-    <div className="relative min-w-[180px]" lang="ko">
+    <div className="relative min-w-[180px]">
       <label className="text-xs font-medium text-neutral-500">항목</label>
-      <div
-        ref={inputRef}
-        role="textbox"
-        aria-label="항목"
-        contentEditable
-        suppressContentEditableWarning
-        data-placeholder="예: 배달, 악사보험, GPT"
-        lang="ko"
-        spellCheck={false}
-        className="item-editable mt-1 min-h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            onEnterKey?.();
-          }
-        }}
+      <iframe
+        ref={iframeRef}
+        title="항목 입력"
+        srcDoc={ITEM_IFRAME_SRCDOC}
+        onLoad={iframeLoaded}
+        className="mt-1 block h-[42px] w-full overflow-hidden rounded-lg border border-neutral-200 bg-white"
+        sandbox="allow-same-origin"
       />
     </div>
   );
@@ -108,8 +114,9 @@ export default function FinancePage() {
   const [dayDetailEditingId, setDayDetailEditingId] = useState<string | null>(null);
   const [dayDetailEditItem, setDayDetailEditItem] = useState("");
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
-  const itemInputRef = useRef<HTMLDivElement>(null);
+  const itemInputRef = useRef<HTMLIFrameElement>(null);
   const isAddingRef = useRef(false);
+  const addEntryRef = useRef<() => void>(() => {});
   const [isAdding, setIsAdding] = useState(false);
 
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
@@ -274,21 +281,18 @@ export default function FinancePage() {
 
   const addEntry = () => {
     if (isAddingRef.current) return;
-    const el = itemInputRef.current;
-    const raw = el ? (el.innerText ?? el.textContent ?? "").trim().replace(/\n/g, " ") : newItem;
-    const item = raw.trim();
+    const inputEl = itemInputRef.current?.contentDocument?.getElementById("item") as HTMLInputElement | null;
+    const item = (inputEl?.value ?? newItem).trim();
     const amount = Number(String(newAmount).replace(/,/g, ""));
     if (!item || !Number.isFinite(amount) || amount <= 0) return;
     isAddingRef.current = true;
     setIsAdding(true);
     const id = `e-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const next: BudgetEntry[] = [
-      ...entries,
-      { id, date: selectedDate, item, amount },
-    ];
-    setEntries(next);
-    saveEntries(next)
-      .then((updated) => setEntries(updated))
+    const newEntry: BudgetEntry = { id, date: selectedDate, item, amount };
+    setNewItem("");
+    setNewAmount("");
+    insertEntry(newEntry)
+      .then((saved) => setEntries((prev) => [...prev, saved]))
       .catch((err) => {
         console.error("가계부 저장 실패", err);
         alert("저장에 실패했습니다. 브라우저 콘솔(F12)을 확인하거나, Supabase 대시보드에서 budget_entries 테이블 RLS 정책을 확인해 주세요.");
@@ -296,16 +300,19 @@ export default function FinancePage() {
       .finally(() => {
         isAddingRef.current = false;
         setIsAdding(false);
+        setTimeout(() => {
+          const input = itemInputRef.current?.contentDocument?.getElementById("item") as HTMLInputElement | null;
+          if (input) {
+            input.value = "";
+            input.focus();
+          }
+        }, 0);
       });
-    setNewItem("");
-    setNewAmount("");
-    setTimeout(() => {
-      if (itemInputRef.current) {
-        itemInputRef.current.innerHTML = "";
-        itemInputRef.current.focus();
-      }
-    }, 0);
   };
+
+  useEffect(() => {
+    addEntryRef.current = addEntry;
+  });
 
   const removeEntry = (id: string) => {
     const next = entries.filter((e) => e.id !== id);
@@ -658,7 +665,7 @@ export default function FinancePage() {
           >
             <span className="text-lg">→</span>
           </button>
-          <ItemInput inputRef={itemInputRef} onEnterKey={addEntry} />
+          <ItemInput iframeRef={itemInputRef} onEnterKey={() => addEntryRef.current()} />
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
             <input

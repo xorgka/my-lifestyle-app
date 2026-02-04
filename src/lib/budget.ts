@@ -8,6 +8,7 @@ import { supabase } from "./supabase";
 import {
   loadEntriesFromDb,
   saveEntriesToDb,
+  insertEntryToDb,
   loadKeywordsFromDb,
   saveKeywordsToDb,
   loadMonthExtrasFromDb,
@@ -204,6 +205,15 @@ export async function saveEntries(entries: BudgetEntry[]): Promise<BudgetEntry[]
   if (supabase) return saveEntriesToDb(entries);
   saveJson(BUDGET_ENTRIES_KEY, entries);
   return entries;
+}
+
+/** 새 항목 하나만 추가할 때 사용. DB는 insert 1회만 함. */
+export async function insertEntry(entry: BudgetEntry): Promise<BudgetEntry> {
+  if (supabase) return insertEntryToDb(entry);
+  const entries = loadEntries();
+  const next = [...entries, entry];
+  saveJson(BUDGET_ENTRIES_KEY, next);
+  return entry;
 }
 
 export async function loadKeywords(): Promise<CategoryKeywords> {
