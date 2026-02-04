@@ -290,10 +290,7 @@ export default function FinancePage() {
     setNewItem("");
     setNewAmount("");
     setTimeout(() => {
-      if (itemInputRef.current) {
-        itemInputRef.current.value = "";
-        itemInputRef.current.focus();
-      }
+      if (itemInputRef.current) itemInputRef.current.value = "";
     }, 0);
   };
 
