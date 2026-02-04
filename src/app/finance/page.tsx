@@ -14,8 +14,6 @@ import {
   getCategoryForEntry,
   getKeywordsForMonth,
   getThisWeekEnd,
-  SEED_BUDGET_2024_TAX,
-  SEED_BUDGET_2025_TAX,
   getThisWeekStart,
   isExcludedFromMonthTotal,
   loadEntries,
@@ -471,58 +469,34 @@ export default function FinancePage() {
     );
   };
 
-  /** 해당 연도 가계부 항목 중 세금·사업경비만 합산 (수입 페이지와 동일 분류). 2026년~현재연도 */
-  const businessExpenseByYear = useMemo(() => {
-    const result: Record<number, number> = {};
-    const currentYear = new Date().getFullYear();
-    for (let y = 2026; y <= currentYear; y++) {
-      const yearEntries = entries.filter((e) => e.date.startsWith(String(y)));
-      let sum = 0;
-      for (const e of yearEntries) {
-        const yyyyMm = e.date.slice(0, 7);
-        const kw = getKeywordsForMonth(keywords, monthExtras, yyyyMm);
-        const cat = getCategoryForEntry(e.item, kw);
-        const lower = e.item.trim().toLowerCase();
-        if (lower.includes("부가세") || lower.includes("종합소득세") || lower.includes("국민연금") || lower.includes("건강보험") || lower.includes("사업경비") || cat === "사업경비" || lower.includes("자동차세") || lower.includes("면허세")) {
-          sum += e.amount;
-        }
-      }
-      result[y] = sum;
-    }
-    return result;
-  }, [entries, keywords, monthExtras]);
+  /** 연도별 총 지출: 21·23 약 5천만원, 22·24·25 고정값, 2026년~ 가계부 입력 합계 */
+  const FIXED_TOTAL_EXPENSE: Record<number, number> = {
+    2021: 50_000_000,
+    2022: 55_234_232,
+    2023: 50_000_000,
+    2024: 50_312_782,
+    2025: 62_880_691,
+  };
 
-  /** 24·25년 사업 및 경비 = 시드 세부 합계 (수입 페이지와 동일) */
-  const seed2024Expense = useMemo(
-    () => SEED_BUDGET_2024_TAX.reduce((s, e) => s + e.amount, 0),
-    []
-  );
-  const seed2025Expense = useMemo(
-    () => SEED_BUDGET_2025_TAX.reduce((s, e) => s + e.amount, 0),
-    []
-  );
-
-  /** 연도별 통계. 순수익 = 총매출 - 사업 및 경비 (24·25 시드 세부 합계, 26년~ 가계부 세금·경비) */
+  /** 연도별 통계. 총 지출 = 위 고정값 또는 2026+ 가계부 합계. 순수익 = 매출 - 총 지출. 21·23은 약 5천만원 사용 */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
     return yearList.map((y) => {
       const 매출 = incomeEntries.filter((e) => e.year === y).reduce((s, e) => s + e.amount, 0);
-      const 지출데이터있음 = y >= 2024;
-      const 사업및경비 =
-        y === 2024
-          ? seed2024Expense
-          : y === 2025
-            ? seed2025Expense
-            : y >= 2026
-              ? (businessExpenseByYear[y] ?? 0)
-              : 0;
-      const 지출 = 사업및경비;
-      const 순수익 = 매출 - 지출;
+      const 지출값 =
+        FIXED_TOTAL_EXPENSE[y] ??
+        (y >= 2026
+          ? entries.filter((e) => e.date.startsWith(String(y))).reduce((s, e) => s + e.amount, 0)
+          : null);
+      const 지출데이터있음 = 지출값 != null;
+      const 지출 = 지출값 ?? 0;
+      const 순수익 = 지출데이터있음 ? 매출 - 지출 : 0;
       const 월평균수익 = 12 > 0 ? 순수익 / 12 : 0;
-      return { year: y, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
+      const 지출약5천만 = y === 2021 || y === 2023;
+      return { year: y, 매출, 지출, 지출데이터있음, 지출약5천만, 순수익, 월평균수익 };
     });
-  }, [incomeEntries, entries, businessExpenseByYear, seed2024Expense, seed2025Expense]);
+  }, [incomeEntries, entries]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -1442,6 +1416,7 @@ export default function FinancePage() {
             <tbody>
               {yearlySummary.map((row) => {
                 const 저축값 = row.지출데이터있음 ? row.순수익 - row.지출 : null;
+                const noExpense = !row.지출데이터있음;
                 return (
                   <tr
                     key={row.year}
@@ -1452,22 +1427,20 @@ export default function FinancePage() {
                       {formatManwon(row.매출)}
                     </td>
                     <td
-                      className={`px-4 py-3 text-right font-medium ${row.순수익 >= 0 ? "text-blue-600" : "text-red-600"}`}
+                      className={`px-4 py-3 text-right font-medium ${noExpense ? "text-neutral-500" : row.순수익 >= 0 ? "text-blue-600" : "text-red-600"}`}
                     >
-                      {formatManwon(row.순수익)}
+                      {noExpense ? "데이터 없음" : formatManwon(row.순수익)}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">
-                      {row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
+                      {row.지출약5천만 ? "약 5천만원" : row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${저축값 !== null ? (저축값 >= 0 ? "text-blue-600" : "text-red-600") : "text-neutral-500"}`}
                     >
                       {저축값 !== null ? formatManwon(저축값) : "데이터 없음"}
                     </td>
-                    <td
-                      className={`px-4 py-3 text-right ${row.월평균수익 >= 0 ? "text-blue-600" : "text-red-600"}`}
-                    >
-                      {formatManwon(Math.round(row.월평균수익))}
+                    <td className={`px-4 py-3 text-right ${noExpense ? "text-neutral-500" : row.월평균수익 >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                      {noExpense ? "데이터 없음" : formatManwon(Math.round(row.월평균수익))}
                     </td>
                   </tr>
                 );
