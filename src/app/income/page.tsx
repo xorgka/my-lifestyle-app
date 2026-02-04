@@ -22,6 +22,9 @@ import {
   saveIncomeCategories,
   SEED_INCOME_2021,
   SEED_INCOME_2022,
+  SEED_INCOME_2023,
+  SEED_INCOME_2024,
+  SEED_INCOME_2025,
   TAX_EXPENSE_CATEGORIES,
 } from "@/lib/income";
 import * as XLSX from "xlsx";
@@ -65,14 +68,15 @@ export default function IncomePage() {
   const load = useCallback(async () => {
     let entries = loadIncomeEntries();
     if (entries.length === 0) {
-      entries = [...SEED_INCOME_2021, ...SEED_INCOME_2022];
+      entries = [...SEED_INCOME_2021, ...SEED_INCOME_2022, ...SEED_INCOME_2023, ...SEED_INCOME_2024, ...SEED_INCOME_2025];
       saveIncomeEntries(entries);
     }
     setIncomeEntries(entries);
 
     let cats = loadIncomeCategories();
-    if (!cats.includes("기타")) {
-      cats = [...cats, "기타"];
+    const toAdd = ["쇼핑몰", "로고", "일러스트", "기타"].filter((c) => !cats.includes(c));
+    if (toAdd.length > 0) {
+      cats = [...cats, ...toAdd];
       saveIncomeCategories(cats);
     }
     setCategories(cats);
