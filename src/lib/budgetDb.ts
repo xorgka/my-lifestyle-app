@@ -70,7 +70,11 @@ export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<Budget
       .insert({ date: e.date, item: e.item, amount: e.amount, source: "app" })
       .select("id, date, item, amount")
       .single();
-    if (!error && data)
+    if (error) {
+      console.error("[budgetDb] insert entry failed", error);
+      throw error;
+    }
+    if (data)
       out.push({
         id: String(data.id),
         date: data.date,

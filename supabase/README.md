@@ -6,6 +6,11 @@
 2. 왼쪽 **SQL Editor** → **New query**
 3. `schema.sql` 전체 내용 복사 후 붙여넣기 → **Run**
 
+### 가계부 저장이 안 되고 새로고침하면 날아갈 때
+
+RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막혀서 저장이 안 됩니다.  
+**SQL Editor**에서 `rls-policies.sql` 내용을 실행해 주세요. (테이블은 이미 있다면 RLS 정책만 적용됩니다.)
+
 ---
 
 ## 테이블 요약

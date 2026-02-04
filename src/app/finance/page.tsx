@@ -299,8 +299,8 @@ export default function FinancePage() {
     saveEntries(next)
       .then((updated) => setEntries(updated))
       .catch((err) => {
-        console.error(err);
-        load();
+        console.error("가계부 저장 실패", err);
+        alert("저장에 실패했습니다. 브라우저 콘솔(F12)을 확인하거나, Supabase 대시보드에서 budget_entries 테이블 RLS 정책을 확인해 주세요.");
       });
     setNewItem("");
     setNewAmount("");
