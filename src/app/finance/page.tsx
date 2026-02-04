@@ -68,9 +68,11 @@ const ItemInput = memo(function ItemInput({
         type="text"
         lang="ko"
         autoComplete="off"
+        spellCheck={false}
         defaultValue={defaultValue}
         placeholder="예: 배달, 악사보험, GPT"
         autoFocus={autoFocus}
+        style={{ imeMode: "active" }}
         className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
       />
     </div>
