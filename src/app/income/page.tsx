@@ -208,16 +208,10 @@ export default function IncomePage() {
   /** 해당 연도 지출: 2024·2025는 고정 총지출, 그 외는 세금·경비 집계 */
   const effectiveYearExpense =
     getAnnualTotalExpense(incomeYear) ?? taxExpenseTotalForYear;
-  /** 연 순수익 = 총 매출 - 지출 */
+  /** 연 순수익 = 총 매출 - 사업 및 경비 */
   const yearNetProfit = yearIncomeTotal - effectiveYearExpense;
-
-  /** 월 순수익 = 총 수입(연도) / 현재 달 (평균). 선택 연도가 올해가 아니면 12로 나눔 */
-  const currentMonthNum =
-    new Date().getFullYear() === incomeYear
-      ? new Date().getMonth() + 1
-      : 12;
-  const monthNetProfit =
-    currentMonthNum > 0 ? yearIncomeTotal / currentMonthNum : 0;
+  /** 월 평균 수익 = 연 순수익 ÷ 12 */
+  const monthNetProfit = yearNetProfit / 12;
 
   const incomeByCategory = useMemo(() => {
     const map: Record<string, number> = {};
@@ -544,22 +538,22 @@ export default function IncomePage() {
           </div>
           <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
-              연 순수익
+              연 순수익 (총매출 - 사업 및 경비)
             </div>
             <div
-              className={`mt-2 text-[25px] font-bold tracking-tight ${yearNetProfit >= 0 ? "text-neutral-900" : "text-red-600"}`}
+              className={`mt-2 text-[25px] font-bold tracking-tight ${yearNetProfit >= 0 ? "text-blue-600" : "text-red-600"}`}
             >
               {formatNum(yearNetProfit)}원
             </div>
           </div>
           <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
-              월 평균수익
+              월 평균수익 (연 순수익 ÷ 12)
             </div>
             <div
-              className={`mt-2 text-[25px] font-bold tracking-tight ${monthNetProfit >= 0 ? "text-neutral-900" : "text-red-600"}`}
+              className={`mt-2 text-[25px] font-bold tracking-tight ${monthNetProfit >= 0 ? "text-blue-600" : "text-red-600"}`}
             >
-              {formatNum(monthNetProfit)}원
+              {formatNum(Math.round(monthNetProfit))}원
             </div>
           </div>
         </div>
@@ -744,7 +738,7 @@ export default function IncomePage() {
                   className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3"
                 >
                   <span className="font-medium text-neutral-800">{cat}</span>
-                  <span className="font-medium text-neutral-700">
+                  <span className="font-medium text-red-600">
                     {formatNum(fromBudget)}원
                   </span>
                 </li>
@@ -753,13 +747,13 @@ export default function IncomePage() {
           </ul>
           <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
             <span className="font-semibold text-neutral-800">총합 (세부 합계)</span>
-            <span className="text-xl font-bold text-neutral-900">
+            <span className="text-xl font-bold text-red-600">
               {formatNum(taxExpenseTotalForYear)}원
             </span>
           </div>
           {getAnnualTotalExpense(incomeYear) != null && (
             <p className="mt-2 text-xs text-neutral-500">
-              연 순수익 계산에 사용되는 총 지출: {formatNum(effectiveYearExpense)}원
+              연 순수익 계산에 사용되는 총 지출: <span className="text-red-600 font-medium">{formatNum(effectiveYearExpense)}원</span>
             </p>
           )}
         </Card>

@@ -33,6 +33,11 @@ function formatNum(n: number): string {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
 }
 
+/** 연도별 통계용: 만원 단위로 표시 (예: 60414405 → 6041만원) */
+function formatManwon(n: number): string {
+  return `${Math.round(n / 10000).toLocaleString("ko-KR")}만원`;
+}
+
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
   const m = d.getMonth() + 1;
@@ -465,21 +470,42 @@ export default function FinancePage() {
     );
   };
 
-  /** 연도별 통계. 21~23년 총 지출 데이터 없음, 2024·2025 고정 총지출, 2026년부터 가계부 입력 */
+  /** 해당 연도 가계부 항목 중 세금·사업경비만 합산 (수입 페이지와 동일 분류). 2026년~현재연도 */
+  const businessExpenseByYear = useMemo(() => {
+    const result: Record<number, number> = {};
+    const currentYear = new Date().getFullYear();
+    for (let y = 2026; y <= currentYear; y++) {
+      const yearEntries = entries.filter((e) => e.date.startsWith(String(y)));
+      let sum = 0;
+      for (const e of yearEntries) {
+        const yyyyMm = e.date.slice(0, 7);
+        const kw = getKeywordsForMonth(keywords, monthExtras, yyyyMm);
+        const cat = getCategoryForEntry(e.item, kw);
+        const lower = e.item.trim().toLowerCase();
+        if (lower.includes("부가세") || lower.includes("종합소득세") || lower.includes("국민연금") || lower.includes("건강보험") || lower.includes("사업경비") || cat === "사업경비" || lower.includes("자동차세") || lower.includes("면허세")) {
+          sum += e.amount;
+        }
+      }
+      result[y] = sum;
+    }
+    return result;
+  }, [entries, keywords, monthExtras]);
+
+  /** 연도별 통계. 24·25·26년 순수익 = 총매출 - 사업 및 경비 (24·25 고정값, 26년부터 가계부 세금·경비만) */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
     return yearList.map((y) => {
       const 매출 = incomeEntries.filter((e) => e.year === y).reduce((s, e) => s + e.amount, 0);
       const 지출데이터있음 = y >= 2024;
-      const 지출 =
-        getAnnualTotalExpense(y) ??
-        entries.filter((e) => e.date.startsWith(String(y))).reduce((s, e) => s + e.amount, 0);
+      const 사업및경비 =
+        getAnnualTotalExpense(y) ?? (y >= 2026 ? businessExpenseByYear[y] ?? 0 : 0);
+      const 지출 = 사업및경비;
       const 순수익 = 매출 - 지출;
       const 월평균수익 = 12 > 0 ? 순수익 / 12 : 0;
       return { year: y, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
     });
-  }, [incomeEntries, entries]);
+  }, [incomeEntries, entries, businessExpenseByYear]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -1390,36 +1416,45 @@ export default function FinancePage() {
               <tr className="border-b border-neutral-200 bg-neutral-50/80">
                 <th className="px-4 py-3 font-semibold text-neutral-700">연도</th>
                 <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 매출</th>
-                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 지출</th>
                 <th className="px-4 py-3 font-semibold text-neutral-700 text-right">순수익</th>
+                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 지출</th>
+                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">저축</th>
                 <th className="px-4 py-3 font-semibold text-neutral-700 text-right">월평균수익</th>
               </tr>
             </thead>
             <tbody>
-              {yearlySummary.map((row) => (
-                <tr
-                  key={row.year}
-                  className="border-b border-neutral-100 transition hover:bg-neutral-50/50"
-                >
-                  <td className="px-4 py-3 font-medium text-neutral-800">{row.year}년</td>
-                  <td className="px-4 py-3 text-right text-neutral-700">
-                    {formatNum(row.매출)}원
-                  </td>
-                  <td className="px-4 py-3 text-right text-neutral-700">
-                    {row.지출데이터있음 ? `${formatNum(row.지출)}원` : "데이터 없음"}
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right font-medium ${row.순수익 >= 0 ? "text-neutral-900" : "text-red-600"}`}
+              {yearlySummary.map((row) => {
+                const 저축값 = row.지출데이터있음 ? row.순수익 - row.지출 : null;
+                return (
+                  <tr
+                    key={row.year}
+                    className="border-b border-neutral-100 transition hover:bg-neutral-50/50"
                   >
-                    {formatNum(row.순수익)}원
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right ${row.월평균수익 >= 0 ? "text-neutral-700" : "text-red-600"}`}
-                  >
-                    {formatNum(Math.round(row.월평균수익))}원
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-3 font-medium text-neutral-800">{row.year}년</td>
+                    <td className="px-4 py-3 text-right text-neutral-700">
+                      {formatManwon(row.매출)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-medium ${row.순수익 >= 0 ? "text-blue-600" : "text-red-600"}`}
+                    >
+                      {formatManwon(row.순수익)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-red-600">
+                      {row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-medium ${저축값 !== null ? (저축값 >= 0 ? "text-blue-600" : "text-red-600") : "text-neutral-500"}`}
+                    >
+                      {저축값 !== null ? formatManwon(저축값) : "데이터 없음"}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right ${row.월평균수익 >= 0 ? "text-blue-600" : "text-red-600"}`}
+                    >
+                      {formatManwon(Math.round(row.월평균수익))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
