@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import {
@@ -46,6 +46,33 @@ function formatDateLabel(dateStr: string): string {
 }
 
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
+
+/** 항목 입력: 메모로 부모 리렌더 시에도 안 건드려서 한글 IME가 풀리지 않도록 함 */
+const ItemInput = memo(function ItemInput({
+  inputKey,
+  defaultValue,
+  inputRef,
+}: {
+  inputKey: number;
+  defaultValue: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  return (
+    <div className="relative min-w-[180px]" lang="ko">
+      <label className="text-xs font-medium text-neutral-500">항목</label>
+      <input
+        key={inputKey}
+        ref={inputRef}
+        type="text"
+        lang="ko"
+        autoComplete="off"
+        defaultValue={defaultValue}
+        placeholder="예: 배달, 악사보험, GPT"
+        className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
+      />
+    </div>
+  );
+});
 
 export default function FinancePage() {
   const [entries, setEntries] = useState<BudgetEntry[]>([]);
@@ -612,20 +639,11 @@ export default function FinancePage() {
           >
             <span className="text-lg">→</span>
           </button>
-          <div className="relative min-w-[180px]" lang="ko">
-            <label className="text-xs font-medium text-neutral-500">항목</label>
-            <input
-              key={itemInputKey}
-              ref={itemInputRef}
-              type="text"
-              lang="ko"
-              autoComplete="one-time-code"
-              inputMode="text"
-              defaultValue={newItem}
-              placeholder="예: 배달, 악사보험, GPT"
-              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
-            />
-          </div>
+          <ItemInput
+            inputKey={itemInputKey}
+            defaultValue={newItem}
+            inputRef={itemInputRef}
+          />
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
             <input
