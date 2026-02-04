@@ -123,12 +123,14 @@ export default function IncomePage() {
     setBudgetMonthExtras(extras);
     let annualExpense = loadAnnualExpense();
     let annualChanged = false;
-    if (annualExpense["2024"] == null) {
-      annualExpense = { ...annualExpense, "2024": 58_712_782 };
+    // 2024는 총 지출만 입력 (세부 없음). 2025는 세부 항목 있음 → 2025 총액 사용 안 함
+    if (annualExpense["2025"] != null) {
+      const { "2025": _, ...rest } = annualExpense;
+      annualExpense = rest;
       annualChanged = true;
     }
-    if (annualExpense["2025"] == null) {
-      annualExpense = { ...annualExpense, "2025": 62_880_691 };
+    if (annualExpense["2024"] == null) {
+      annualExpense = { ...annualExpense, "2024": 58_712_782 };
       annualChanged = true;
     }
     if (annualChanged) saveAnnualExpense(annualExpense);

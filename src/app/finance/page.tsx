@@ -106,12 +106,14 @@ export default function FinancePage() {
       setIncomeEntries(loadIncomeEntries());
       let annualExpense = loadAnnualExpense();
       let annualChanged = false;
-      if (annualExpense["2024"] == null) {
-        annualExpense = { ...annualExpense, "2024": 58_712_782 };
+      // 2025는 세부 항목 사용 → 저장된 2025 총액 제거
+      if (annualExpense["2025"] != null) {
+        const { "2025": _, ...rest } = annualExpense;
+        annualExpense = rest;
         annualChanged = true;
       }
-      if (annualExpense["2025"] == null) {
-        annualExpense = { ...annualExpense, "2025": 62_880_691 };
+      if (annualExpense["2024"] == null) {
+        annualExpense = { ...annualExpense, "2024": 58_712_782 };
         annualChanged = true;
       }
       if (annualChanged) saveAnnualExpense(annualExpense);
