@@ -240,7 +240,7 @@ export default function FinancePage() {
     const [y, m] = yearMonthForView.split("-").map(Number);
     const lastDay = new Date(y, m, 0).getDate();
     const firstDayOfWeek = new Date(y, m - 1, 1).getDay();
-    const cells: { day: number; dateStr: string } | null[] = [];
+    const cells: ({ day: number; dateStr: string } | null)[] = [];
     for (let i = 0; i < 42; i++) {
       if (i < firstDayOfWeek || i >= firstDayOfWeek + lastDay) {
         cells.push(null);

@@ -44,6 +44,16 @@ const emptyChannel = (): YouTubeChannel => ({
   memo: "",
 });
 
+function YoutubePageRoot({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={className}>{children}</div>;
+}
+
 export default function YoutubePage() {
   const [channels, setChannels] = useState<YouTubeChannel[]>([]);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
@@ -186,24 +196,27 @@ export default function YoutubePage() {
   );
 
   // 월별 총합(모든 채널): yyyyMm -> 원
-  const monthlyAggregate = channels.reduce<Record<string, number>>((acc, c) => {
-    Object.entries(c.monthlyRevenues || {}).forEach(([yyyyMm, amount]) => {
-      acc[yyyyMm] = (acc[yyyyMm] ?? 0) + amount;
-    });
-    return acc;
-  }, {});
+  const monthlyAggregate = channels.reduce(
+    (acc: Record<string, number>, c) => {
+      Object.entries(c.monthlyRevenues || {}).forEach(([yyyyMm, amount]) => {
+        acc[yyyyMm] = (acc[yyyyMm] ?? 0) + amount;
+      });
+      return acc;
+    },
+    {} as Record<string, number>
+  );
   const monthlySorted = Object.entries(monthlyAggregate).sort((a, b) =>
     b[0].localeCompare(a[0])
   );
 
   // 연별 총합(모든 채널): year -> 원
-  const yearlyAggregate = monthlySorted.reduce<Record<number, number>>(
-    (acc, [yyyyMm, amount]) => {
+  const yearlyAggregate = monthlySorted.reduce(
+    (acc: Record<number, number>, [yyyyMm, amount]: [string, number]) => {
       const y = Number(yyyyMm.slice(0, 4));
       acc[y] = (acc[y] ?? 0) + amount;
       return acc;
     },
-    {}
+    {} as Record<number, number>
   );
   const yearlySorted = Object.entries(yearlyAggregate)
     .map(([y, sum]) => ({ year: Number(y), sum }))
@@ -303,8 +316,7 @@ export default function YoutubePage() {
   const formatted = (n: number) =>
     n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
 
-  return (
-    <div className="min-w-0 space-y-4">
+  const content = <YoutubePageRoot className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <SectionTitle
           title="유튜브"
@@ -641,12 +653,14 @@ export default function YoutubePage() {
               onClick={closeModal}
               aria-hidden
             />
-            <Card
-              className="relative z-10 my-auto max-h-[90vh] w-full max-w-lg flex-shrink-0 overflow-y-auto"
+            <div
+              role="dialog"
+              aria-modal="true"
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
-            <h2 className="text-xl font-bold text-neutral-900">
+              <Card className="relative z-10 my-auto max-h-[90vh] w-full max-w-lg flex-shrink-0 overflow-y-auto">
+                <h2 className="text-xl font-bold text-neutral-900">
               {modal === "add" ? "채널 추가" : "채널 수정"}
             </h2>
 
@@ -735,25 +749,23 @@ export default function YoutubePage() {
                   className="mt-1 w-full resize-none rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                 />
               </div>
-            </div>
-
-            <div className="mt-6 flex gap-2">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="flex-1 rounded-2xl border border-soft-border px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={save}
-                className="flex-1 rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
-              >
-                {modal === "add" ? "추가" : "저장"}
-              </button>
-            </div>
-          </Card>
+              <div className="mt-6 flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 rounded-2xl border border-soft-border px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={save}
+                  className="flex-1 rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+                >
+                  {modal === "add" ? "추가" : "저장"}
+                </button>
+              </div>
+            </Card>
           </div>,
           document.body
         )}
@@ -845,7 +857,8 @@ export default function YoutubePage() {
                   </div>
                 </div>
               )}
-            </Card>
+              </Card>
+            </div>
           </div>,
           document.body
         )}
@@ -1152,6 +1165,6 @@ export default function YoutubePage() {
           </div>,
           document.body
         )}
-    </div>
-  );
+    </YoutubePageRoot>;
+  return content;
 }
