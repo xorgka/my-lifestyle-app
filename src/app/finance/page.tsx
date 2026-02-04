@@ -47,25 +47,33 @@ function formatDateLabel(dateStr: string): string {
 
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
-/** 항목 입력: props 고정해서 추가 후 리렌더 안 되게 함 → 한글 IME 유지. 값 비우기는 ref로만. */
+/** 항목 입력: contentEditable로 한글 IME가 input보다 안정적으로 유지되도록 함. */
 const ItemInput = memo(function ItemInput({
   inputRef,
+  onEnterKey,
 }: {
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: React.RefObject<HTMLDivElement | null>;
+  onEnterKey?: () => void;
 }) {
   return (
     <div className="relative min-w-[180px]" lang="ko">
       <label className="text-xs font-medium text-neutral-500">항목</label>
-      <input
+      <div
         ref={inputRef}
-        type="text"
+        role="textbox"
+        aria-label="항목"
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder="예: 배달, 악사보험, GPT"
         lang="ko"
-        autoComplete="off"
         spellCheck={false}
-        defaultValue=""
-        placeholder="예: 배달, 악사보험, GPT"
-        style={{ imeMode: "active" }}
-        className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
+        className="item-editable mt-1 min-h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onEnterKey?.();
+          }
+        }}
       />
     </div>
   );
@@ -100,7 +108,9 @@ export default function FinancePage() {
   const [dayDetailEditingId, setDayDetailEditingId] = useState<string | null>(null);
   const [dayDetailEditItem, setDayDetailEditItem] = useState("");
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
-  const itemInputRef = useRef<HTMLInputElement>(null);
+  const itemInputRef = useRef<HTMLDivElement>(null);
+  const isAddingRef = useRef(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
 
@@ -263,9 +273,14 @@ export default function FinancePage() {
   }, [viewMonthEntries, keywordsForViewMonth]);
 
   const addEntry = () => {
-    const item = (itemInputRef.current?.value ?? newItem).trim();
+    if (isAddingRef.current) return;
+    const el = itemInputRef.current;
+    const raw = el ? (el.innerText ?? el.textContent ?? "").trim().replace(/\n/g, " ") : newItem;
+    const item = raw.trim();
     const amount = Number(String(newAmount).replace(/,/g, ""));
     if (!item || !Number.isFinite(amount) || amount <= 0) return;
+    isAddingRef.current = true;
+    setIsAdding(true);
     const id = `e-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const next: BudgetEntry[] = [
       ...entries,
@@ -277,12 +292,16 @@ export default function FinancePage() {
       .catch((err) => {
         console.error("가계부 저장 실패", err);
         alert("저장에 실패했습니다. 브라우저 콘솔(F12)을 확인하거나, Supabase 대시보드에서 budget_entries 테이블 RLS 정책을 확인해 주세요.");
+      })
+      .finally(() => {
+        isAddingRef.current = false;
+        setIsAdding(false);
       });
     setNewItem("");
     setNewAmount("");
     setTimeout(() => {
       if (itemInputRef.current) {
-        itemInputRef.current.value = "";
+        itemInputRef.current.innerHTML = "";
         itemInputRef.current.focus();
       }
     }, 0);
@@ -639,7 +658,7 @@ export default function FinancePage() {
           >
             <span className="text-lg">→</span>
           </button>
-          <ItemInput inputRef={itemInputRef} />
+          <ItemInput inputRef={itemInputRef} onEnterKey={addEntry} />
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
             <input
@@ -653,9 +672,10 @@ export default function FinancePage() {
           </div>
           <button
             type="submit"
-            className="rounded-xl bg-neutral-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-700"
+            disabled={isAdding}
+            className="rounded-xl bg-neutral-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-60"
           >
-            추가
+            {isAdding ? "저장 중…" : "추가"}
           </button>
         </form>
         <div className="mt-4">
