@@ -611,10 +611,7 @@ export default function FinancePage() {
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900">일별 지출 입력</h2>
         <p className="mt-1 text-sm text-neutral-500">
-          항목과 금액을 입력한 뒤 추가하세요. 항목명에 따라 고정비·사업경비·생활비·신용카드·기타로 자동 분류돼요.
-        </p>
-        <p className="mt-0.5 text-xs text-neutral-400">
-          한글이 영문으로 바뀌면 항목 칸을 먼저 클릭한 뒤 한/영 키로 한글로 바꿔 입력해 보세요.
+          날짜를 선택한 뒤 항목과 금액을 입력하세요. 항목명에 따라 고정비·사업경비·생활비·신용카드·기타로 자동 분류돼요.
         </p>
         <form
           className="mt-4 flex flex-wrap items-end gap-3"
@@ -623,12 +620,15 @@ export default function FinancePage() {
             addEntry();
           }}
         >
-          <ItemInput
-            inputKey={itemInputKey}
-            defaultValue={newItem}
-            inputRef={itemInputRef}
-            autoFocus
-          />
+          <div>
+            <label className="block text-xs font-medium text-neutral-500">날짜</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="mt-1 block rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+            />
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -642,15 +642,11 @@ export default function FinancePage() {
           >
             <span className="text-lg">→</span>
           </button>
-          <div>
-            <label className="block text-xs font-medium text-neutral-500">날짜</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="mt-1 block rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
-            />
-          </div>
+          <ItemInput
+            inputKey={itemInputKey}
+            defaultValue={newItem}
+            inputRef={itemInputRef}
+          />
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
             <input
