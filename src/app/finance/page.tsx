@@ -16,6 +16,7 @@ import {
   getThisWeekEnd,
   getThisWeekStart,
   isExcludedFromMonthTotal,
+  loadAnnualExpense,
   loadEntries,
   loadKeywords,
   loadMonthExtras,
@@ -25,6 +26,7 @@ import {
   todayStr,
   toYearMonth,
 } from "@/lib/budget";
+import { type IncomeEntry, loadIncomeEntries } from "@/lib/income";
 import * as XLSX from "xlsx";
 
 function formatNum(n: number): string {
@@ -85,6 +87,9 @@ export default function FinancePage() {
   const itemInputRef = useRef<HTMLInputElement>(null);
   const itemSuggestionsRef = useRef<HTMLUListElement>(null);
 
+  const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
+  const [annualExpenseByYear, setAnnualExpenseByYear] = useState<Record<string, number>>({});
+
   const [budgetLoading, setBudgetLoading] = useState(true);
   const load = useCallback(async () => {
     setBudgetLoading(true);
@@ -97,6 +102,8 @@ export default function FinancePage() {
       setEntries(e);
       setKeywords(k);
       setMonthExtras(m);
+      setIncomeEntries(loadIncomeEntries());
+      setAnnualExpenseByYear(loadAnnualExpense());
     } finally {
       setBudgetLoading(false);
     }
@@ -453,6 +460,21 @@ export default function FinancePage() {
       prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m].sort((a, b) => a - b)
     );
   };
+
+  /** 연도별 총 매출·지출·순수익·월평균수익 (수입 데이터 + 연도별 총 지출 연동) */
+  const yearlySummary = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
+    return yearList.map((y) => {
+      const 매출 = incomeEntries.filter((e) => e.year === y).reduce((s, e) => s + e.amount, 0);
+      const 지출 =
+        annualExpenseByYear[String(y)] ??
+        entries.filter((e) => e.date.startsWith(String(y))).reduce((s, e) => s + e.amount, 0);
+      const 순수익 = 매출 - 지출;
+      const 월평균수익 = 12 > 0 ? 순수익 / 12 : 0;
+      return { year: y, 매출, 지출, 순수익, 월평균수익 };
+    });
+  }, [incomeEntries, annualExpenseByYear, entries]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -1348,6 +1370,55 @@ export default function FinancePage() {
           </div>
         </div>
       )}
+
+      {/* 연도별 총 매출·순수익·월평균수익 한눈에 보기 */}
+      <Card className="overflow-hidden">
+        <h2 className="text-lg font-semibold text-neutral-900">
+          연도별 총 매출 · 순수익 · 월평균수익
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          수입 데이터와 연도별 총 지출을 반영해요.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[480px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 bg-neutral-50/80">
+                <th className="px-4 py-3 font-semibold text-neutral-700">연도</th>
+                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 매출</th>
+                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 지출</th>
+                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">순수익</th>
+                <th className="px-4 py-3 font-semibold text-neutral-700 text-right">월평균수익</th>
+              </tr>
+            </thead>
+            <tbody>
+              {yearlySummary.map((row) => (
+                <tr
+                  key={row.year}
+                  className="border-b border-neutral-100 transition hover:bg-neutral-50/50"
+                >
+                  <td className="px-4 py-3 font-medium text-neutral-800">{row.year}년</td>
+                  <td className="px-4 py-3 text-right text-neutral-700">
+                    {formatNum(row.매출)}원
+                  </td>
+                  <td className="px-4 py-3 text-right text-neutral-700">
+                    {formatNum(row.지출)}원
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right font-medium ${row.순수익 >= 0 ? "text-neutral-900" : "text-red-600"}`}
+                  >
+                    {formatNum(row.순수익)}원
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right ${row.월평균수익 >= 0 ? "text-neutral-700" : "text-red-600"}`}
+                  >
+                    {formatNum(Math.round(row.월평균수익))}원
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
     </div>
   );
