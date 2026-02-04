@@ -46,6 +46,21 @@ function formatDateLabel(dateStr: string): string {
   return `${m}월 ${day}일 (${week})`;
 }
 
+/** "강아지 (병원)", "강아지 (사료)" → "강아지"로 묶어 total·entries 합침 */
+function groupByBaseName(detail: Record<string, { total: number; entries: { date: string; amount: number }[] }>): Record<string, { total: number; entries: { date: string; amount: number }[] }> {
+  const result: Record<string, { total: number; entries: { date: string; amount: number }[] }> = {};
+  for (const [itemName, data] of Object.entries(detail)) {
+    const baseName = itemName.includes(" (") ? itemName.slice(0, itemName.indexOf(" (")) : itemName;
+    if (!result[baseName]) result[baseName] = { total: 0, entries: [] };
+    result[baseName].total += data.total;
+    result[baseName].entries.push(...data.entries);
+  }
+  for (const key of Object.keys(result)) {
+    result[key].entries.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  return result;
+}
+
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
 /** iframe 안에 input을 넣어 문서를 lang=ko로 고정 → 한글 IME 유지 시도 */
@@ -114,6 +129,7 @@ export default function FinancePage() {
   const [dayDetailEditingId, setDayDetailEditingId] = useState<string | null>(null);
   const [dayDetailEditItem, setDayDetailEditItem] = useState("");
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
+  const [expandedDetailItems, setExpandedDetailItems] = useState<Set<string>>(new Set());
   const itemInputRef = useRef<HTMLIFrameElement>(null);
   const isAddingRef = useRef(false);
   const addEntryRef = useRef<() => void>(() => {});
@@ -142,6 +158,10 @@ export default function FinancePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (categoryDetailModal) setExpandedDetailItems(new Set());
+  }, [categoryDetailModal]);
 
   const yearMonthForView = useMemo(() => {
     const now = new Date();
@@ -300,13 +320,16 @@ export default function FinancePage() {
       .finally(() => {
         isAddingRef.current = false;
         setIsAdding(false);
-        setTimeout(() => {
-          const input = itemInputRef.current?.contentDocument?.getElementById("item") as HTMLInputElement | null;
-          if (input) {
+        const iframe = itemInputRef.current;
+        const input = iframe?.contentDocument?.getElementById("item") as HTMLInputElement | null;
+        if (iframe && input) {
+          // iframe → 입력란 순으로 포커스한 뒤, 다음 프레임에 값 비움 (프로그래밍 포커스 시 IME 초기화 완화)
+          iframe.focus();
+          input.focus();
+          requestAnimationFrame(() => {
             input.value = "";
-            input.focus();
-          }
-        }, 0);
+          });
+        }
       });
   };
 
@@ -1157,7 +1180,10 @@ export default function FinancePage() {
       {categoryDetailModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setCategoryDetailModal(null)}
+          onClick={() => {
+            setCategoryDetailModal(null);
+            setExpandedDetailItems(new Set());
+          }}
         >
           <div
             className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
@@ -1167,7 +1193,7 @@ export default function FinancePage() {
               {CATEGORY_LABELS[categoryDetailModal]} · {yearMonthForView} 상세
             </h3>
             <p className="mt-1 text-sm text-neutral-500">
-              항목별 내역이에요.
+              항목별 내역이에요. 날짜별 세부는 펼쳐서 볼 수 있어요.
             </p>
             <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
               <span className="text-sm font-medium text-neutral-600">총합</span>
@@ -1176,36 +1202,64 @@ export default function FinancePage() {
               </span>
             </div>
             <div className="mt-4 space-y-4">
-              {Object.keys(viewMonthByCategoryDetail[categoryDetailModal]).length === 0 ? (
-                <p className="text-sm text-neutral-400">해당 카테고리 내역이 없어요.</p>
-              ) : (
-                Object.entries(viewMonthByCategoryDetail[categoryDetailModal])
+              {(() => {
+                const rawDetail = viewMonthByCategoryDetail[categoryDetailModal];
+                const grouped = groupByBaseName(rawDetail);
+                return Object.keys(grouped).length === 0 ? (
+                  <p className="text-sm text-neutral-400">해당 카테고리 내역이 없어요.</p>
+                ) : (
+                Object.entries(grouped)
                   .sort(([, a], [, b]) => b.total - a.total)
-                  .map(([itemName, { total, entries }]) => (
-                    <div
-                      key={itemName}
-                      className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-neutral-900">{itemName}</span>
-                        <span className="text-lg font-semibold text-neutral-900">
-                          {formatNum(total)}원
-                        </span>
+                  .map(([itemName, { total, entries }]) => {
+                    const isExpanded = expandedDetailItems.has(itemName);
+                    return (
+                      <div
+                        key={itemName}
+                        className="rounded-xl border border-neutral-200 bg-neutral-50/50 overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedDetailItems((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(itemName)) next.delete(itemName);
+                              else next.add(itemName);
+                              return next;
+                            })
+                          }
+                          className="flex w-full items-center justify-between p-4 text-left hover:bg-neutral-100/80 transition-colors"
+                        >
+                          <span className="font-semibold text-neutral-900">{itemName} ({entries.length})</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-lg font-semibold text-neutral-900">
+                              {formatNum(total)}원
+                            </span>
+                            <span
+                              className={`text-neutral-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                              aria-hidden
+                            >
+                              ▼
+                            </span>
+                          </span>
+                        </button>
+                        {isExpanded && (
+                          <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-sm text-neutral-600">
+                            {entries.map(({ date, amount }, i) => (
+                              <li
+                                key={`${date}-${i}`}
+                                className="flex justify-between rounded-lg bg-white px-3 py-1.5"
+                              >
+                                <span>{formatDateLabel(date)}</span>
+                                <span className="font-medium">{formatNum(amount)}원</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      <ul className="mt-2 space-y-1.5 pl-0 text-sm text-neutral-600">
-                        {entries.map(({ date, amount }, i) => (
-                          <li
-                            key={`${date}-${i}`}
-                            className="flex justify-between rounded-lg bg-white px-3 py-1.5"
-                          >
-                            <span>{formatDateLabel(date)}</span>
-                            <span className="font-medium">{formatNum(amount)}원</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
-              )}
+                    );
+                  })
+                );
+              })()}
             </div>
             <div className="mt-6 flex justify-end">
               <button
