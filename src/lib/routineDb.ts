@@ -1,5 +1,6 @@
 /**
  * 루틴: Supabase 연결 시 DB 사용(모바일·PC 동기화), 없으면 localStorage
+ * 테이블: routine_items (id, title, sort_order), routine_completions (date, item_id)
  */
 
 import { supabase } from "./supabase";
@@ -62,7 +63,7 @@ function saveCompletionsToStorage(completions: Record<string, number[]>): void {
   } catch {}
 }
 
-/** 루틴 항목 로드 (Supabase 우선. DB 비어 있고 localStorage 있으면 한 번 업로드 후 localStorage 삭제) */
+/** 루틴 항목 로드 (NEXT_PUBLIC_SUPABASE_URL 있을 때만 routine_items 테이블 사용) */
 export async function loadRoutineItems(): Promise<RoutineItem[]> {
   if (supabase) {
     const { data, error } = await supabase
@@ -131,7 +132,7 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
   return items;
 }
 
-/** 일별 완료 기록 로드 (cutoff 이후만) */
+/** 일별 완료 기록 로드 (routine_completions 테이블, cutoff 이후만) */
 export async function loadRoutineCompletions(): Promise<Record<string, number[]>> {
   const cutoff = getCutoffDateKey();
   if (supabase) {
