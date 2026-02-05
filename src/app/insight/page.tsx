@@ -255,7 +255,7 @@ export default function InsightPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="max-w-full text-lg leading-relaxed">{item.text}</p>
+                    <p className="max-w-full text-base leading-relaxed sm:text-lg">{item.text}</p>
                     <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                       <span>{formatDate(item.createdAt)}</span>
                       <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -371,7 +371,7 @@ export default function InsightPage() {
                     </div>
                   ) : (
                     <>
-                      <p className="max-w-full text-lg leading-relaxed">{item.text}</p>
+                      <p className="max-w-full text-base leading-relaxed sm:text-lg">{item.text}</p>
                       <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                         <span>{formatDate(item.createdAt)}</span>
                         <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -413,14 +413,15 @@ export default function InsightPage() {
             aria-label="문장 보기"
           >
             <div
-              className="relative flex min-w-0 max-w-2xl items-center gap-2 sm:gap-4"
+              className="relative flex min-w-0 max-w-2xl flex-col items-center gap-4 sm:flex-row sm:gap-4"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* PC: 좌측 화살표 */}
               <button
                 type="button"
                 onClick={() => setViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
                 disabled={viewer.index <= 0}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none sm:flex"
                 aria-label="이전 문장"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -428,7 +429,7 @@ export default function InsightPage() {
                 </svg>
               </button>
 
-              <div className="min-w-0 flex-1 rounded-3xl bg-white px-8 py-10 shadow-2xl sm:px-12 sm:py-14">
+              <div className="order-1 min-w-0 flex-1 rounded-3xl bg-white px-8 py-10 shadow-2xl sm:order-none sm:px-12 sm:py-14">
                 <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
                   {viewer.list[viewer.index]?.text}
                 </p>
@@ -440,6 +441,7 @@ export default function InsightPage() {
                 </p>
               </div>
 
+              {/* PC: 우측 화살표 */}
               <button
                 type="button"
                 onClick={() =>
@@ -448,13 +450,43 @@ export default function InsightPage() {
                   )
                 }
                 disabled={viewer.index >= viewer.list.length - 1}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none sm:flex"
                 aria-label="다음 문장"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+
+              {/* 모바일: 화살표 하단 */}
+              <div className="order-2 flex gap-4 sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => setViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
+                  disabled={viewer.index <= 0}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                  aria-label="이전 문장"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViewer((v) =>
+                      v && v.index < v.list.length - 1 ? { ...v, index: v.index + 1 } : v
+                    )
+                  }
+                  disabled={viewer.index >= viewer.list.length - 1}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                  aria-label="다음 문장"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>,
           document.body
