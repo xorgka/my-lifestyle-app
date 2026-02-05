@@ -9,7 +9,6 @@ import {
   loadJournalEntries,
   saveJournalEntries,
   deleteJournalEntry,
-  getTagsFromContent,
 } from "@/lib/journal";
 
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
@@ -75,7 +74,9 @@ export default function JournalPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showAllSearchResults, setShowAllSearchResults] = useState(false);
   const [showOnlyImportant, setShowOnlyImportant] = useState(false);
-  const [viewMode, setViewMode] = useState<"write" | "preview">("write");
+  const [viewMode, setViewMode] = useState<"write" | "preview">("preview");
+  /** 달력 셀 호버 시 첫 문장 툴팁 (바로 표시, 크게) */
+  const [cellTooltip, setCellTooltip] = useState<{ dateStr: string; text: string; x: number; y: number } | null>(null);
   const load = useCallback(async () => {
     setJournalLoading(true);
     try {
@@ -378,15 +379,6 @@ export default function JournalPage() {
               </button>
             )}
           </div>
-          {/* 해시태그 (태그별로 보기 확장용) */}
-          {getTagsFromContent(draft).length > 0 && (
-            <p className="mb-2 flex flex-wrap gap-1.5 text-xs text-neutral-500">
-              {getTagsFromContent(draft).map((tag) => (
-                <span key={tag} className="rounded bg-neutral-100 px-1.5 py-0.5">#{tag}</span>
-              ))}
-            </p>
-          )}
-
           {/* 초안 자동 저장 상태 */}
           <p className="mb-1 text-xs text-neutral-500">
             {draftSaveStatus === "pending" && "2초 후 초안 자동 저장"}
@@ -396,41 +388,31 @@ export default function JournalPage() {
               "저장 버튼을 눌러 일기에 반영하세요"}
           </p>
 
-          {/* 쓰기/미리보기 탭 + 볼드 버튼 */}
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <div className="flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5">
-              <button
-                type="button"
-                onClick={() => setViewMode("write")}
-                className={clsx(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition",
-                  viewMode === "write"
-                    ? "bg-white text-neutral-900 shadow-sm"
-                    : "text-neutral-600 hover:text-neutral-800"
-                )}
-              >
-                쓰기
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("preview")}
-                className={clsx(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition",
-                  viewMode === "preview"
-                    ? "bg-white text-neutral-900 shadow-sm"
-                    : "text-neutral-600 hover:text-neutral-800"
-                )}
-              >
-                미리보기
-              </button>
-            </div>
+          {/* 쓰기/미리보기 탭 (볼드는 Ctrl+B) */}
+          <div className="mb-2 flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5">
             <button
               type="button"
-              onClick={insertBold}
-              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm font-bold text-neutral-700 hover:bg-neutral-50"
-              title="볼드 (Ctrl+B)"
+              onClick={() => setViewMode("write")}
+              className={clsx(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                viewMode === "write"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-800"
+              )}
             >
-              B
+              쓰기
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("preview")}
+              className={clsx(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                viewMode === "preview"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-800"
+              )}
+            >
+              미리보기
             </button>
           </div>
 
@@ -566,20 +548,6 @@ export default function JournalPage() {
           )}
         </div>
         <Card className="h-fit !p-5 !pb-2 md:!p-5 md:!pb-2">
-          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowOnlyImportant((v) => !v)}
-              className={clsx(
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                showOnlyImportant
-                  ? "bg-orange-200 text-orange-900"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              )}
-            >
-              ★만 강조
-            </button>
-          </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <select
               value={year}
@@ -626,7 +594,17 @@ export default function JournalPage() {
                     key={i}
                     type="button"
                     onClick={() => setSelectedDate(dateStr)}
-                    title={hasEntry ? firstLinePreview(entry.content) : undefined}
+                    onMouseEnter={(e) => {
+                      if (!hasEntry) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setCellTooltip({
+                        dateStr,
+                        text: firstLinePreview(entry!.content, 80),
+                        x: rect.left + rect.width / 2,
+                        y: rect.top,
+                      });
+                    }}
+                    onMouseLeave={() => setCellTooltip(null)}
                     className={clsx(
                       "relative aspect-square rounded-md text-sm transition sm:text-base",
                       dimmed && "opacity-40",
@@ -645,6 +623,34 @@ export default function JournalPage() {
               })}
             </div>
           </div>
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowOnlyImportant((v) => !v)}
+              className={clsx(
+                "rounded-full p-2 text-2xl transition",
+                showOnlyImportant
+                  ? "text-orange-500"
+                  : "text-neutral-300 hover:text-orange-400"
+              )}
+              title="중요한 날만 강조"
+              aria-label={showOnlyImportant ? "강조 해제" : "중요한 날만 강조"}
+            >
+              ★
+            </button>
+          </div>
+          {cellTooltip && (
+            <div
+              className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg bg-neutral-800 px-4 py-2.5 text-base text-white shadow-lg"
+              style={{
+                left: cellTooltip.x,
+                top: cellTooltip.y - 8,
+                maxWidth: "min(320px, 90vw)",
+              }}
+            >
+              {cellTooltip.text}
+            </div>
+          )}
         </Card>
 
         {/* 달력 아래: 내보내기 */}
