@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 
@@ -152,6 +153,12 @@ export default function InsightPage() {
         title="인사이트"
         subtitle="요즘 마음에 남았던 한 문장을 조용히 모아두는 공간이에요."
       />
+      <p className="text-sm text-neutral-500">
+        <Link href="/insight/system" className="underline hover:text-neutral-700">
+          기본 문장 수정/삭제
+        </Link>
+        {" "}— 홈에 나오는 시스템 문장을 웹에서 관리할 수 있어요.
+      </p>
 
       {/* 입력 영역 - 은은한 그라데이션으로 구분 */}
       <Card className="min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300">

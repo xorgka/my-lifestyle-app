@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadSystemInsights } from "@/lib/insights";
 
 type InsightItem = {
   id: number;
@@ -9,7 +10,7 @@ type InsightItem = {
 };
 
 /** 명언 한 편: 줄바꿈(\n) = 의미·문장 단위, author = 인물명 */
-type QuoteEntry = { quote: string; author: string };
+export type QuoteEntry = { quote: string; author: string };
 
 /** 줄바꿈 가능 위치: 문자열 조각 또는 <wbr />용 마커 */
 type QuoteSegment = string | { wbr: true };
@@ -76,8 +77,8 @@ function saveFavorites(set: Set<string>) {
   } catch {}
 }
 
-/** 추천 명언 – 의미·문장 단위 줄바꿈(\n), author 필드 유지 */
-const RECOMMENDED_INSIGHTS: QuoteEntry[] = [
+/** 추천 명언 – 의미·문장 단위 줄바꿈(\n), author 필드 유지. 설정 화면에서 수정·삭제 가능 */
+export const RECOMMENDED_INSIGHTS: QuoteEntry[] = [
   { quote: "나를 죽이지 못하는 것은\n나를 더 강하게 만든다.", author: "프리드리히 니체" },
   { quote: "무소의 뿔처럼\n혼자서 가라.", author: "수타니파타" },
   {
@@ -461,14 +462,16 @@ export function TodayInsightHero() {
           .filter((item) => item.text && item.text.trim())
           .map((item) => item.text.trim());
       }
-      const combined = shuffle<ListItem>([...userList, ...RECOMMENDED_INSIGHTS]);
+      const systemList = loadSystemInsights(RECOMMENDED_INSIGHTS);
+      const combined = shuffle<ListItem>([...userList, ...systemList]);
       if (combined.length > 0) {
         setList(combined);
         setIndex(pickDailyIndex(combined.length));
       }
     } catch {
-      setList(RECOMMENDED_INSIGHTS);
-      setIndex(pickDailyIndex(RECOMMENDED_INSIGHTS.length));
+      const systemList = loadSystemInsights(RECOMMENDED_INSIGHTS);
+      setList(systemList);
+      setIndex(pickDailyIndex(systemList.length));
     }
   }, []);
 
