@@ -688,25 +688,29 @@ export default function RoutinePage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {weekDayNames.map((name, i) => (
-                  <div
-                    key={name}
-                    className={`flex-1 rounded-xl py-2 text-center ${
-                      viewingWeek.days[i].pct === 100
-                        ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
-                        : viewingWeek.weekPct === 100
-                          ? "bg-white/15 text-red-50"
-                          : "bg-neutral-50"
-                    }`}
-                  >
-                    <div className={`text-[10px] font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
-                      {name}
+                {weekDayNames.map((name, i) => {
+                  const isToday = viewingWeek.days[i].key === todayKey;
+                  return (
+                    <div
+                      key={name}
+                      className={`flex-1 rounded-xl py-2 text-center ${
+                        viewingWeek.days[i].pct === 100
+                          ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
+                          : viewingWeek.weekPct === 100
+                            ? "bg-white/15 text-red-50"
+                            : "bg-neutral-50"
+                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""}`}
+                    >
+                      <div className={`text-[10px] font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
+                        {name}
+                        {isToday && <span className="ml-0.5 text-[9px]">(오늘)</span>}
+                      </div>
+                      <div className={`mt-0.5 text-sm font-semibold tabular-nums ${viewingWeek.days[i].pct === 100 || viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
+                        {viewingWeek.days[i].pct}%
+                      </div>
                     </div>
-                    <div className={`mt-0.5 text-sm font-semibold tabular-nums ${viewingWeek.days[i].pct === 100 || viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
-                      {viewingWeek.days[i].pct}%
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -816,7 +820,9 @@ export default function RoutinePage() {
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-2 text-center">
-                {thisMonthCalendar.cells.map((cell, i) => (
+                {thisMonthCalendar.cells.map((cell, i) => {
+                  const isToday = cell.key === todayKey;
+                  return (
                   <div
                     key={i}
                     className={`min-h-[4rem] rounded-xl py-3 ${
@@ -825,19 +831,23 @@ export default function RoutinePage() {
                         : cell.pct === 100
                           ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
                           : "bg-neutral-100"
-                    }`}
+                    } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2" : ""}`}
                     title={cell.key ? `${cell.key} ${cell.pct}%` : ""}
                   >
                     {cell.day != null && (
                       <>
-                        <div className={`text-base font-semibold ${cell.pct === 100 ? "text-white" : "text-neutral-800"}`}>{cell.day}</div>
+                        <div className={`text-base font-semibold ${cell.pct === 100 ? "text-white" : "text-neutral-800"}`}>
+                          {cell.day}
+                          {isToday && <span className="ml-0.5 text-xs font-normal opacity-90">(오늘)</span>}
+                        </div>
                         <div className={`mt-0.5 text-sm font-medium tabular-nums ${cell.pct === 100 ? "text-red-100" : "text-neutral-600"}`}>
                           {cell.pct}%
                         </div>
                       </>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
