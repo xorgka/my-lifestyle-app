@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import clsx from "clsx";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -9,6 +9,7 @@ import {
   loadJournalEntries,
   saveJournalEntries,
   deleteJournalEntry,
+  getTagsFromContent,
 } from "@/lib/journal";
 
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
@@ -47,14 +48,34 @@ function formatDateLabel(dateStr: string): string {
   return `${y}년 ${m}월 ${day}일 (${week})`;
 }
 
+/** 첫 문장 또는 첫 줄 (툴팁/미리보기용, 최대 50자) */
+function firstLinePreview(content: string, maxLen = 50): string {
+  const line = content.trim().split(/\r?\n/)[0]?.trim() ?? "";
+  return line.length > maxLen ? line.slice(0, maxLen) + "…" : line;
+}
+
+/** 마크다운 볼드 등 간단 렌더 (미리보기 탭용) */
+function renderSimpleMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br />");
+}
+
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [draft, setDraft] = useState("");
   const [draftImportant, setDraftImportant] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
-
+  /** 초안 자동 저장 상태: idle | pending(2초 대기 중) | saved(방금 저장됨) */
+  const [draftSaveStatus, setDraftSaveStatus] = useState<"idle" | "pending" | "saved">("idle");
+  /** 저장 버튼 클릭 시 토스트 */
+  const [saveToast, setSaveToast] = useState(false);
   const [journalLoading, setJournalLoading] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showAllSearchResults, setShowAllSearchResults] = useState(false);
+  const [showOnlyImportant, setShowOnlyImportant] = useState(false);
+  const [viewMode, setViewMode] = useState<"write" | "preview">("write");
   const load = useCallback(async () => {
     setJournalLoading(true);
     try {
@@ -86,13 +107,19 @@ export default function JournalPage() {
   }, [selectedDate, currentContent, entryForDate?.important]);
 
   useEffect(() => {
-    if (currentContent === draft && (entryForDate?.important ?? false) === draftImportant) return;
+    if (currentContent === draft && (entryForDate?.important ?? false) === draftImportant) {
+      setDraftSaveStatus("idle");
+      return;
+    }
+    setDraftSaveStatus("pending");
     const t = setTimeout(() => {
       if (draft.trim() || draftImportant) {
         saveDraft(selectedDate, { content: draft, important: draftImportant });
       } else {
         saveDraft(selectedDate, null);
       }
+      setDraftSaveStatus("saved");
+      setTimeout(() => setDraftSaveStatus("idle"), 1500);
     }, 2000);
     return () => clearTimeout(t);
   }, [draft, draftImportant, selectedDate]);
@@ -112,6 +139,8 @@ export default function JournalPage() {
     saveJournalEntries(next).catch(console.error);
     saveDraft(selectedDate, null);
     setLastSaved(now);
+    setSaveToast(true);
+    setTimeout(() => setSaveToast(false), 2000);
     setTimeout(() => setLastSaved(null), 2000);
   };
 
@@ -135,20 +164,6 @@ export default function JournalPage() {
     (_, i) => 2020 + i
   );
 
-  const goPrevMonth = () => {
-    const d = new Date(year, month - 2, 1);
-    setSelectedDate(
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
-    );
-  };
-
-  const goNextMonth = () => {
-    const d = new Date(year, month, 1);
-    setSelectedDate(
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
-    );
-  };
-
   const setCalendarYear = (y: number) => {
     setSelectedDate(`${y}-${String(month).padStart(2, "0")}-01`);
   };
@@ -171,6 +186,59 @@ export default function JournalPage() {
     setSelectedDate(next);
   };
 
+  /** 볼드: 선택 영역을 ** 로 감싸기 (또는 커서 위치에 ** 삽입) */
+  const insertBold = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const before = draft.slice(0, start);
+    const selected = draft.slice(start, end);
+    const after = draft.slice(end);
+    if (selected) {
+      setDraft(`${before}**${selected}**${after}`);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + 2, end + 2);
+      }, 0);
+    } else {
+      setDraft(`${before}****${after}`);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + 2, start + 2);
+      }, 0);
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = document.activeElement?.tagName ?? "";
+      const inInput = target === "TEXTAREA" || target === "INPUT";
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") return;
+      if ((e.ctrlKey || e.metaKey) && e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrevDay();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "ArrowRight") {
+        e.preventDefault();
+        goNextDay();
+        return;
+      }
+      if (!inInput && (e.key === "j" || e.key === "k")) {
+        e.preventDefault();
+        if (e.key === "j") goPrevDay();
+        else goNextDay();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+        e.preventDefault();
+        insertBold();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedDate, draft]);
+
   const entryDates = new Set(entries.map((e) => e.date));
   const streak = (() => {
     let count = 0;
@@ -190,13 +258,18 @@ export default function JournalPage() {
   const [showExport, setShowExport] = useState(false);
   const [exportFrom, setExportFrom] = useState(todayStr().slice(0, 7) + "-01");
   const [exportTo, setExportTo] = useState(todayStr());
-  const searchResults = searchQuery.trim()
+  const searchQueryNorm = searchQuery.trim().toLowerCase();
+  const searchResults = searchQueryNorm
     ? entries
-        .filter((e) => e.content.includes(searchQuery.trim()))
+        .filter((e) => e.content.toLowerCase().includes(searchQueryNorm))
         .map((e) => e.date)
         .sort()
         .reverse()
     : [];
+
+  const exportCount = entries.filter(
+    (e) => e.date >= exportFrom && e.date <= exportTo
+  ).length;
 
   const exportRange = (from: string, to: string) => {
     const list = entries.filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
@@ -229,6 +302,17 @@ export default function JournalPage() {
 
   return (
     <div className="min-w-0 space-y-6">
+      {/* 저장 토스트 */}
+      {saveToast && (
+        <div
+          className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-neutral-800 px-5 py-3 text-sm font-semibold text-white shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          저장됨 ✓
+        </div>
+      )}
+
       <SectionTitle
         title="일기장"
         subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
@@ -294,21 +378,89 @@ export default function JournalPage() {
               </button>
             )}
           </div>
+          {/* 해시태그 (태그별로 보기 확장용) */}
+          {getTagsFromContent(draft).length > 0 && (
+            <p className="mb-2 flex flex-wrap gap-1.5 text-xs text-neutral-500">
+              {getTagsFromContent(draft).map((tag) => (
+                <span key={tag} className="rounded bg-neutral-100 px-1.5 py-0.5">#{tag}</span>
+              ))}
+            </p>
+          )}
 
-          {/* 본문 (Ctrl+Enter / Cmd+Enter로 저장) */}
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                e.preventDefault();
-                save();
-              }
-            }}
-            placeholder="오늘 하루를 적어보세요."
-            className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-            rows={16}
-          />
+          {/* 초안 자동 저장 상태 */}
+          <p className="mb-1 text-xs text-neutral-500">
+            {draftSaveStatus === "pending" && "2초 후 초안 자동 저장"}
+            {draftSaveStatus === "saved" && "초안 자동 저장됨"}
+            {draftSaveStatus === "idle" &&
+              draft.trim() !== currentContent &&
+              "저장 버튼을 눌러 일기에 반영하세요"}
+          </p>
+
+          {/* 쓰기/미리보기 탭 + 볼드 버튼 */}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("write")}
+                className={clsx(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                  viewMode === "write"
+                    ? "bg-white text-neutral-900 shadow-sm"
+                    : "text-neutral-600 hover:text-neutral-800"
+                )}
+              >
+                쓰기
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("preview")}
+                className={clsx(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                  viewMode === "preview"
+                    ? "bg-white text-neutral-900 shadow-sm"
+                    : "text-neutral-600 hover:text-neutral-800"
+                )}
+              >
+                미리보기
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={insertBold}
+              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm font-bold text-neutral-700 hover:bg-neutral-50"
+              title="볼드 (Ctrl+B)"
+            >
+              B
+            </button>
+          </div>
+
+          {/* 본문 (Ctrl+Enter / Cmd+Enter로 저장, Ctrl+B 볼드) */}
+          {viewMode === "write" ? (
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  save();
+                }
+              }}
+              placeholder="오늘 하루를 적어보세요. **볼드**는 미리보기에서 보여요."
+              className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+              rows={16}
+            />
+          ) : (
+            <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-[18px] leading-relaxed text-neutral-800">
+              {draft.trim() ? (
+                <div
+                  dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
+                />
+              ) : (
+                <p className="text-neutral-400">내용이 없어요.</p>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {/* 모바일 전용: 이전/다음 날 버튼을 저장 옆에 */}
@@ -388,24 +540,46 @@ export default function JournalPage() {
             />
           </div>
           {searchResults.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {searchResults.slice(0, 6).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setSelectedDate(d)}
-                  className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                >
-                  {d}
-                </button>
-              ))}
+            <div className="space-y-1">
+              <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+                {(showAllSearchResults ? searchResults : searchResults.slice(0, 6)).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setSelectedDate(d)}
+                    className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
               {searchResults.length > 6 && (
-                <span className="py-0.5 text-xs text-neutral-500">+{searchResults.length - 6}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAllSearchResults((v) => !v)}
+                  className="text-xs font-medium text-neutral-500 hover:text-neutral-700"
+                >
+                  {showAllSearchResults ? "접기" : `더 보기 (+${searchResults.length - 6})`}
+                </button>
               )}
             </div>
           )}
         </div>
         <Card className="h-fit !p-5 !pb-2 md:!p-5 md:!pb-2">
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowOnlyImportant((v) => !v)}
+              className={clsx(
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                showOnlyImportant
+                  ? "bg-orange-200 text-orange-900"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+              )}
+            >
+              ★만 강조
+            </button>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <select
               value={year}
@@ -446,13 +620,16 @@ export default function JournalPage() {
                 const hasEntry = !!entry;
                 const isImportant = entry?.important ?? false;
                 const isSelected = dateStr === selectedDate;
+                const dimmed = showOnlyImportant && (!hasEntry || !isImportant);
                 return (
                   <button
                     key={i}
                     type="button"
                     onClick={() => setSelectedDate(dateStr)}
+                    title={hasEntry ? firstLinePreview(entry.content) : undefined}
                     className={clsx(
                       "relative aspect-square rounded-md text-sm transition sm:text-base",
+                      dimmed && "opacity-40",
                       isSelected
                         ? "bg-neutral-800 font-semibold text-white"
                         : isImportant
@@ -467,28 +644,6 @@ export default function JournalPage() {
                 );
               })}
             </div>
-          </div>
-          <div className="mt-0 flex justify-center gap-1">
-            <button
-              type="button"
-              onClick={goPrevMonth}
-              aria-label="이전 달"
-              className="rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={goNextMonth}
-              aria-label="다음 달"
-              className="rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
           </div>
         </Card>
 
@@ -526,6 +681,9 @@ export default function JournalPage() {
                   다운로드
                 </button>
               </div>
+              <p className="mt-2 text-xs text-neutral-500">
+                {exportFrom} ~ {exportTo}: <strong>{exportCount}편</strong>
+              </p>
             </Card>
           )}
         </div>

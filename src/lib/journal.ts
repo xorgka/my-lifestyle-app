@@ -10,7 +10,16 @@ export type JournalEntry = {
   createdAt: string;
   updatedAt?: string;
   important?: boolean;
+  /** 나중에 '태그별로 보기' 확장 시 사용. content에서 #해시태그 파싱 */
+  tags?: string[];
 };
+
+/** 본문에서 #해시태그 추출 (태그별로 보기 등 확장용) */
+export function getTagsFromContent(content: string): string[] {
+  if (!content.trim()) return [];
+  const matches = content.match(/#[\w가-힣]+/g) ?? [];
+  return [...new Set(matches.map((m) => m.slice(1)))];
+}
 
 const STORAGE_KEY = "my-lifestyle-journal";
 
