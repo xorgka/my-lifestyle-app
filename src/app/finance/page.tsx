@@ -13,9 +13,6 @@ import {
   EXCLUDE_FROM_MONTH_TOTAL,
   getCategoryForEntry,
   getKeywordsForMonth,
-  SEED_BUDGET_2021_TAX,
-  SEED_BUDGET_2022_TAX,
-  SEED_BUDGET_2023_TAX,
   SEED_BUDGET_2024_TAX,
   SEED_BUDGET_2025_TAX,
   isExcludedFromMonthTotal,
@@ -503,53 +500,53 @@ export default function FinancePage() {
     2025: 62_880_691,
   };
 
-  /** 21~25년 사업 및 경비 = 시드 세부 합계 (수입 페이지와 동일, 순수익 계산용) */
-  const seed2021Business = useMemo(() => SEED_BUDGET_2021_TAX.reduce((s, e) => s + e.amount, 0), []);
-  const seed2022Business = useMemo(() => SEED_BUDGET_2022_TAX.reduce((s, e) => s + e.amount, 0), []);
-  const seed2023Business = useMemo(() => SEED_BUDGET_2023_TAX.reduce((s, e) => s + e.amount, 0), []);
+  /** 21~23년 사업 및 경비 고정값 (연도별 통계 순수익용, 수입 페이지 시드와 동일) */
+  const FIXED_BUSINESS_EXPENSE: Record<number, number> = {
+    2021: 1_898_110,
+    2022: 4_944_380,
+    2023: 17_374_210,
+  };
+
   const seed2024Business = useMemo(() => SEED_BUDGET_2024_TAX.reduce((s, e) => s + e.amount, 0), []);
   const seed2025Business = useMemo(() => SEED_BUDGET_2025_TAX.reduce((s, e) => s + e.amount, 0), []);
 
-  /** 연도별 통계. 총 지출 = 위 고정값 표시용. 순수익 = 매출 - 사업 및 경비 (21~25 시드, 2026+ 세금·사업경비만) */
+  /** 연도별 통계. 총 지출 = 위 고정값 표시용. 순수익 = 매출 - 사업 및 경비 (21~23 고정값, 24·25 시드, 2026+ 세금·사업경비만) */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
     return yearList.map((y) => {
-      const 매출 = incomeEntries.filter((e) => e.year === y).reduce((s, e) => s + e.amount, 0);
+      const yNum = Number(y);
+      const 매출 = incomeEntries.filter((e) => e.year === yNum).reduce((s, e) => s + e.amount, 0);
       const 지출표시값 =
-        FIXED_TOTAL_EXPENSE[y] ??
-        (y >= 2026
-          ? entries.filter((e) => e.date.startsWith(String(y))).reduce((s, e) => s + e.amount, 0)
+        FIXED_TOTAL_EXPENSE[yNum] ??
+        (yNum >= 2026
+          ? entries.filter((e) => e.date.startsWith(String(yNum))).reduce((s, e) => s + e.amount, 0)
           : null);
       const 지출데이터있음 = 지출표시값 != null;
       const 지출 = 지출표시값 ?? 0;
-      const 사업및경비: number | null =
-        y === 2021
-          ? seed2021Business
-          : y === 2022
-            ? seed2022Business
-            : y === 2023
-              ? seed2023Business
-              : y === 2024
-                ? seed2024Business
-                : y === 2025
-                  ? seed2025Business
-                  : y >= 2026
-              ? entries
-                  .filter((e) => e.date.startsWith(String(y)))
-                  .filter((e) => {
-                    const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
-                    const cat = getCategoryForEntry(e.item, kw);
-                    return cat === "세금" || cat === "사업경비";
-                  })
-                  .reduce((s, e) => s + e.amount, 0)
-              : null;
+      let 사업및경비: number | null = null;
+      if (FIXED_BUSINESS_EXPENSE[yNum] != null) {
+        사업및경비 = FIXED_BUSINESS_EXPENSE[yNum];
+      } else if (yNum === 2024) {
+        사업및경비 = seed2024Business;
+      } else if (yNum === 2025) {
+        사업및경비 = seed2025Business;
+      } else if (yNum >= 2026) {
+        사업및경비 = entries
+          .filter((e) => e.date.startsWith(String(yNum)))
+          .filter((e) => {
+            const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+            const cat = getCategoryForEntry(e.item, kw);
+            return cat === "세금" || cat === "사업경비";
+          })
+          .reduce((s, e) => s + e.amount, 0);
+      }
       const 순수익: number | null =
         사업및경비 != null ? 매출 - 사업및경비 : null;
       const 월평균수익 = 순수익 != null && 12 > 0 ? 순수익 / 12 : 0;
-      return { year: y, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
+      return { year: yNum, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
     });
-  }, [incomeEntries, entries, keywords, monthExtras, seed2021Business, seed2022Business, seed2023Business, seed2024Business, seed2025Business]);
+  }, [incomeEntries, entries, keywords, monthExtras, seed2024Business, seed2025Business]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -1453,8 +1450,7 @@ export default function FinancePage() {
               {yearlySummary.map((row) => {
                 const 순수익있음 = row.순수익 != null;
                 const 저축값 = row.지출데이터있음 && 순수익있음 ? row.순수익! - row.지출 : null;
-                const noExpense = !row.지출데이터있음;
-                const 순수익표시 = noExpense || !순수익있음 ? "데이터 없음" : formatManwon(row.순수익!);
+                const 순수익표시 = !순수익있음 ? "데이터 없음" : formatManwon(row.순수익!);
                 return (
                   <tr
                     key={row.year}
