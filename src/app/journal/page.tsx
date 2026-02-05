@@ -227,9 +227,9 @@ export default function JournalPage() {
         goNextDay();
         return;
       }
-      if (!inInput && (e.key === "j" || e.key === "k")) {
+      if (!inInput && (e.key === "a" || e.key === "d")) {
         e.preventDefault();
-        if (e.key === "j") goPrevDay();
+        if (e.key === "a") goPrevDay();
         else goNextDay();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "b") {

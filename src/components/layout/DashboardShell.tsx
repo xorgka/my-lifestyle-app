@@ -11,7 +11,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-4 py-7 md:px-10 md:py-10">
+    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 py-5 md:px-10 md:py-10 sm:px-4 sm:py-7">
       {/* 모바일: 상단 메뉴 버튼 */}
       <div className="fixed right-4 top-4 z-50 md:hidden">
         <button
@@ -57,7 +57,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <Sidebar />
         </div>
         <main className="min-w-0 flex-1 pt-12 md:pt-0">
-          <div className="flex min-w-0 flex-col gap-4 rounded-3xl bg-white/80 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:p-8">
+          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:p-8">
             {children}
           </div>
         </main>
