@@ -423,17 +423,8 @@ export default function JournalPage() {
           <div className="relative ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen md:ml-0 md:mr-0 md:w-full">
             <div className="bg-neutral-50/50 px-4 py-4 md:bg-transparent md:px-0 md:py-0">
               <div className="relative">
-                {/* 좌측 상단: 볼드 버튼 + 쓰기/미리보기 토글 */}
-                <div className="absolute left-2 top-2 z-10 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={insertBold}
-                    title="볼드 (Ctrl+B / ⌘+B)"
-                    aria-label="선택한 글자 볼드"
-                    className="rounded-lg p-1.5 font-bold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
-                  >
-                    B
-                  </button>
+                {/* 좌측 상단: 쓰기/미리보기 토글 */}
+                <div className="absolute left-2 top-2 z-10">
                   <button
                     type="button"
                     onClick={() => setViewMode((m) => (m === "write" ? "preview" : "write"))}
@@ -465,11 +456,11 @@ export default function JournalPage() {
                       }
                     }}
                     placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
-                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-10 pb-4 text-[19px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-12 md:pr-10"
+                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-14 pb-10 text-[19px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-12 md:pr-10"
                     rows={16}
                   />
                 ) : (
-                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-10 pb-4 text-[19px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pl-12 md:pr-10">
+                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-14 pb-10 text-[19px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pl-12 md:pr-10">
                     {draft.trim() ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
@@ -547,7 +538,7 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed right-0 top-12 z-50 flex h-[75vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
+                  "fixed right-4 top-24 z-50 flex h-[55vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
                   drawerAnimated ? "translate-x-0" : "translate-x-full"
                 )}
                 role="dialog"
