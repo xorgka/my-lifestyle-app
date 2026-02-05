@@ -538,7 +538,7 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed right-8 top-[7.5rem] z-50 flex h-[55vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
+                  "fixed right-8 top-[20vh] z-50 flex h-[55vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
                   drawerAnimated ? "translate-x-0" : "translate-x-full"
                 )}
                 role="dialog"
