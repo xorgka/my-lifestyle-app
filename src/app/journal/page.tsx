@@ -306,8 +306,8 @@ export default function JournalPage() {
               }
             }}
             placeholder="오늘 하루를 적어보세요."
-            className="min-h-[280px] w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-            rows={12}
+            className="min-h-[calc(100vh-16rem)] w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+            rows={24}
           />
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
