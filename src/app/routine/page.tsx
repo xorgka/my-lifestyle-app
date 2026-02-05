@@ -536,7 +536,7 @@ export default function RoutinePage() {
                       {completedToday.has(item.id) ? "✓" : ""}
                     </div>
                     <span
-                      className={`min-w-0 flex-1 break-words text-left text-[15px] font-semibold sm:text-[1.35rem] ${
+                      className={`min-w-0 flex-1 break-words text-left text-[19.5px] font-semibold sm:text-[1.35rem] ${
                         completedToday.has(item.id) ? "text-white" : "text-neutral-900"
                       } ${completedToday.has(item.id) ? "line-through opacity-90" : ""}`}
                     >
