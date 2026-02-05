@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import {
@@ -880,18 +881,20 @@ export default function IncomePage() {
         </div>
       )}
 
-      {detailModal && (
-        <div
-          className="fixed inset-0 z-50 flex h-screen items-center justify-center overflow-y-auto bg-black/40 p-4"
-          onClick={() => {
-            setDetailModal(null);
-            setEditingId(null);
-          }}
-        >
+      {detailModal &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="w-full max-w-2xl max-h-[85vh] shrink-0 overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            onClick={() => {
+              setDetailModal(null);
+              setEditingId(null);
+            }}
           >
+            <div
+              className="my-auto w-full max-w-2xl max-h-[85vh] shrink-0 overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="border-b border-neutral-200 px-5 py-4">
               <h3 className="text-lg font-semibold text-neutral-900">
                 {incomeYear}년 {detailModal.month}월 – {detailModal.category}
@@ -1036,7 +1039,8 @@ export default function IncomePage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {showCategoryModal && (
