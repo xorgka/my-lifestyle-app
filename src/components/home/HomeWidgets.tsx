@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadIncomeEntries } from "@/lib/income";
+import { loadJournalEntries } from "@/lib/journal";
 
-const JOURNAL_KEY = "my-lifestyle-journal";
 const ROUTINE_ITEMS_KEY = "routine-items";
 const ROUTINE_DAILY_KEY = "routine-daily";
 
@@ -27,15 +27,15 @@ export function HomeWidgets() {
   const [monthIncome, setMonthIncome] = useState<number | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
+    let cancelled = false;
+    loadJournalEntries().then((entries) => {
+      if (cancelled) return;
       const today = todayStr();
-      const rawJournal = window.localStorage.getItem(JOURNAL_KEY);
-      const entries = rawJournal ? (JSON.parse(rawJournal) as { date: string }[]) : [];
-      setJournalWritten(Array.isArray(entries) && entries.some((e) => e.date === today));
-    } catch {
-      setJournalWritten(false);
-    }
+      setJournalWritten(entries.some((e) => e.date === today));
+    }).catch(() => {
+      if (!cancelled) setJournalWritten(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
