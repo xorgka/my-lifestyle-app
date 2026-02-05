@@ -67,6 +67,14 @@ git push -u origin main
 
 ---
 
+## 4-1. PWA(앱 설치) 안내
+
+- **HTTPS**로 배포된 사이트에서 Android Chrome 주소창 또는 메뉴에 **"앱 설치"** / **"홈 화면에 추가"**가 나타납니다.
+- `public/manifest.json`과 `public/sw.js`, 레이아웃의 manifest·테마 컬러·서비스 워커 등록이 이미 설정돼 있습니다.
+- Android에서 설치 아이콘이 안 보이면: **192×192**, **512×512** PNG 아이콘을 `public/icon-192.png`, `public/icon-512.png`로 추가해 보세요. (현재는 `public/icon.svg`만 있으며, 일부 기기는 PNG를 요구합니다.)
+
+---
+
 ## 5. 이후 수정사항 반영
 
 코드 수정 후 `git push` 하면 Vercel이 자동으로 다시 빌드·배포합니다. 환경 변수는 한 번 설정해 두면 그대로 유지됩니다.
@@ -80,3 +88,4 @@ git push -u origin main
 - [ ] `NEXT_PUBLIC_SUPABASE_URL` 추가 (Production·Preview·Development 체크)
 - [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` 추가 (Production·Preview·Development 체크)
 - [ ] Deploy 후 배포 URL에서 가계부/일기 동작 확인
+- [ ] (선택) Android에서 "앱 설치" 후 홈 화면 앱 아이콘으로 실행 확인
