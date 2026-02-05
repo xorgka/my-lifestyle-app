@@ -19,10 +19,10 @@ export default function InsightSystemPage() {
   const [editAuthor, setEditAuthor] = useState("");
 
   useEffect(() => {
-    setList(loadSystemInsights(RECOMMENDED_INSIGHTS));
+    loadSystemInsights(RECOMMENDED_INSIGHTS).then(setList);
   }, []);
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editingIndex == null) return;
     const q = editQuote.trim();
     const a = editAuthor.trim();
@@ -30,22 +30,22 @@ export default function InsightSystemPage() {
     const next = [...list];
     next[editingIndex] = { quote: q, author: a };
     setList(next);
-    saveSystemInsights(next);
+    await saveSystemInsights(next);
     setEditingIndex(null);
   };
 
-  const deleteAt = (i: number) => {
+  const deleteAt = async (i: number) => {
     if (typeof window !== "undefined" && !window.confirm("이 문장을 목록에서 삭제할까요?")) return;
     const next = list.filter((_, idx) => idx !== i);
     setList(next);
-    saveSystemInsights(next);
+    await saveSystemInsights(next);
     if (editingIndex === i) setEditingIndex(null);
     else if (editingIndex != null && editingIndex > i) setEditingIndex(editingIndex - 1);
   };
 
-  const resetToDefault = () => {
+  const resetToDefault = async () => {
     if (typeof window !== "undefined" && !window.confirm("기본 문장 목록으로 되돌릴까요? (수정·삭제한 내용이 사라집니다)")) return;
-    resetSystemInsightsToDefault(RECOMMENDED_INSIGHTS);
+    await resetSystemInsightsToDefault(RECOMMENDED_INSIGHTS);
     setList(RECOMMENDED_INSIGHTS);
     setEditingIndex(null);
   };
@@ -60,22 +60,22 @@ export default function InsightSystemPage() {
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href="/insight"
-          className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+          className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-base font-medium text-neutral-600 hover:bg-neutral-50"
         >
           ← 인사이트로
         </Link>
         <button
           type="button"
           onClick={resetToDefault}
-          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-base font-medium text-amber-800 hover:bg-amber-100"
         >
           기본 목록으로 되돌리기
         </button>
       </div>
 
       <Card className="min-w-0 space-y-4">
-        <p className="text-sm text-neutral-500">
-          총 {list.length}개 문장. 수정·삭제 내용은 이 기기에만 저장돼요.
+        <p className="text-base text-neutral-500">
+          총 {list.length}개 문장. Supabase 연결 시 다른 기기와 동기화돼요.
         </p>
         <div className="max-h-[70vh] min-w-0 space-y-3 overflow-y-auto">
           {list.map((item, i) => (
@@ -89,28 +89,28 @@ export default function InsightSystemPage() {
                     value={editQuote}
                     onChange={(e) => setEditQuote(e.target.value)}
                     rows={3}
-                    className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
+                    className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
                     placeholder="문장"
                   />
                   <input
                     type="text"
                     value={editAuthor}
                     onChange={(e) => setEditAuthor(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
                     placeholder="출처(인물명)"
                   />
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={saveEdit}
-                      className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+                      className="rounded-lg bg-neutral-900 px-4 py-2 text-base font-medium text-white hover:bg-neutral-800"
                     >
                       저장
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingIndex(null)}
-                      className="rounded-lg px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-200"
+                      className="rounded-lg px-4 py-2 text-base text-neutral-500 hover:bg-neutral-200"
                     >
                       취소
                     </button>
@@ -118,13 +118,13 @@ export default function InsightSystemPage() {
                 </div>
               ) : (
                 <>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-800">
+                  <p className="whitespace-pre-wrap text-base leading-relaxed text-neutral-800 md:text-lg">
                     {item.quote}
                   </p>
                   {item.author && (
-                    <p className="mt-1 text-xs text-neutral-500">— {item.author}</p>
+                    <p className="mt-1 text-sm text-neutral-500">— {item.author}</p>
                   )}
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-3 flex gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -132,14 +132,14 @@ export default function InsightSystemPage() {
                         setEditQuote(item.quote);
                         setEditAuthor(item.author);
                       }}
-                      className="rounded-lg px-2.5 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-200"
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-200"
                     >
                       수정
                     </button>
                     <button
                       type="button"
                       onClick={() => deleteAt(i)}
-                      className="rounded-lg px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
                     >
                       삭제
                     </button>

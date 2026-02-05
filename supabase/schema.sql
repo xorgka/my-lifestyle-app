@@ -104,6 +104,19 @@ create table if not exists routine_completions (
 create index if not exists idx_routine_completions_date on routine_completions (date);
 
 -- ------------------------------------------------------------
+-- 5. 인사이트 시스템 기본 문장 (수정·삭제 시 기기 간 동기화)
+-- ------------------------------------------------------------
+create table if not exists insight_system_quotes (
+  id serial primary key,
+  quote text not null,
+  author text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_insight_system_quotes_sort on insight_system_quotes (sort_order);
+
+-- ------------------------------------------------------------
 -- RLS (Row Level Security) - 현재는 anon 허용, 나중에 auth 붙이면 user_id로 제한
 -- ------------------------------------------------------------
 
@@ -114,6 +127,7 @@ alter table journal_entries enable row level security;
 alter table youtube_channels enable row level security;
 alter table routine_items enable row level security;
 alter table routine_completions enable row level security;
+alter table insight_system_quotes enable row level security;
 
 -- anon 키로 모든 작업 허용 (단일 사용자/비로그인 사용 가정)
 create policy "allow all budget_entries" on budget_entries for all using (true) with check (true);
@@ -123,6 +137,7 @@ create policy "allow all journal_entries" on journal_entries for all using (true
 create policy "allow all youtube_channels" on youtube_channels for all using (true) with check (true);
 create policy "allow all routine_items" on routine_items for all using (true) with check (true);
 create policy "allow all routine_completions" on routine_completions for all using (true) with check (true);
+create policy "allow all insight_system_quotes" on insight_system_quotes for all using (true) with check (true);
 
 -- updated_at 자동 갱신 (선택)
 create or replace function set_updated_at()

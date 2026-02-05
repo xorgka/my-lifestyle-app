@@ -153,16 +153,21 @@ export default function InsightPage() {
         title="인사이트"
         subtitle="요즘 마음에 남았던 한 문장을 조용히 모아두는 공간이에요."
       />
-      <p className="text-sm text-neutral-500">
-        <Link href="/insight/system" className="underline hover:text-neutral-700">
-          기본 문장 수정/삭제
-        </Link>
-        {" "}— 홈에 나오는 시스템 문장을 웹에서 관리할 수 있어요.
-      </p>
 
-      {/* 입력 영역 - 은은한 그라데이션으로 구분 */}
-      <Card className="min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300">
-        <h2 className="text-xl font-semibold text-neutral-900">
+      {/* 입력 영역 - 은은한 그라데이션으로 구분, 우측 상단 톱니(기본 문장 관리) */}
+      <Card className="relative min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300">
+        <Link
+          href="/insight/system"
+          className="absolute right-4 top-4 rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+          title="기본 문장 관리"
+          aria-label="기본 문장 관리"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </Link>
+        <h2 className="pr-10 text-xl font-semibold text-neutral-900">
           오늘 마음에 남은 문장
         </h2>
         <p className="text-sm text-neutral-500">

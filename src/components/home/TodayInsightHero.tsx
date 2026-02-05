@@ -452,27 +452,36 @@ export function TodayInsightHero() {
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
 
   useEffect(() => {
-    try {
-      if (typeof window === "undefined") return;
-      let userList: string[] = [];
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as InsightItem[];
-        userList = parsed
-          .filter((item) => item.text && item.text.trim())
-          .map((item) => item.text.trim());
+    let cancelled = false;
+    (async () => {
+      try {
+        if (typeof window === "undefined") return;
+        let userList: string[] = [];
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as InsightItem[];
+          userList = parsed
+            .filter((item) => item.text && item.text.trim())
+            .map((item) => item.text.trim());
+        }
+        const systemList = await loadSystemInsights(RECOMMENDED_INSIGHTS);
+        if (cancelled) return;
+        const combined = shuffle<ListItem>([...userList, ...systemList]);
+        if (combined.length > 0) {
+          setList(combined);
+          setIndex(pickDailyIndex(combined.length));
+        }
+      } catch {
+        const systemList = await loadSystemInsights(RECOMMENDED_INSIGHTS);
+        if (!cancelled) {
+          setList(systemList);
+          setIndex(pickDailyIndex(systemList.length));
+        }
       }
-      const systemList = loadSystemInsights(RECOMMENDED_INSIGHTS);
-      const combined = shuffle<ListItem>([...userList, ...systemList]);
-      if (combined.length > 0) {
-        setList(combined);
-        setIndex(pickDailyIndex(combined.length));
-      }
-    } catch {
-      const systemList = loadSystemInsights(RECOMMENDED_INSIGHTS);
-      setList(systemList);
-      setIndex(pickDailyIndex(systemList.length));
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (list.length === 0) {
