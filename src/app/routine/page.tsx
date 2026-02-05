@@ -11,7 +11,6 @@ import {
   loadRoutineCompletions,
   saveRoutineCompletions,
 } from "@/lib/routineDb";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 type RoutineItem = {
   id: number;
@@ -380,25 +379,6 @@ export default function RoutinePage() {
         title="루틴"
         subtitle="체크할수록 폭죽처럼 터지는, 오늘의 작은 승리들."
       />
-      {/* 연동 상태: 항상 표시 (초록 = Supabase 연결됨, 노랑 = 이 기기만 저장) */}
-      <div
-        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ${
-          isSupabaseConfigured
-            ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-            : "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
-        }`}
-      >
-        <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-            isSupabaseConfigured ? "bg-emerald-500" : "bg-amber-500"
-          }`}
-        />
-        {isSupabaseConfigured ? (
-          <>Supabase 연결됨 · 기기 간 동기화</>
-        ) : (
-          <>이 기기에만 저장됨 · 연동하려면 배포 환경에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 설정 후 재배포</>
-        )}
-      </div>
 
       {/* 오늘의 진행률 - 가로 배치, 100%일 때 강조 */}
       <Card
