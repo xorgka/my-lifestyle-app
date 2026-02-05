@@ -502,6 +502,11 @@ export default function FinancePage() {
     2025: 62_880_691,
   };
 
+  /** 연도별 총 매출 고정값 (있으면 수입 데이터 대신 사용) */
+  const FIXED_TOTAL_INCOME: Record<number, number> = {
+    2023: 51_182_684,
+  };
+
   /** 21~23년 사업 및 경비 고정값 (연도별 통계 순수익용, 수입 페이지 시드와 동일) */
   const FIXED_BUSINESS_EXPENSE: Record<number, number> = {
     2021: 1_898_110,
@@ -518,7 +523,9 @@ export default function FinancePage() {
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
     return yearList.map((y) => {
       const yNum = Number(y);
-      const 매출 = incomeEntries.filter((e) => e.year === yNum).reduce((s, e) => s + e.amount, 0);
+      const 매출 =
+        FIXED_TOTAL_INCOME[yNum] ??
+        incomeEntries.filter((e) => e.year === yNum).reduce((s, e) => s + e.amount, 0);
       const 지출표시값 =
         FIXED_TOTAL_EXPENSE[yNum] ??
         (yNum >= 2026
