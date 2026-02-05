@@ -233,7 +233,11 @@ export default function JournalPage() {
       }
       const target = document.activeElement?.tagName ?? "";
       const inInput = target === "TEXTAREA" || target === "INPUT";
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") return;
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        save();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "ArrowLeft") {
         e.preventDefault();
         goPrevDay();
@@ -275,8 +279,15 @@ export default function JournalPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showExport, setShowExport] = useState(false);
-  const [exportFrom, setExportFrom] = useState(todayStr().slice(0, 7) + "-01");
-  const [exportTo, setExportTo] = useState(todayStr());
+  const now = new Date();
+  const [exportYear, setExportYear] = useState(currentYear);
+  const [exportRangeType, setExportRangeType] = useState<"month" | "year" | "range" | "all">("range");
+  const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
+  const [exportRangeFrom, setExportRangeFrom] = useState(() => {
+    const d = new Date(currentYear - 1, now.getMonth(), now.getDate());
+    return d.toISOString().slice(0, 10);
+  });
+  const [exportRangeTo, setExportRangeTo] = useState(todayStr());
   const searchQueryNorm = searchQuery.trim().toLowerCase();
   const searchResults = searchQueryNorm
     ? entries
@@ -286,11 +297,29 @@ export default function JournalPage() {
         .reverse()
     : [];
 
-  const exportCount = entries.filter(
-    (e) => e.date >= exportFrom && e.date <= exportTo
-  ).length;
+  const getExportFromTo = (): [string, string] => {
+    if (exportRangeType === "month") {
+      const y = exportYear;
+      const m = String(exportMonth).padStart(2, "0");
+      const lastDay = new Date(y, exportMonth, 0).getDate();
+      return [`${y}-${m}-01`, `${y}-${m}-${String(lastDay).padStart(2, "0")}`];
+    }
+    if (exportRangeType === "year") {
+      return [`${exportYear}-01-01`, `${exportYear}-12-31`];
+    }
+    if (exportRangeType === "range") {
+      return [exportRangeFrom, exportRangeTo];
+    }
+    return ["2000-01-01", "2030-12-31"];
+  };
 
-  const exportRange = (from: string, to: string) => {
+  const exportCount = (() => {
+    const [from, to] = getExportFromTo();
+    return entries.filter((e) => e.date >= from && e.date <= to).length;
+  })();
+
+  const runExport = () => {
+    const [from, to] = getExportFromTo();
     const list = entries.filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
     const text = list
       .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
@@ -369,7 +398,7 @@ export default function JournalPage() {
             ★
           </button>
           {/* 날짜 표시 (PC·모바일 공통) + 좌우 이동 (PC는 상단, 모바일은 저장 옆) */}
-          <div className="mb-6 flex flex-wrap items-center gap-1 pr-10">
+          <div className="mb-6 flex flex-wrap items-center gap-2.5 pr-10">
             <div className="hidden md:flex items-center gap-1">
               <button
                 type="button"
@@ -397,14 +426,14 @@ export default function JournalPage() {
               {formatDateLabel(selectedDate)}
             </span>
             {isToday ? (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[13px] font-medium text-emerald-800">
                 오늘
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => setSelectedDate(todayStr())}
-                className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800"
+                className="rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800"
               >
                 오늘로 이동
               </button>
@@ -424,7 +453,7 @@ export default function JournalPage() {
             <div className="bg-neutral-50/50 px-4 py-4 md:bg-transparent md:px-0 md:py-0">
               <div className="relative">
                 {/* 좌측 상단: 쓰기/미리보기 토글 */}
-                <div className="absolute left-2 top-2 z-10">
+                <div className="absolute left-3 top-3 z-10">
                   <button
                     type="button"
                     onClick={() => setViewMode((m) => (m === "write" ? "preview" : "write"))}
@@ -450,17 +479,17 @@ export default function JournalPage() {
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {
-                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
                         e.preventDefault();
                         save();
                       }
                     }}
                     placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
-                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-14 pb-10 text-[19px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-12 md:pr-10"
+                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-12 md:pr-10"
                     rows={16}
                   />
                 ) : (
-                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-14 pb-10 text-[19px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pl-12 md:pr-10">
+                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pl-12 md:pr-10">
                     {draft.trim() ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
@@ -511,7 +540,7 @@ export default function JournalPage() {
                 className="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-xs text-white opacity-0 transition-[opacity,visibility] duration-75 peer-hover:visible peer-hover:opacity-100"
                 role="tooltip"
               >
-                저장 (Ctrl+Enter / ⌘+Enter)
+                저장 (Ctrl+S / ⌘+S)
               </span>
             </span>
             {entryForDate && (
@@ -538,7 +567,7 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed right-8 top-[20vh] z-50 flex h-[55vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
+                  "fixed right-20 top-[24vh] z-50 flex h-[55vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
                   drawerAnimated ? "translate-x-0" : "translate-x-full"
                 )}
                 role="dialog"
@@ -695,14 +724,74 @@ export default function JournalPage() {
                   </button>
                   {showExport && (
                     <Card className="!p-4">
-                      <p className="mb-3 text-sm font-medium text-neutral-700">기간 선택 후 다운로드 (마크다운)</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm" />
-                        <span className="text-neutral-400">~</span>
-                        <input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm" />
-                        <button type="button" onClick={() => exportRange(exportFrom, exportTo)} className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700">다운로드</button>
+                      <p className="mb-3 text-sm font-semibold text-neutral-800">일기장 내보내기</p>
+                      <p className="mb-3 text-xs text-neutral-500">연도와 범위를 선택한 뒤 내보내기를 누르세요.</p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-500">연도</label>
+                          <select
+                            value={exportYear}
+                            onChange={(e) => setExportYear(Number(e.target.value))}
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                          >
+                            {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
+                              <option key={y} value={y}>{y}년</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-medium text-neutral-500">내보내기 범위</span>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="radio" name="journalExportRange" checked={exportRangeType === "month"} onChange={() => setExportRangeType("month")} className="text-neutral-700" />
+                              <span className="text-xs">특정 월</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="radio" name="journalExportRange" checked={exportRangeType === "year"} onChange={() => setExportRangeType("year")} className="text-neutral-700" />
+                              <span className="text-xs">특정 연도</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="radio" name="journalExportRange" checked={exportRangeType === "range"} onChange={() => setExportRangeType("range")} className="text-neutral-700" />
+                              <span className="text-xs">특정 기간</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="radio" name="journalExportRange" checked={exportRangeType === "all"} onChange={() => setExportRangeType("all")} className="text-neutral-700" />
+                              <span className="text-xs">전부</span>
+                            </label>
+                          </div>
+                        </div>
+                        {exportRangeType === "month" && (
+                          <div>
+                            <label className="block text-xs font-medium text-neutral-500">월</label>
+                            <select
+                              value={exportMonth}
+                              onChange={(e) => setExportMonth(Number(e.target.value))}
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                            >
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                <option key={m} value={m}>{m}월</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        {exportRangeType === "range" && (
+                          <div>
+                            <label className="block text-xs font-medium text-neutral-500">시작일 ~ 종료일</label>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <input type="date" value={exportRangeFrom} onChange={(e) => setExportRangeFrom(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm" />
+                              <span className="text-neutral-400">~</span>
+                              <input type="date" value={exportRangeTo} onChange={(e) => setExportRangeTo(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm" />
+                            </div>
+                          </div>
+                        )}
+                        {exportRangeType === "all" && (
+                          <p className="text-xs text-neutral-600">저장된 전체 데이터를 내보냅니다.</p>
+                        )}
+                        <p className="text-sm text-neutral-600"><strong>{exportCount}</strong>편 내보내기</p>
                       </div>
-                      <p className="mt-2 text-xs text-neutral-500">{exportFrom} ~ {exportTo}: <strong>{exportCount}편</strong></p>
+                      <div className="mt-3 flex justify-end">
+                        <button type="button" onClick={runExport} className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">내보내기</button>
+                      </div>
                     </Card>
                   )}
                 </div>

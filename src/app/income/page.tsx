@@ -64,11 +64,16 @@ export default function IncomePage() {
   /** 수정 중인 항목 */
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const now = new Date();
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportYear, setExportYear] = useState(new Date().getFullYear());
-  const [exportRange, setExportRange] = useState<"year" | "month" | "months">("year");
-  const [exportMonth, setExportMonth] = useState(new Date().getMonth() + 1);
-  const [exportMonths, setExportMonths] = useState<number[]>([]);
+  const [exportYear, setExportYear] = useState(now.getFullYear());
+  const [exportRange, setExportRange] = useState<"month" | "year" | "range" | "all">("year");
+  const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
+  const [exportRangeFrom, setExportRangeFrom] = useState(() => {
+    const d = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    return d.toISOString().slice(0, 10);
+  });
+  const [exportRangeTo, setExportRangeTo] = useState(() => now.toISOString().slice(0, 10));
   const [editItem, setEditItem] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editMonth, setEditMonth] = useState(1);
@@ -359,13 +364,19 @@ export default function IncomePage() {
         (e) => e.year === exportYear && e.month === exportMonth
       );
     }
-    if (exportRange === "months" && exportMonths.length > 0) {
-      return incomeEntries.filter(
-        (e) => e.year === exportYear && exportMonths.includes(e.month)
-      );
+    if (exportRange === "range") {
+      const fromYm = exportRangeFrom.slice(0, 7);
+      const toYm = exportRangeTo.slice(0, 7);
+      return incomeEntries.filter((e) => {
+        const ym = `${e.year}-${String(e.month).padStart(2, "0")}`;
+        return ym >= fromYm && ym <= toYm;
+      });
+    }
+    if (exportRange === "all") {
+      return incomeEntries;
     }
     return incomeEntries.filter((e) => e.year === exportYear);
-  }, [incomeEntries, exportYear, exportRange, exportMonth, exportMonths]);
+  }, [incomeEntries, exportYear, exportRange, exportMonth, exportRangeFrom, exportRangeTo]);
 
   const runExportExcel = () => {
     const toExport = getIncomeEntriesForExport();
@@ -397,18 +408,12 @@ export default function IncomePage() {
         ? `${exportYear}년`
         : exportRange === "month"
           ? `${exportYear}-${String(exportMonth).padStart(2, "0")}`
-          : exportMonths.length > 0
-            ? `${exportYear}-${exportMonths.slice().sort((a, b) => a - b).join("-")}`
-            : exportYear;
+          : exportRange === "range"
+            ? `${exportRangeFrom.slice(0, 7)}_${exportRangeTo.slice(0, 7)}`
+            : "전체";
     const fileName = `수입내역_${suffix}.xlsx`;
     XLSX.writeFile(wb, fileName);
     setShowExportModal(false);
-  };
-
-  const toggleExportMonth = (m: number) => {
-    setExportMonths((prev) =>
-      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m].sort((a, b) => a - b)
-    );
   };
 
   return (
@@ -433,7 +438,7 @@ export default function IncomePage() {
             onClick={() => setShowExportModal(true)}
             className="shrink-0 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
           >
-            내보내기 (엑셀)
+            내보내기
           </button>
         </div>
         <div className="order-2 flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:order-1 sm:min-w-[180px] md:max-w-md">
@@ -766,17 +771,20 @@ export default function IncomePage() {
         </Card>
       </div>
 
-      {/* 내보내기 (엑셀) 모달 */}
-      {showExportModal && (
-        <div
-          className="fixed inset-0 z-50 flex h-screen items-center justify-center overflow-y-auto bg-black/40 p-4"
-          onClick={() => setShowExportModal(false)}
-        >
+      {/* 내보내기 모달 (body에 포탈 → 화면 전체 어둡게) */}
+      {showExportModal &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/55 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => setShowExportModal(false)}
           >
-            <h3 className="text-lg font-semibold text-neutral-900">수입 엑셀 내보내기</h3>
+            <div
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">수입 내보내기</h3>
             <p className="mt-1 text-sm text-neutral-500">
               연도와 범위를 선택한 뒤 내보내기를 누르세요.
             </p>
@@ -800,16 +808,6 @@ export default function IncomePage() {
                     <input
                       type="radio"
                       name="exportRange"
-                      checked={exportRange === "year"}
-                      onChange={() => setExportRange("year")}
-                      className="text-neutral-700"
-                    />
-                    <span className="text-sm">해당 연도 전체</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="exportRange"
                       checked={exportRange === "month"}
                       onChange={() => setExportRange("month")}
                       className="text-neutral-700"
@@ -820,11 +818,31 @@ export default function IncomePage() {
                     <input
                       type="radio"
                       name="exportRange"
-                      checked={exportRange === "months"}
-                      onChange={() => setExportRange("months")}
+                      checked={exportRange === "year"}
+                      onChange={() => setExportRange("year")}
                       className="text-neutral-700"
                     />
-                    <span className="text-sm">여러 월</span>
+                    <span className="text-sm">특정 연도</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="exportRange"
+                      checked={exportRange === "range"}
+                      onChange={() => setExportRange("range")}
+                      className="text-neutral-700"
+                    />
+                    <span className="text-sm">특정 기간</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="exportRange"
+                      checked={exportRange === "all"}
+                      onChange={() => setExportRange("all")}
+                      className="text-neutral-700"
+                    />
+                    <span className="text-sm">전부</span>
                   </label>
                 </div>
               </div>
@@ -842,26 +860,28 @@ export default function IncomePage() {
                   </select>
                 </div>
               )}
-              {exportRange === "months" && (
+              {exportRange === "range" && (
                 <div>
-                  <span className="block text-xs font-medium text-neutral-500">월 (복수 선택)</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {MONTHS.map((m) => (
-                      <label
-                        key={m}
-                        className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:bg-neutral-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={exportMonths.includes(m)}
-                          onChange={() => toggleExportMonth(m)}
-                          className="rounded text-neutral-700"
-                        />
-                        <span>{m}월</span>
-                      </label>
-                    ))}
+                  <label className="block text-xs font-medium text-neutral-500">시작일 ~ 종료일</label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      value={exportRangeFrom}
+                      onChange={(e) => setExportRangeFrom(e.target.value)}
+                      className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                    />
+                    <span className="text-neutral-400">~</span>
+                    <input
+                      type="date"
+                      value={exportRangeTo}
+                      onChange={(e) => setExportRangeTo(e.target.value)}
+                      className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                    />
                   </div>
                 </div>
+              )}
+              {exportRange === "all" && (
+                <p className="text-sm text-neutral-600">저장된 전체 데이터를 내보냅니다.</p>
               )}
               <p className="text-sm text-neutral-600">
                 <strong>{getIncomeEntriesForExport().length}</strong>건 내보내기
@@ -880,12 +900,13 @@ export default function IncomePage() {
                 onClick={runExportExcel}
                 className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
               >
-                엑셀 내보내기
+                내보내기
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
 
       {detailModal &&
         typeof document !== "undefined" &&

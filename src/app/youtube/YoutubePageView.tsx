@@ -1,9 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { createPortal } from "react-dom";
+import * as XLSX from "xlsx";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
+import { formatAmountShort } from "@/components/ui/AmountToggle";
 
 type ChannelRecord = {
   id: number;
@@ -72,10 +74,81 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const channelMonthRevenue = p.channelMonthRevenue as (c: ChannelRecord, yyyyMm: string) => number;
   const channelTotalRevenue = p.channelTotalRevenue as (c: ChannelRecord) => number;
 
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportRange, setExportRange] = useState<"month" | "year" | "range" | "all">("year");
+  const [exportYear, setExportYear] = useState(currentYear);
+  const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
+  const [exportRangeFrom, setExportRangeFrom] = useState(() => {
+    const d = new Date(currentYear - 1, now.getMonth(), now.getDate());
+    return d.toISOString().slice(0, 10);
+  });
+  const [exportRangeTo, setExportRangeTo] = useState(() => now.toISOString().slice(0, 10));
+
+  const getFromTo = (): [string, string] => {
+    if (exportRange === "month") {
+      const y = exportYear;
+      const m = String(exportMonth).padStart(2, "0");
+      const lastDay = new Date(y, exportMonth, 0).getDate();
+      return [`${y}-${m}-01`, `${y}-${m}-${String(lastDay).padStart(2, "0")}`];
+    }
+    if (exportRange === "year") {
+      return [`${exportYear}-01-01`, `${exportYear}-12-31`];
+    }
+    if (exportRange === "range") {
+      return [exportRangeFrom, exportRangeTo];
+    }
+    return ["2000-01-01", "2030-12-31"];
+  };
+
+  const doExport = () => {
+    const [from, to] = getFromTo();
+    const fromYm = from.slice(0, 7);
+    const toYm = to.slice(0, 7);
+    let years = [...new Set(
+      Object.keys(monthlyAggregate)
+        .filter((k) => k >= fromYm && k <= toYm)
+        .map((k) => parseInt(k.slice(0, 4), 10))
+    )].sort((a, b) => a - b);
+    if (years.length === 0) {
+      years = fromYm <= "2027" && toYm >= "2026" ? [2026, 2027] : [currentYear];
+    }
+
+    const wb = XLSX.utils.book_new();
+    years.forEach((y) => {
+      const yearTotal = Object.entries(monthlyAggregate)
+        .filter(([k]) => k.startsWith(String(y)) && k >= fromYm && k <= toYm)
+        .reduce((a, [, v]) => a + v, 0);
+      const rows: (string | number)[][] = [
+        ["월", "수익(원)"],
+        ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+          const yyyyMm = `${y}-${String(m).padStart(2, "0")}`;
+          const amount = yyyyMm >= fromYm && yyyyMm <= toYm ? (monthlyAggregate[yyyyMm] ?? 0) : 0;
+          return [`${m}월`, formatted(amount)];
+        }),
+        ["연 전체", formatted(yearTotal)],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, `${y}년`);
+    });
+    const suffix = exportRange === "month"
+      ? `${exportYear}-${String(exportMonth).padStart(2, "0")}`
+      : exportRange === "year"
+        ? `${exportYear}년`
+        : exportRange === "range"
+          ? `${fromYm}_${toYm}`
+          : "전체";
+    XLSX.writeFile(wb, `채널수익_${suffix}.xlsx`);
+    setShowExportModal(false);
+  };
+
+  const formatChannelAmount = (n: number) => (n >= 10_000 ? formatAmountShort(n) : `${formatted(n)}원`);
+
   return (
     <div className="min-w-0 space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 flex-1">
+      {channelsLoading || channels.length === 0 ? (
+        <div className="min-w-0">
           <SectionTitle
             title="유튜브"
             subtitle="채널별 수익, 계정 정보, 메모를 한 곳에서 관리해요."
@@ -87,14 +160,29 @@ export function YoutubePageView(props: Record<string, unknown>) {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="shrink-0 rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 hover:shadow-[0_10px_26px_rgba(0,0,0,0.15)]"
-        >
-          채널 추가
-        </button>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-end justify-between gap-2 min-w-0">
+          <div className="min-w-0">
+            <SectionTitle
+              title="유튜브"
+              subtitle="채널별 수익, 계정 정보, 메모를 한 곳에서 관리해요."
+              className="mb-0 pb-0"
+            />
+            {!useSupabase && (
+              <p className="mt-1 text-xs text-amber-600">
+                데이터가 이 기기만 저장돼요. 모바일 연동: 배포 환경에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 설정 후 재배포하세요.
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowExportModal(true)}
+            className="shrink-0 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+          >
+            내보내기
+          </button>
+        </div>
+      )}
 
       {channelsLoading ? (
         <Card className="py-12 text-center">
@@ -103,8 +191,18 @@ export function YoutubePageView(props: Record<string, unknown>) {
       ) : channels.length === 0 ? (
         <Card className="py-12 text-center">
           <p className="text-neutral-500">
-            등록된 채널이 없어요. &quot;채널 추가&quot;로 첫 채널을 등록해보세요.
+            등록된 채널이 없어요. 아래 버튼으로 첫 채널을 등록해보세요.
           </p>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            채널 추가
+          </button>
         </Card>
       ) : (
         <>
@@ -148,28 +246,47 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 ))}
               </div>
               {aggregateYear != null && (
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-3">
                   <h4 className="text-sm font-semibold text-neutral-700">
                     {aggregateYear}년 월별 수익
                   </h4>
-                  <ul className="space-y-1.5">
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
-                      const yyyyMm = `${aggregateYear}-${String(m).padStart(2, "0")}`;
-                      const amount = monthlyAggregate[yyyyMm] ?? 0;
-                      return (
-                        <li
-                          key={yyyyMm}
-                          className="flex justify-between rounded-lg bg-neutral-50/80 px-3 py-2 text-sm"
-                        >
-                          <span className="text-neutral-700">{m}월</span>
-                          <span className="font-medium text-neutral-900">
-                            {formatted(amount)}원
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="mt-3 flex justify-between rounded-xl bg-neutral-100 px-4 py-3 text-base font-semibold text-neutral-900">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-6 gap-2">
+                      {[1, 2, 3, 4, 5, 6].map((m) => {
+                        const yyyyMm = `${aggregateYear}-${String(m).padStart(2, "0")}`;
+                        const amount = monthlyAggregate[yyyyMm] ?? 0;
+                        return (
+                          <div
+                            key={yyyyMm}
+                            className="rounded-lg bg-neutral-50/80 px-2 py-2 text-center text-sm"
+                          >
+                            <div className="text-neutral-500 text-xs">{m}월</div>
+                            <div className="mt-0.5 font-medium text-neutral-900 break-all">
+                              {formatted(amount)}원
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-6 gap-2">
+                      {[7, 8, 9, 10, 11, 12].map((m) => {
+                        const yyyyMm = `${aggregateYear}-${String(m).padStart(2, "0")}`;
+                        const amount = monthlyAggregate[yyyyMm] ?? 0;
+                        return (
+                          <div
+                            key={yyyyMm}
+                            className="rounded-lg bg-neutral-50/80 px-2 py-2 text-center text-sm"
+                          >
+                            <div className="text-neutral-500 text-xs">{m}월</div>
+                            <div className="mt-0.5 font-medium text-neutral-900 break-all">
+                              {formatted(amount)}원
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex justify-between rounded-xl bg-neutral-100 px-4 py-3 text-base font-semibold text-neutral-900">
                     <span>{aggregateYear}년 연 전체 수익</span>
                     <span>
                       {formatted(
@@ -185,7 +302,169 @@ export function YoutubePageView(props: Record<string, unknown>) {
             </div>
           </Card>
 
+          {showExportModal &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto py-10 px-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="export-modal-title"
+              >
+                <div
+                  className="fixed inset-0 h-[100dvh] w-[100vw] min-h-full min-w-full bg-black/55"
+                  onClick={() => setShowExportModal(false)}
+                  aria-hidden
+                />
+                <div
+                  className="relative z-10 my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 id="export-modal-title" className="text-lg font-semibold text-neutral-900">
+                    유튜브 내보내기
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-500">
+                    연도와 범위를 선택한 뒤 내보내기를 누르세요.
+                  </p>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500">연도</label>
+                      <select
+                        value={exportYear}
+                        onChange={(e) => setExportYear(Number(e.target.value))}
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                      >
+                        {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
+                          <option key={y} value={y}>{y}년</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-xs font-medium text-neutral-500">내보내기 범위</span>
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="radio"
+                            name="exportRange"
+                            checked={exportRange === "month"}
+                            onChange={() => setExportRange("month")}
+                            className="text-neutral-700"
+                          />
+                          <span className="text-sm">특정 월</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="radio"
+                            name="exportRange"
+                            checked={exportRange === "year"}
+                            onChange={() => setExportRange("year")}
+                            className="text-neutral-700"
+                          />
+                          <span className="text-sm">특정 연도</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="radio"
+                            name="exportRange"
+                            checked={exportRange === "range"}
+                            onChange={() => setExportRange("range")}
+                            className="text-neutral-700"
+                          />
+                          <span className="text-sm">특정 기간</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="radio"
+                            name="exportRange"
+                            checked={exportRange === "all"}
+                            onChange={() => setExportRange("all")}
+                            className="text-neutral-700"
+                          />
+                          <span className="text-sm">전부</span>
+                        </label>
+                      </div>
+                    </div>
+                    {exportRange === "month" && (
+                      <div>
+                        <label className="block text-xs font-medium text-neutral-500">월</label>
+                        <select
+                          value={exportMonth}
+                          onChange={(e) => setExportMonth(Number(e.target.value))}
+                          className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                        >
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                            <option key={m} value={m}>{m}월</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {exportRange === "range" && (
+                      <div>
+                        <label className="block text-xs font-medium text-neutral-500">시작일 ~ 종료일</label>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <input
+                            type="date"
+                            value={exportRangeFrom}
+                            onChange={(e) => setExportRangeFrom(e.target.value)}
+                            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                          />
+                          <span className="text-neutral-400">~</span>
+                          <input
+                            type="date"
+                            value={exportRangeTo}
+                            onChange={(e) => setExportRangeTo(e.target.value)}
+                            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {exportRange === "all" && (
+                      <p className="text-sm text-neutral-600">저장된 전체 데이터를 내보냅니다.</p>
+                    )}
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowExportModal(false)}
+                      className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={doExport}
+                      className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                    >
+                      내보내기
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+
           <Card className="overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2">
+              <h3 className="text-lg font-semibold text-neutral-800">채널 LIST</h3>
+              <span className="group relative inline-block">
+                <button
+                  type="button"
+                  onClick={openAdd}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-neutral-600 transition hover:bg-neutral-200 hover:text-neutral-900"
+                  aria-label="채널 추가"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </button>
+                <span
+                  className="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-xs text-white opacity-0 transition-[opacity,visibility] duration-150 group-hover:visible group-hover:opacity-100"
+                  role="tooltip"
+                >
+                  채널 추가
+                </span>
+              </span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
@@ -238,8 +517,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
                           보기
                         </button>
                       </td>
-                      <td className="px-5 py-3 font-medium text-neutral-900">
-                        {formatted(channelMonthRevenue(ch, currentYearMonth))}원
+                      <td className="px-5 py-3 font-medium text-neutral-900" title={formatted(channelMonthRevenue(ch, currentYearMonth)) + "원"}>
+                        {formatChannelAmount(channelMonthRevenue(ch, currentYearMonth))}
                       </td>
                       <td className="px-5 py-3">
                         <button
@@ -249,8 +528,9 @@ export function YoutubePageView(props: Record<string, unknown>) {
                             setChannelRevenueYear(new Date().getFullYear());
                           }}
                           className="inline-flex items-center gap-1.5 rounded-lg font-medium text-neutral-900 hover:bg-neutral-100 hover:text-neutral-700 px-1.5 py-0.5 -mx-1.5 -my-0.5 transition"
+                          title={formatted(channelTotalRevenue(ch)) + "원"}
                         >
-                          <span>{formatted(channelTotalRevenue(ch))}원</span>
+                          <span>{formatChannelAmount(channelTotalRevenue(ch))}</span>
                           <span className="text-neutral-400" aria-hidden>
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
