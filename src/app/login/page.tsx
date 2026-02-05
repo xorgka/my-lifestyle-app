@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -9,6 +9,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("message") === "access_denied") {
+      setError("접근 권한이 없습니다. 허용된 계정만 사용할 수 있습니다.");
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,14 +100,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-neutral-500">
-          계정이 없으시면{" "}
-          <Link
-            href="/signup"
-            className="font-medium text-neutral-700 underline underline-offset-2 hover:text-neutral-900"
-          >
-            회원가입
-          </Link>
-          을 진행해 주세요.
+          본인 전용 앱입니다. 계정은 Supabase 대시보드에서만 생성할 수 있습니다.
         </p>
       </div>
     </div>
