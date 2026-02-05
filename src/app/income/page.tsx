@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
+import { AmountToggle } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
   DEFAULT_KEYWORDS,
@@ -541,27 +542,29 @@ export default function IncomePage() {
               총 매출
             </div>
             <div className="mt-2 text-[25px] font-bold tracking-tight text-neutral-900">
-              {formatNum(yearIncomeTotal)}원
+              <AmountToggle amount={yearIncomeTotal} />
             </div>
           </div>
           <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
               연 순수익 (총매출 - 사업 및 경비)
             </div>
-            <div
-              className={`mt-2 text-[25px] font-bold tracking-tight ${yearNetProfit >= 0 ? "text-blue-600" : "text-red-600"}`}
-            >
-              {formatNum(yearNetProfit)}원
+            <div className="mt-2 text-[25px] font-bold tracking-tight">
+              <AmountToggle
+                amount={yearNetProfit}
+                variant={yearNetProfit >= 0 ? "profit" : "loss"}
+              />
             </div>
           </div>
           <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
               월 평균수익 (연 순수익 ÷ 12)
             </div>
-            <div
-              className={`mt-2 text-[25px] font-bold tracking-tight ${monthNetProfit >= 0 ? "text-blue-600" : "text-red-600"}`}
-            >
-              {formatNum(Math.round(monthNetProfit))}원
+            <div className="mt-2 text-[25px] font-bold tracking-tight">
+              <AmountToggle
+                amount={Math.round(monthNetProfit)}
+                variant={monthNetProfit >= 0 ? "profit" : "loss"}
+              />
             </div>
           </div>
         </div>

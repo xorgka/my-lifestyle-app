@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
+import { AmountToggle } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
   type CategoryId,
@@ -32,11 +33,6 @@ import * as XLSX from "xlsx";
 
 function formatNum(n: number): string {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
-}
-
-/** 연도별 통계용: 만원 단위로 표시 (예: 60414405 → 6041만원) */
-function formatManwon(n: number): string {
-  return `${Math.round(n / 10000).toLocaleString("ko-KR")}만원`;
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -874,7 +870,8 @@ export default function FinancePage() {
             <div>
               <div className="inline-flex items-center gap-1.5 text-2xl font-semibold text-neutral-900">
                 <span>
-                  {parseInt(yearMonthForView.split("-")[1], 10)}월 지출: {formatNum(viewMonthTotalDisplay)}원
+                  {parseInt(yearMonthForView.split("-")[1], 10)}월 지출:{" "}
+                  <AmountToggle amount={viewMonthTotalDisplay} />
                 </span>
                 <span
                   title={
@@ -897,7 +894,9 @@ export default function FinancePage() {
                   className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm inline-flex items-center gap-3"
                 >
                   <span className="font-semibold">{CATEGORY_LABELS[cat]}</span>
-                  <span className="font-medium">{formatNum(viewMonthByCategory[cat])}원</span>
+                  <span className="font-medium">
+                    <AmountToggle amount={viewMonthByCategory[cat]} />
+                  </span>
                 </button>
               ))}
             </div>
@@ -1225,7 +1224,7 @@ export default function FinancePage() {
             <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
               <span className="text-sm font-medium text-neutral-600">총합</span>
               <span className="ml-2 text-xl font-semibold text-neutral-900">
-                {formatNum(viewMonthByCategory[categoryDetailModal])}원
+                <AmountToggle amount={viewMonthByCategory[categoryDetailModal]} />
               </span>
             </div>
             <div className="mt-4 space-y-4">
@@ -1469,7 +1468,6 @@ export default function FinancePage() {
               {[...yearlySummary].reverse().map((row) => {
                 const 순수익있음 = row.순수익 != null;
                 const 저축값 = row.지출데이터있음 ? row.매출 - row.지출 : null;
-                const 순수익표시 = !순수익있음 ? "데이터 없음" : formatManwon(row.순수익!);
                 return (
                   <tr
                     key={row.year}
@@ -1477,23 +1475,44 @@ export default function FinancePage() {
                   >
                     <td className="px-4 py-3 font-medium text-neutral-800">{row.year}년</td>
                     <td className="px-4 py-3 text-right text-neutral-700">
-                      {formatManwon(row.매출)}
+                      <AmountToggle amount={row.매출} />
                     </td>
                     <td
-                      className={`px-4 py-3 text-right font-medium ${!순수익있음 ? "text-neutral-500" : row.순수익! >= 0 ? "text-blue-600" : "text-red-600"}`}
+                      className={`px-4 py-3 text-right font-medium ${!순수익있음 ? "text-neutral-500" : ""}`}
                     >
-                      {순수익표시}
+                      {!순수익있음 ? "데이터 없음" : (
+                        <AmountToggle
+                          amount={row.순수익!}
+                          variant={row.순수익! >= 0 ? "profit" : "loss"}
+                        />
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">
-                      {row.지출데이터있음 ? formatManwon(row.지출) : "데이터 없음"}
+                      {row.지출데이터있음 ? (
+                        <AmountToggle amount={row.지출} variant="loss" />
+                      ) : (
+                        "데이터 없음"
+                      )}
                     </td>
                     <td
-                      className={`px-4 py-3 text-right font-medium ${저축값 !== null ? (저축값 >= 0 ? "text-blue-600" : "text-red-600") : "text-neutral-500"}`}
+                      className={`px-4 py-3 text-right font-medium ${저축값 !== null ? "" : "text-neutral-500"}`}
                     >
-                      {저축값 !== null ? formatManwon(저축값) : "데이터 없음"}
+                      {저축값 !== null ? (
+                        <AmountToggle
+                          amount={저축값}
+                          variant={저축값 >= 0 ? "profit" : "loss"}
+                        />
+                      ) : (
+                        "데이터 없음"
+                      )}
                     </td>
-                    <td className={`px-4 py-3 text-right ${!순수익있음 ? "text-neutral-500" : row.월평균수익 >= 0 ? "text-blue-600" : "text-red-600"}`}>
-                      {!순수익있음 ? "데이터 없음" : formatManwon(Math.round(row.월평균수익))}
+                    <td className={`px-4 py-3 text-right ${!순수익있음 ? "text-neutral-500" : ""}`}>
+                      {!순수익있음 ? "데이터 없음" : (
+                        <AmountToggle
+                          amount={Math.round(row.월평균수익)}
+                          variant={row.월평균수익 >= 0 ? "profit" : "loss"}
+                        />
+                      )}
                     </td>
                   </tr>
                 );

@@ -1,0 +1,48 @@
+"use client";
+
+import { useState } from "react";
+
+function formatNum(n: number): string {
+  return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
+}
+
+/** 반올림 축약: 2,804,949 → 280만원, 11,068,940 → 1,107만원, 1억 이상 → 1.6억원 */
+export function formatAmountShort(n: number): string {
+  if (n >= 100_000_000) {
+    const 억 = Math.round(n / 1_000_000) / 100;
+    return `${억}억원`;
+  }
+  const 만 = Math.round(n / 10_000);
+  return `${만.toLocaleString("ko-KR")}만원`;
+}
+
+type AmountToggleProps = {
+  amount: number;
+  className?: string;
+  /** 연도별 테이블 등에서 음수 색상 */
+  variant?: "default" | "profit" | "loss";
+};
+
+export function AmountToggle({ amount, className = "", variant = "default" }: AmountToggleProps) {
+  const [showFull, setShowFull] = useState(false);
+  const colorClass =
+    variant === "loss"
+      ? "text-red-600"
+      : variant === "profit"
+        ? "text-blue-600"
+        : "text-neutral-900";
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setShowFull((v) => !v);
+      }}
+      className={`cursor-pointer rounded px-0.5 py-0.5 text-left transition hover:bg-neutral-100 ${colorClass} ${className}`}
+      title={showFull ? "축약 표시로 전환" : "실제 금액 보기"}
+    >
+      {showFull ? `${formatNum(amount)}원` : formatAmountShort(amount)}
+    </button>
+  );
+}
