@@ -78,6 +78,10 @@ export default function JournalPage() {
   const [viewMode, setViewMode] = useState<"write" | "preview">("preview");
   /** 달력 셀 호버 시 첫 문장 툴팁 (바로 표시, 크게) */
   const [cellTooltip, setCellTooltip] = useState<{ dateStr: string; text: string; x: number; y: number } | null>(null);
+  /** 달력·검색 드로어 열림 */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  /** 드로어 슬라이드 인 애니메이션용 */
+  const [drawerAnimated, setDrawerAnimated] = useState(false);
   const load = useCallback(async () => {
     setJournalLoading(true);
     try {
@@ -91,6 +95,15 @@ export default function JournalPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      setDrawerAnimated(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setDrawerAnimated(true));
+    return () => cancelAnimationFrame(id);
+  }, [drawerOpen]);
 
   const entryForDate = entries.find((e) => e.date === selectedDate);
   const currentContent = entryForDate?.content ?? "";
@@ -214,6 +227,10 @@ export default function JournalPage() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+        return;
+      }
       const target = document.activeElement?.tagName ?? "";
       const inInput = target === "TEXTAREA" || target === "INPUT";
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") return;
@@ -315,15 +332,28 @@ export default function JournalPage() {
         </div>
       )}
 
-      <SectionTitle
-        title="일기장"
-        subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
-      />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <SectionTitle
+          title="일기장"
+          subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
+        />
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
+          aria-label="달력·검색 열기"
+        >
+          <svg className="h-5 w-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          달력
+        </button>
+      </div>
       {journalLoading && (
         <p className="text-sm text-neutral-500">불러오는 중…</p>
       )}
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="min-w-0">
         <Card className="relative flex min-w-0 flex-col overflow-visible">
           {/* 중요한 날: 우측 상단 별표 (크게, 비활성도 꽉 찬 별) */}
           <button
@@ -493,212 +523,188 @@ export default function JournalPage() {
           </div>
         </Card>
 
-        {/* 오른쪽: 연속 작성 + 검색 + 달력 + 내보내기 */}
-        <div className="flex flex-col gap-4">
-        {/* 연속 작성 (불 아이콘) - 검색 위 */}
-        {streak > 0 && (
-          <p className="flex items-center gap-1.5 text-sm text-neutral-500">
-            <span aria-hidden>🔥</span>
-            연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
-          </p>
-        )}
-        {/* 검색 - 달력 위, 정렬 맞춤 */}
-        <div className="space-y-2">
-          <div className="relative flex items-center">
-            <span className="pointer-events-none absolute left-0 flex h-full w-9 items-center justify-center text-neutral-400" aria-hidden>
-              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2M11 19a8 8 0 100-16 8 8 0 000 16z" />
-              </svg>
-            </span>
-            <input
-              type="search"
-              placeholder="일기에서 단어 검색"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+        {/* 드로어: 달력·검색·내보내기 (오른쪽에서 슬라이드) */}
+        {drawerOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/30 transition-opacity duration-200"
+              aria-hidden
+              onClick={() => setDrawerOpen(false)}
             />
-          </div>
-          {searchResults.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
-                {(showAllSearchResults ? searchResults : searchResults.slice(0, 6)).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setSelectedDate(d)}
-                    className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-              {searchResults.length > 6 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllSearchResults((v) => !v)}
-                  className="text-xs font-medium text-neutral-500 hover:text-neutral-700"
-                >
-                  {showAllSearchResults ? "접기" : `더 보기 (+${searchResults.length - 6})`}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        <Card className="h-fit !p-5 !pb-2 md:!p-5 md:!pb-2">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <select
-              value={year}
-              onChange={(e) => setCalendarYear(Number(e.target.value))}
-              className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm font-medium text-neutral-800"
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}년
-                </option>
-              ))}
-            </select>
-            <select
-              value={month}
-              onChange={(e) => setCalendarMonth(Number(e.target.value))}
-              className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm font-medium text-neutral-800"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <option key={m} value={m}>
-                  {m}월
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="mt-5">
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-neutral-400 sm:gap-2 sm:text-xs">
-              {weekLabels.map((w) => (
-                <span key={w}>{w}</span>
-              ))}
-            </div>
-            <div className="mt-1 grid grid-cols-7 gap-1 sm:mt-1.5 sm:gap-2">
-              {calendarCells.map((day, i) => {
-                if (day === null) {
-                  return <div key={i} className="aspect-square" />;
-                }
-                const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const entry = entriesByDate[dateStr];
-                const hasEntry = !!entry;
-                const hasDraftForThisDate = dateStr === selectedDate && draft.trim().length > 0;
-                const showTooltip = hasEntry || hasDraftForThisDate;
-                const tooltipText = hasEntry
-                  ? firstLinePreview(entry!.content, 80)
-                  : firstLinePreview(draft, 80);
-                const isImportant = entry?.important ?? false;
-                const isSelected = dateStr === selectedDate;
-                const dimmed = showOnlyImportant && (!hasEntry || !isImportant);
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setSelectedDate(dateStr)}
-                    onMouseEnter={(e) => {
-                      if (!showTooltip || !tooltipText.trim()) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setCellTooltip({
-                        dateStr,
-                        text: tooltipText,
-                        x: rect.left + rect.width / 2,
-                        y: rect.top,
-                      });
-                    }}
-                    onMouseLeave={() => setCellTooltip(null)}
-                    className={clsx(
-                      "relative aspect-square rounded-md text-sm transition sm:text-base",
-                      dimmed && "opacity-40",
-                      isSelected
-                        ? "bg-neutral-800 font-semibold text-white"
-                        : isImportant
-                          ? "bg-orange-200 font-medium text-orange-900 hover:bg-orange-300"
-                          : hasEntry
-                            ? "bg-neutral-200 font-medium text-neutral-800 hover:bg-neutral-300"
-                            : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
-                    )}
-                  >
-                    {day}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setShowOnlyImportant((v) => !v)}
+            <aside
               className={clsx(
-                "rounded-full p-2 text-2xl transition",
-                showOnlyImportant
-                  ? "text-orange-500"
-                  : "text-neutral-300 hover:text-orange-400"
+                "fixed right-0 top-0 z-50 flex h-full w-[min(320px,90vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
+                drawerAnimated ? "translate-x-0" : "translate-x-full"
               )}
-              title="중요한 날만 강조"
-              aria-label={showOnlyImportant ? "강조 해제" : "중요한 날만 강조"}
+              role="dialog"
+              aria-label="달력·검색"
             >
-              ★
-            </button>
-          </div>
-          {cellTooltip &&
-            typeof document !== "undefined" &&
-            createPortal(
-              <div
-                className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full rounded-lg bg-neutral-800 px-4 py-2.5 text-base text-white shadow-lg"
-                style={{
-                  left: cellTooltip.x,
-                  top: cellTooltip.y - 8,
-                  maxWidth: "min(320px, 90vw)",
-                }}
-              >
-                {cellTooltip.text}
-              </div>,
-              document.body
-            )}
-        </Card>
-
-        {/* 달력 아래: 내보내기 */}
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => setShowExport(!showExport)}
-            className="w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100"
-          >
-            내보내기
-          </button>
-          {showExport && (
-            <Card className="!p-4">
-              <p className="mb-3 text-sm font-medium text-neutral-700">기간 선택 후 다운로드 (마크다운)</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="date"
-                  value={exportFrom}
-                  onChange={(e) => setExportFrom(e.target.value)}
-                  className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm"
-                />
-                <span className="text-neutral-400">~</span>
-                <input
-                  type="date"
-                  value={exportTo}
-                  onChange={(e) => setExportTo(e.target.value)}
-                  className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm"
-                />
+              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                <span className="text-sm font-semibold text-neutral-800">달력 · 검색</span>
                 <button
                   type="button"
-                  onClick={() => exportRange(exportFrom, exportTo)}
-                  className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
+                  onClick={() => setDrawerOpen(false)}
+                  className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+                  aria-label="닫기"
                 >
-                  다운로드
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-              <p className="mt-2 text-xs text-neutral-500">
-                {exportFrom} ~ {exportTo}: <strong>{exportCount}편</strong>
-              </p>
-            </Card>
-          )}
-        </div>
-        </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {streak > 0 && (
+                  <p className="flex items-center gap-1.5 text-sm text-neutral-500">
+                    <span aria-hidden>🔥</span>
+                    연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
+                  </p>
+                )}
+                <div className="space-y-2">
+                  <div className="relative flex items-center">
+                    <span className="pointer-events-none absolute left-0 flex h-full w-9 items-center justify-center text-neutral-400" aria-hidden>
+                      <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                      </svg>
+                    </span>
+                    <input
+                      type="search"
+                      placeholder="일기에서 단어 검색"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                    />
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+                        {(showAllSearchResults ? searchResults : searchResults.slice(0, 6)).map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setSelectedDate(d)}
+                            className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                      {searchResults.length > 6 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllSearchResults((v) => !v)}
+                          className="text-xs font-medium text-neutral-500 hover:text-neutral-700"
+                        >
+                          {showAllSearchResults ? "접기" : `더 보기 (+${searchResults.length - 6})`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Card className="h-fit !p-5 !pb-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <select
+                      value={year}
+                      onChange={(e) => setCalendarYear(Number(e.target.value))}
+                      className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm font-medium text-neutral-800"
+                    >
+                      {yearOptions.map((y) => (
+                        <option key={y} value={y}>{y}년</option>
+                      ))}
+                    </select>
+                    <select
+                      value={month}
+                      onChange={(e) => setCalendarMonth(Number(e.target.value))}
+                      className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm font-medium text-neutral-800"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                        <option key={m} value={m}>{m}월</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mt-5">
+                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-neutral-400 sm:gap-2 sm:text-xs">
+                      {weekLabels.map((w) => (
+                        <span key={w}>{w}</span>
+                      ))}
+                    </div>
+                    <div className="mt-1 grid grid-cols-7 gap-1 sm:mt-1.5 sm:gap-2">
+                      {calendarCells.map((day, i) => {
+                        if (day === null) return <div key={i} className="aspect-square" />;
+                        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                        const entry = entriesByDate[dateStr];
+                        const hasEntry = !!entry;
+                        const hasDraftForThisDate = dateStr === selectedDate && draft.trim().length > 0;
+                        const showTooltip = hasEntry || hasDraftForThisDate;
+                        const tooltipText = hasEntry ? firstLinePreview(entry!.content, 80) : firstLinePreview(draft, 80);
+                        const isImportant = entry?.important ?? false;
+                        const isSelected = dateStr === selectedDate;
+                        const dimmed = showOnlyImportant && (!hasEntry || !isImportant);
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setSelectedDate(dateStr)}
+                            onMouseEnter={(e) => {
+                              if (!showTooltip || !tooltipText.trim()) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setCellTooltip({ dateStr, text: tooltipText, x: rect.left + rect.width / 2, y: rect.top });
+                            }}
+                            onMouseLeave={() => setCellTooltip(null)}
+                            className={clsx(
+                              "relative aspect-square rounded-md text-sm transition sm:text-base",
+                              dimmed && "opacity-40",
+                              isSelected ? "bg-neutral-800 font-semibold text-white" : isImportant ? "bg-orange-200 font-medium text-orange-900 hover:bg-orange-300" : hasEntry ? "bg-neutral-200 font-medium text-neutral-800 hover:bg-neutral-300" : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+                            )}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowOnlyImportant((v) => !v)}
+                      className={clsx("rounded-full p-2 text-2xl transition", showOnlyImportant ? "text-orange-500" : "text-neutral-300 hover:text-orange-400")}
+                      title="중요한 날만 강조"
+                      aria-label={showOnlyImportant ? "강조 해제" : "중요한 날만 강조"}
+                    >
+                      ★
+                    </button>
+                  </div>
+                  {cellTooltip && typeof document !== "undefined" && createPortal(
+                    <div className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full rounded-lg bg-neutral-800 px-4 py-2.5 text-base text-white shadow-lg" style={{ left: cellTooltip.x, top: cellTooltip.y - 8, maxWidth: "min(320px, 90vw)" }}>
+                      {cellTooltip.text}
+                    </div>,
+                    document.body
+                  )}
+                </Card>
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowExport(!showExport)}
+                    className="w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100"
+                  >
+                    내보내기
+                  </button>
+                  {showExport && (
+                    <Card className="!p-4">
+                      <p className="mb-3 text-sm font-medium text-neutral-700">기간 선택 후 다운로드 (마크다운)</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm" />
+                        <span className="text-neutral-400">~</span>
+                        <input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm" />
+                        <button type="button" onClick={() => exportRange(exportFrom, exportTo)} className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700">다운로드</button>
+                      </div>
+                      <p className="mt-2 text-xs text-neutral-500">{exportFrom} ~ {exportTo}: <strong>{exportCount}편</strong></p>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </aside>
+          </>
+        )}
       </div>
     </div>
   );
