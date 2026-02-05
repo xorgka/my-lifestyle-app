@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -21,6 +21,13 @@ export default function InsightPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
   const [viewer, setViewer] = useState<{ list: InsightItem[]; index: number } | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function resizeEditTextarea(ta: HTMLTextAreaElement | null) {
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${ta.scrollHeight}px`;
+  }
 
   // Load from localStorage
   useEffect(() => {
@@ -139,6 +146,12 @@ export default function InsightPage() {
     setEditingText("");
   };
 
+  useEffect(() => {
+    if (editingId != null) {
+      requestAnimationFrame(() => resizeEditTextarea(editTextareaRef.current));
+    }
+  }, [editingId, editingText]);
+
   const formatDate = (iso: string) => {
     const d = new Date(iso);
     return d.toLocaleDateString("ko-KR", {
@@ -231,10 +244,16 @@ export default function InsightPage() {
                 {editingId === item.id ? (
                   <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     <textarea
+                      ref={editTextareaRef}
                       value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
+                      onChange={(e) => {
+                        setEditingText(e.target.value);
+                        const ta = e.target as HTMLTextAreaElement;
+                        ta.style.height = "auto";
+                        ta.style.height = `${ta.scrollHeight}px`;
+                      }}
                       rows={2}
-                      className="w-full resize-none rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                      className="min-h-[4.5rem] w-full resize-none overflow-hidden rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                     />
                     <div className="flex items-center justify-end gap-2 text-sm">
                       <button
@@ -347,10 +366,16 @@ export default function InsightPage() {
                   {editingId === item.id ? (
                     <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                       <textarea
+                        ref={editTextareaRef}
                         value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
+                        onChange={(e) => {
+                          setEditingText(e.target.value);
+                          const ta = e.target as HTMLTextAreaElement;
+                          ta.style.height = "auto";
+                          ta.style.height = `${ta.scrollHeight}px`;
+                        }}
                         rows={2}
-                        className="w-full resize-none rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                        className="min-h-[4.5rem] w-full resize-none overflow-hidden rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                       />
                       <div className="flex items-center justify-end gap-2 text-sm">
                         <button

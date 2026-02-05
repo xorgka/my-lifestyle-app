@@ -34,3 +34,8 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# 대용량/설치 파일 (GitHub 100MB 제한)
+커서AI/
+*.exe
+*.msi
