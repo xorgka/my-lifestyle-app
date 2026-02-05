@@ -62,7 +62,27 @@ create table if not exists journal_entries (
 create index if not exists idx_journal_entries_date on journal_entries (date);
 
 -- ------------------------------------------------------------
--- 3. 루틴
+-- 3. 유튜브 채널 (채널별 수익·계정·메모)
+-- ------------------------------------------------------------
+
+create table if not exists youtube_channels (
+  id bigint primary key,
+  name text not null default '',
+  channel_url text not null default '',
+  category text not null default '',
+  account_email text not null default '',
+  password text not null default '',
+  memo text not null default '',
+  monthly_revenues jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+comment on table youtube_channels is '유튜브 채널 목록. monthly_revenues: {"YYYY-MM": 금액(원)}';
+comment on column youtube_channels.monthly_revenues is '월별 수익 원. 예: {"2026-01": 100000}';
+
+-- ------------------------------------------------------------
+-- 4. 루틴
 -- ------------------------------------------------------------
 
 -- 루틴 항목 정의 (드래그 순서는 sort_order로 유지)
@@ -91,6 +111,7 @@ alter table budget_entries enable row level security;
 alter table budget_keywords enable row level security;
 alter table budget_month_extras enable row level security;
 alter table journal_entries enable row level security;
+alter table youtube_channels enable row level security;
 alter table routine_items enable row level security;
 alter table routine_completions enable row level security;
 
@@ -99,6 +120,7 @@ create policy "allow all budget_entries" on budget_entries for all using (true) 
 create policy "allow all budget_keywords" on budget_keywords for all using (true) with check (true);
 create policy "allow all budget_month_extras" on budget_month_extras for all using (true) with check (true);
 create policy "allow all journal_entries" on journal_entries for all using (true) with check (true);
+create policy "allow all youtube_channels" on youtube_channels for all using (true) with check (true);
 create policy "allow all routine_items" on routine_items for all using (true) with check (true);
 create policy "allow all routine_completions" on routine_completions for all using (true) with check (true);
 
@@ -119,3 +141,5 @@ create trigger budget_month_extras_updated_at
   before update on budget_month_extras for each row execute function set_updated_at();
 create trigger journal_entries_updated_at
   before update on journal_entries for each row execute function set_updated_at();
+create trigger youtube_channels_updated_at
+  before update on youtube_channels for each row execute function set_updated_at();

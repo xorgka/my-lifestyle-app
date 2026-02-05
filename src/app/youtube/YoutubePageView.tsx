@@ -19,6 +19,7 @@ type ChannelRecord = {
 export function YoutubePageView(props: Record<string, unknown>) {
   const p = props;
   const channels = (p.channels as ChannelRecord[]) ?? [];
+  const channelsLoading = (p.channelsLoading as boolean) ?? false;
   const setChannels = p.setChannels as React.Dispatch<React.SetStateAction<ChannelRecord[]>>;
   const modal = p.modal as "add" | "edit" | null;
   const setModal = p.setModal as React.Dispatch<React.SetStateAction<"add" | "edit" | null>>;
@@ -87,7 +88,11 @@ export function YoutubePageView(props: Record<string, unknown>) {
         </button>
       </div>
 
-      {channels.length === 0 ? (
+      {channelsLoading ? (
+        <Card className="py-12 text-center">
+          <p className="text-neutral-500">불러오는 중…</p>
+        </Card>
+      ) : channels.length === 0 ? (
         <Card className="py-12 text-center">
           <p className="text-neutral-500">
             등록된 채널이 없어요. &quot;채널 추가&quot;로 첫 채널을 등록해보세요.

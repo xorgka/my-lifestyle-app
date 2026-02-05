@@ -2,20 +2,13 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { YoutubePageView } from "./YoutubePageView";
+import {
+  type YouTubeChannel,
+  loadYoutubeChannels,
+  saveYoutubeChannels,
+  deleteYoutubeChannel,
+} from "@/lib/youtubeDb";
 
-type YouTubeChannel = {
-  id: number;
-  name: string;
-  channelUrl: string;
-  category: string;
-  accountEmail: string;
-  password: string;
-  /** 월별 수익. 키: "YYYY-MM", 값: 원 */
-  monthlyRevenues: Record<string, number>;
-  memo: string;
-};
-
-const STORAGE_KEY = "my-lifestyle-youtube-channels";
 const ACCOUNT_VIEW_PIN = "2013";
 
 function getCurrentYearMonth(): string {
@@ -44,6 +37,7 @@ const emptyChannel = (): YouTubeChannel => ({
 
 export default function YoutubePage() {
   const [channels, setChannels] = useState<YouTubeChannel[]>([]);
+  const [channelsLoading, setChannelsLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [revealAccountId, setRevealAccountId] = useState<number | null>(null);
@@ -103,48 +97,17 @@ export default function YoutubePage() {
   }, [accountModalChannelId, revealAccountId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as (YouTubeChannel & { thisMonthRevenue?: number; totalRevenue?: number })[];
-      const migrated: YouTubeChannel[] = parsed.map((c) => {
-        if (c.monthlyRevenues && Object.keys(c.monthlyRevenues).length > 0) {
-          return {
-            id: c.id,
-            name: c.name,
-            channelUrl: c.channelUrl,
-            category: c.category,
-            accountEmail: c.accountEmail,
-            password: c.password,
-            monthlyRevenues: c.monthlyRevenues,
-            memo: c.memo,
-          };
-        }
-        const mr: Record<string, number> = {};
-        if (c.thisMonthRevenue != null && c.thisMonthRevenue > 0)
-          mr[getCurrentYearMonth()] = c.thisMonthRevenue;
-        return {
-          id: c.id,
-          name: c.name,
-          channelUrl: c.channelUrl,
-          category: c.category,
-          accountEmail: c.accountEmail,
-          password: c.password,
-          monthlyRevenues: mr,
-          memo: c.memo,
-        };
-      });
-      setChannels(migrated);
-    } catch {
-      // ignore
-    }
+    setChannelsLoading(true);
+    loadYoutubeChannels()
+      .then(setChannels)
+      .catch(console.error)
+      .finally(() => setChannelsLoading(false));
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(channels));
-  }, [channels]);
+    if (channelsLoading || channels.length === 0) return;
+    saveYoutubeChannels(channels).catch(console.error);
+  }, [channels, channelsLoading]);
 
   // 채널이 바뀌면 빠른 입력 기본 채널을 첫 채널로
   useEffect(() => {
@@ -296,6 +259,7 @@ export default function YoutubePage() {
   const remove = (id: number) => {
     if (typeof window !== "undefined" && !window.confirm("이 채널을 삭제할까요?"))
       return;
+    deleteYoutubeChannel(id).catch(console.error);
     setChannels((prev) => prev.filter((c) => c.id !== id));
     setRevealAccountId((prev) => (prev === id ? null : prev));
     setMemoModalChannelId((prev) => (prev === id ? null : prev));
@@ -306,6 +270,7 @@ export default function YoutubePage() {
 
   const viewProps = {
     channels,
+    channelsLoading,
     setChannels,
     modal,
     setModal,

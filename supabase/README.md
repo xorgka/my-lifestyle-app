@@ -23,6 +23,31 @@ on conflict (category) do update set keywords = excluded.keywords, updated_at = 
 RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막혀서 저장이 안 됩니다.  
 **SQL Editor**에서 `rls-policies.sql` 내용을 실행해 주세요. (테이블은 이미 있다면 RLS 정책만 적용됩니다.)
 
+### 유튜브 채널 테이블만 추가 (이미 schema.sql 실행한 경우)
+
+유튜브 페이지를 Supabase로 쓰려면 **SQL Editor**에서 아래를 실행해 주세요.
+
+```sql
+create table if not exists youtube_channels (
+  id bigint primary key,
+  name text not null default '',
+  channel_url text not null default '',
+  category text not null default '',
+  account_email text not null default '',
+  password text not null default '',
+  memo text not null default '',
+  monthly_revenues jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table youtube_channels enable row level security;
+create policy "allow all youtube_channels" on youtube_channels for all using (true) with check (true);
+create trigger youtube_channels_updated_at
+  before update on youtube_channels for each row execute function set_updated_at();
+```
+
+(`set_updated_at` 함수가 없다면 먼저 schema.sql의 해당 함수·트리거 부분을 참고해 만든 뒤 실행하세요.)
+
 ---
 
 ## 테이블 요약
@@ -33,6 +58,7 @@ RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막�
 | **budget_keywords** | 카테고리별 키워드 (고정비/사업경비 등) | 앱 설정 |
 | **budget_month_extras** | 월별 추가 키워드 | JSONB |
 | **journal_entries** | 일기 (날짜당 1건) | `date` unique |
+| **youtube_channels** | 유튜브 채널·수익·계정·메모 | `monthly_revenues` JSONB: {"YYYY-MM": 원} |
 | **routine_items** | 루틴 항목 목록 | `sort_order`로 순서 유지 |
 | **routine_completions** | 날짜별 루틴 완료 기록 | (date, item_id) PK |
 
