@@ -11,6 +11,7 @@ import {
   loadRoutineCompletions,
   saveRoutineCompletions,
 } from "@/lib/routineDb";
+import { supabase } from "@/lib/supabase";
 
 type RoutineItem = {
   id: number;
@@ -373,12 +374,19 @@ export default function RoutinePage() {
     return { year, month: month + 1, cells, daysInMonth, totalPct };
   }, [dailyCompletions, items.length]);
 
+  const useSupabase = !!supabase;
+
   return (
     <div className="min-w-0 space-y-6">
       <SectionTitle
         title="루틴"
         subtitle="체크할수록 폭죽처럼 터지는, 오늘의 작은 승리들."
       />
+      {!useSupabase && (
+        <p className="mt-1 text-xs text-amber-600">
+          데이터가 이 기기만 저장돼요. 다른 기기 연동: 배포 환경에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 설정 후 재배포하세요.
+        </p>
+      )}
 
       {/* 오늘의 진행률 - 가로 배치, 100%일 때 강조 */}
       <Card
