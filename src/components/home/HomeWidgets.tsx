@@ -21,10 +21,17 @@ function formatNum(n: number): string {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
 }
 
+/** 이번달 수입: 만 단위 반올림 표기 (예: 155만원) */
+function formatMonthIncomeRounded(amount: number): string {
+  const man = Math.round(amount / 10000);
+  return `${man.toLocaleString("ko-KR")}만원`;
+}
+
 export function HomeWidgets() {
   const [journalWritten, setJournalWritten] = useState<boolean | null>(null);
   const [routineProgress, setRoutineProgress] = useState<number | null>(null);
   const [monthIncome, setMonthIncome] = useState<number | null>(null);
+  const [showFullMonthIncome, setShowFullMonthIncome] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,9 +132,22 @@ export function HomeWidgets() {
         </span>
         <div className="flex flex-1 flex-col justify-center pt-1">
           <span className="text-sm font-medium text-white/90">이번달 수입</span>
-          <span className="mt-1 text-3xl font-bold text-white">
-            {monthIncome === null ? "—" : `${formatNum(monthIncome)}원`}
-          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowFullMonthIncome((v) => !v);
+            }}
+            className="mt-1 text-left text-3xl font-bold text-white underline-offset-2 hover:underline"
+            title={monthIncome != null ? "클릭하면 원래 금액 표시" : undefined}
+          >
+            {monthIncome === null
+              ? "—"
+              : showFullMonthIncome
+                ? `${formatNum(monthIncome)}원`
+                : formatMonthIncomeRounded(monthIncome)}
+          </button>
         </div>
         <span className={arrowBtn} aria-hidden>
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

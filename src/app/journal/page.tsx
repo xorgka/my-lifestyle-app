@@ -384,63 +384,64 @@ export default function JournalPage() {
 
       <div className="min-w-0">
         <Card className="relative flex min-w-0 flex-col overflow-visible">
-          {/* 중요한 날: 우측 상단 별표 (크게, 비활성도 꽉 찬 별) */}
-          <button
-            type="button"
-            onClick={() => setDraftImportant(!draftImportant)}
-            className={clsx(
-              "absolute right-6 top-6 p-1 text-3xl transition",
-              draftImportant ? "text-orange-500" : "text-neutral-200 hover:text-orange-400"
-            )}
-            title="중요한 날"
-            aria-label={draftImportant ? "중요한 날 해제" : "중요한 날로 표시"}
-          >
-            ★
-          </button>
-          {/* 날짜 표시 (PC·모바일 공통) + 좌우 이동 (PC는 상단, 모바일은 저장 옆) */}
-          <div className="mb-6 flex flex-wrap items-center gap-2.5 pr-10">
-            <div className="hidden md:flex items-center gap-1">
-              <button
-                type="button"
-                onClick={goPrevDay}
-                aria-label="어제"
-                className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={goNextDay}
-                disabled={selectedDate >= todayStr()}
-                aria-label="다음날"
-                className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-            <span className="text-lg font-semibold text-neutral-800">
-              {formatDateLabel(selectedDate)}
-            </span>
-            {isToday ? (
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[13px] font-medium text-emerald-800">
-                오늘
+          {/* 한 줄: 좌우 화살표 · 날짜 · 오늘 버튼 (왼쪽) | 별 아이콘 (오른쪽) */}
+          <div className="mb-3 flex flex-nowrap items-center justify-between gap-3 md:mb-6">
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+              <div className="hidden md:flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={goPrevDay}
+                  aria-label="어제"
+                  className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={goNextDay}
+                  disabled={selectedDate >= todayStr()}
+                  aria-label="다음날"
+                  className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+              <span className="shrink-0 text-lg font-semibold text-neutral-800">
+                {formatDateLabel(selectedDate)}
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setSelectedDate(todayStr())}
-                className="rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800"
-              >
-                오늘로 이동
-              </button>
-            )}
+              {isToday ? (
+                <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-[13px] font-medium text-emerald-800">
+                  오늘
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(todayStr())}
+                  className="shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800"
+                >
+                  오늘로 이동
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDraftImportant(!draftImportant)}
+              className={clsx(
+                "shrink-0 p-1 text-xl transition",
+                draftImportant ? "text-orange-500" : "text-neutral-200 hover:text-orange-400"
+              )}
+              title="중요한 날"
+              aria-label={draftImportant ? "중요한 날 해제" : "중요한 날로 표시"}
+            >
+              ★
+            </button>
           </div>
           {/* 초안 자동 저장 상태 */}
-          <p className="mb-1 text-xs text-neutral-500">
+          <p className="mb-0.5 text-xs text-neutral-500 md:mb-1">
             {draftSaveStatus === "pending" && "2초 후 초안 자동 저장"}
             {draftSaveStatus === "saved" && "초안 자동 저장됨"}
             {draftSaveStatus === "idle" &&
@@ -450,7 +451,7 @@ export default function JournalPage() {
 
           {/* 본문 박스: 모바일에서만 화면 가로 꽉(full-bleed), PC는 카드 안 그대로 */}
           <div className="relative ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen md:ml-0 md:mr-0 md:w-full">
-            <div className="bg-neutral-50/50 px-4 py-4 md:bg-transparent md:px-0 md:py-0">
+            <div className="px-4 pt-2 pb-4 md:px-0 md:pt-0 md:pb-0">
               <div className="relative">
                 {/* 좌측 상단: 쓰기/미리보기 토글 */}
                 <div className="absolute left-3 top-3 z-10">
@@ -485,11 +486,11 @@ export default function JournalPage() {
                       }
                     }}
                     placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
-                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-12 md:pr-10"
+                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
                     rows={16}
                   />
                 ) : (
-                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pl-12 md:pr-10">
+                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 md:pl-12 md:pr-10">
                     {draft.trim() ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}

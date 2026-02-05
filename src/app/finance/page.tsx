@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
-import { AmountToggle } from "@/components/ui/AmountToggle";
+import { AmountToggle, formatAmountShort } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
   type CategoryId,
@@ -61,7 +61,7 @@ function groupByBaseName(detail: Record<string, { total: number; entries: { date
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
 /** iframe 안에 input을 넣어 문서를 lang=ko로 고정 → 한글 IME 유지 시도 */
-const ITEM_IFRAME_SRCDOC = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"></head><body style="margin:0;padding:0"><input type="text" id="item" lang="ko" autocomplete="off" placeholder="예: 배달, 악사보험, GPT" style="width:100%;padding:8px 12px;border:none;border-radius:0;font-size:14px;box-sizing:border-box;outline:none" /></body></html>`;
+const ITEM_IFRAME_SRCDOC = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><style>html,body{overflow:hidden;}</style></head><body style="margin:0;padding:0;height:42px;display:flex;align-items:center;overflow:hidden"><input type="text" id="item" lang="ko" autocomplete="off" placeholder="예: 배달, 보험, IRP" style="width:100%;height:100%;padding:0 12px;border:none;border-radius:0;font-size:14px;line-height:42px;box-sizing:border-box;outline:none" /></body></html>`;
 
 const ItemInput = memo(function ItemInput({
   iframeRef,
@@ -86,7 +86,7 @@ const ItemInput = memo(function ItemInput({
     <div className="relative min-w-[180px]">
       <label className="text-xs font-medium text-neutral-500">항목</label>
       <iframe
-        ref={iframeRef}
+        ref={iframeRef as React.RefObject<HTMLIFrameElement>}
         title="항목 입력"
         srcDoc={ITEM_IFRAME_SRCDOC}
         onLoad={iframeLoaded}
@@ -119,6 +119,8 @@ export default function FinancePage() {
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showMonthExpenseTooltip, setShowMonthExpenseTooltip] = useState(false);
+  const monthExpenseTooltipHoverRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const now = new Date();
   const [exportYear, setExportYear] = useState(now.getFullYear());
   const [exportRange, setExportRange] = useState<"month" | "year" | "range" | "all">("year");
@@ -724,7 +726,7 @@ export default function FinancePage() {
             {isAdding ? "저장 중…" : "추가"}
           </button>
         </form>
-        <div className="mt-4">
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-white px-5 py-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div className="text-sm font-medium text-neutral-600">
               {formatDateLabel(selectedDate)} 내역
@@ -745,7 +747,7 @@ export default function FinancePage() {
                 return (
                   <li
                     key={e.id}
-                    className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm"
                   >
                     <div>
                       <span className="font-medium text-neutral-800">{e.item}</span>
@@ -871,16 +873,40 @@ export default function FinancePage() {
                   {parseInt(yearMonthForView.split("-")[1], 10)}월 지출:{" "}
                   <AmountToggle amount={viewMonthTotalDisplay} />
                 </span>
-                <span
-                  title={
-                    viewMonthExcluded > 0
-                      ? `적금·IRP·ISA·주택청약은 제외한 금액이에요. (제외: ${formatNum(viewMonthExcluded)}원)`
-                      : "적금·IRP·ISA·주택청약은 제외한 금액이에요."
-                  }
-                  className="flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-neutral-300 bg-neutral-100 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+                <div
+                  className="relative"
+                  onMouseEnter={() => {
+                    monthExpenseTooltipHoverRef.current = window.setTimeout(() => setShowMonthExpenseTooltip(true), 150);
+                  }}
+                  onMouseLeave={() => {
+                    if (monthExpenseTooltipHoverRef.current) {
+                      clearTimeout(monthExpenseTooltipHoverRef.current);
+                      monthExpenseTooltipHoverRef.current = null;
+                    }
+                    setShowMonthExpenseTooltip(false);
+                  }}
                 >
-                  ?
-                </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMonthExpenseTooltip((v) => !v)}
+                    className="flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-neutral-300 bg-neutral-100 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+                    aria-label="지출 금액 설명"
+                  >
+                    ?
+                  </button>
+                  {showMonthExpenseTooltip && (
+                    <div
+                      className="absolute left-0 top-full z-10 mt-2 w-72 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm leading-relaxed text-neutral-700 shadow-lg"
+                      role="tooltip"
+                    >
+                      {viewMonthExcluded > 0 ? (
+                        <>적금·IRP·ISA·주택청약은 제외한 금액이에요. (제외: {formatNum(viewMonthExcluded)}원)</>
+                      ) : (
+                        <>적금·IRP·ISA·주택청약은 제외한 금액이에요.</>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
@@ -893,7 +919,7 @@ export default function FinancePage() {
                 >
                   <span className="font-semibold">{CATEGORY_LABELS[cat]}</span>
                   <span className="font-medium">
-                    <AmountToggle amount={viewMonthByCategory[cat]} />
+                    {formatAmountShort(viewMonthByCategory[cat])}
                   </span>
                 </button>
               ))}
@@ -904,7 +930,7 @@ export default function FinancePage() {
                 <p className="mt-3 text-sm text-neutral-400">해당 월에 입력된 내역이 없어요.</p>
               ) : (
                 <div className="mt-3">
-                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-neutral-400 sm:gap-1.5 sm:text-[11px]">
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-neutral-400 sm:gap-1.5 sm:text-[11px] md:text-[15px]">
                     {viewMonthCalendar.weekLabels.map((w) => (
                       <span key={w}>{w}</span>
                     ))}
@@ -920,6 +946,20 @@ export default function FinancePage() {
                         ? entries.reduce((s, e) => s + e.amount, 0)
                         : 0;
                       const hasData = total > 0;
+                      const amountBg =
+                        total >= 1_000_000
+                          ? "bg-red-500 hover:bg-red-600 text-white"
+                          : total >= 500_000
+                            ? "bg-red-400 hover:bg-red-500 text-white"
+                            : total >= 300_000
+                              ? "bg-red-300 hover:bg-red-400 text-red-900"
+                              : total >= 100_000
+                                ? "bg-red-200 hover:bg-red-300 text-red-900"
+                                : total > 10_000
+                                  ? "bg-red-100 hover:bg-red-200 text-red-900"
+                                  : total > 0
+                                    ? "bg-red-50 hover:bg-red-100 text-red-800"
+                                    : "";
                       return (
                         <button
                           key={i}
@@ -927,13 +967,13 @@ export default function FinancePage() {
                           onClick={() => hasData && setDayDetailDate(dateStr)}
                           className={`aspect-square rounded-lg px-1.5 text-center transition ${
                             hasData
-                              ? "bg-neutral-100 font-medium text-neutral-800 hover:bg-neutral-200 hover:ring-2 hover:ring-neutral-300"
+                              ? `${amountBg} font-medium ring-2 ring-transparent hover:ring-neutral-300`
                               : "text-neutral-400"
                           }`}
                         >
                           <div className="text-[15px]">{day}</div>
                           {hasData && (
-                            <div className="mt-1 truncate text-[13px] font-semibold text-neutral-700">
+                            <div className="mt-1 truncate text-[13px] font-semibold hidden md:block md:text-[15px]">
                               {formatNum(total)}원
                             </div>
                           )}
@@ -1238,7 +1278,7 @@ export default function FinancePage() {
             <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
               <span className="text-sm font-medium text-neutral-600">총합</span>
               <span className="ml-2 text-xl font-semibold text-neutral-900">
-                <AmountToggle amount={viewMonthByCategory[categoryDetailModal]} />
+                {formatNum(viewMonthByCategory[categoryDetailModal])}원
               </span>
             </div>
             <div className="mt-4 space-y-4">
@@ -1466,7 +1506,7 @@ export default function FinancePage() {
         <p className="mt-1 text-sm text-neutral-500">
           수입 데이터와 연도별 총 지출을 반영해요.
         </p>
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 overflow-auto rounded-xl">
           <table className="w-full min-w-[480px] text-left text-sm">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50/80">
@@ -1485,7 +1525,7 @@ export default function FinancePage() {
                 return (
                   <tr
                     key={row.year}
-                    className="border-b border-neutral-100 transition hover:bg-neutral-50/50"
+                    className="border-b border-neutral-100 transition hover:bg-neutral-50 hover:shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)]"
                   >
                     <td className="px-4 py-3 font-medium text-neutral-800">{row.year}년</td>
                     <td className="px-4 py-3 text-right text-neutral-700">

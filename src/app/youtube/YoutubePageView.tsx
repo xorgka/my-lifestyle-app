@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
-import { formatAmountShort } from "@/components/ui/AmountToggle";
+import { AmountToggle, formatAmountShort } from "@/components/ui/AmountToggle";
 
 type ChannelRecord = {
   id: number;
@@ -216,7 +216,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   이번 달 수익
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-neutral-900">
-                  {formatted(totals.thisMonth)}원
+                  <AmountToggle amount={totals.thisMonth} className="text-2xl font-bold" />
                 </div>
               </div>
               <div className="rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm">
@@ -224,7 +224,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   누적 수익
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-neutral-900">
-                  {formatted(totals.total)}원
+                  <AmountToggle amount={totals.total} className="text-2xl font-bold" />
                 </div>
               </div>
             </div>
@@ -839,7 +839,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   <div>
                     <label className="text-xs font-medium text-neutral-600">PIN</label>
                     <input
-                      ref={accountPinInputRef}
+                      ref={accountPinInputRef as React.RefObject<HTMLInputElement>}
                       type="password"
                       value={accountPinInput}
                       onChange={(e) => {

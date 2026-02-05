@@ -482,8 +482,8 @@ export default function IncomePage() {
         </div>
       </div>
 
-      {/* 2행: 연도 선택 */}
-      <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+      {/* 2행: 연도 선택 (모바일 3열×2행, PC는 flex) */}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
         {YEARS.map((y) => (
           <button
             key={y}
@@ -653,7 +653,7 @@ export default function IncomePage() {
       <Card>
         <h3 className="text-3xl font-semibold text-neutral-900">월별 수입 한눈에</h3>
         <p className="mt-1 text-sm text-neutral-500">
-          {incomeYear}년 월별로 구분만 표시돼요. 구분을 클릭하면 상세 내역 모달이 열려요.
+          {incomeYear}년 월별로 클릭하면 상세 내역 모달이 열려요.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {MONTHS.map((m) => {
