@@ -1451,7 +1451,7 @@ export default function FinancePage() {
             <tbody>
               {yearlySummary.map((row) => {
                 const 순수익있음 = row.순수익 != null;
-                const 저축값 = row.지출데이터있음 && 순수익있음 ? row.순수익! - row.지출 : null;
+                const 저축값 = row.지출데이터있음 ? row.매출 - row.지출 : null;
                 const 순수익표시 = !순수익있음 ? "데이터 없음" : formatManwon(row.순수익!);
                 return (
                   <tr
