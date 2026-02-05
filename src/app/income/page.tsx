@@ -13,6 +13,9 @@ import {
   loadMonthExtras,
   type MonthExtraKeywords,
   saveEntries as saveBudgetEntries,
+  SEED_BUDGET_2021_TAX,
+  SEED_BUDGET_2022_TAX,
+  SEED_BUDGET_2023_TAX,
   SEED_BUDGET_2024_TAX,
   SEED_BUDGET_2025_TAX,
 } from "@/lib/budget";
@@ -164,11 +167,17 @@ export default function IncomePage() {
     [budgetEntries, incomeYear, incomeMonth]
   );
 
-  /** 해당 연도 세금·경비 항목별 합계. 2024·2025는 시드만 사용(가계부 데이터 제외), 그 외는 가계부 연동 */
+  /** 해당 연도 세금·경비 항목별 합계. 21~25년은 시드만 사용(가계부 데이터 제외), 2026~ 가계부 연동 */
   const budgetAmountByTaxCategory = useMemo(() => {
     const yearPrefix = String(incomeYear);
     let entriesInYear: typeof budgetEntries;
-    if (incomeYear === 2024) {
+    if (incomeYear === 2021) {
+      entriesInYear = SEED_BUDGET_2021_TAX;
+    } else if (incomeYear === 2022) {
+      entriesInYear = SEED_BUDGET_2022_TAX;
+    } else if (incomeYear === 2023) {
+      entriesInYear = SEED_BUDGET_2023_TAX;
+    } else if (incomeYear === 2024) {
       entriesInYear = SEED_BUDGET_2024_TAX;
     } else if (incomeYear === 2025) {
       entriesInYear = SEED_BUDGET_2025_TAX;

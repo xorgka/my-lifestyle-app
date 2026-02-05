@@ -13,6 +13,9 @@ import {
   EXCLUDE_FROM_MONTH_TOTAL,
   getCategoryForEntry,
   getKeywordsForMonth,
+  SEED_BUDGET_2021_TAX,
+  SEED_BUDGET_2022_TAX,
+  SEED_BUDGET_2023_TAX,
   SEED_BUDGET_2024_TAX,
   SEED_BUDGET_2025_TAX,
   isExcludedFromMonthTotal,
@@ -500,11 +503,14 @@ export default function FinancePage() {
     2025: 62_880_691,
   };
 
-  /** 24·25년 사업 및 경비 = 시드 세부 합계 (수입 페이지와 동일, 순수익 계산용) */
+  /** 21~25년 사업 및 경비 = 시드 세부 합계 (수입 페이지와 동일, 순수익 계산용) */
+  const seed2021Business = useMemo(() => SEED_BUDGET_2021_TAX.reduce((s, e) => s + e.amount, 0), []);
+  const seed2022Business = useMemo(() => SEED_BUDGET_2022_TAX.reduce((s, e) => s + e.amount, 0), []);
+  const seed2023Business = useMemo(() => SEED_BUDGET_2023_TAX.reduce((s, e) => s + e.amount, 0), []);
   const seed2024Business = useMemo(() => SEED_BUDGET_2024_TAX.reduce((s, e) => s + e.amount, 0), []);
   const seed2025Business = useMemo(() => SEED_BUDGET_2025_TAX.reduce((s, e) => s + e.amount, 0), []);
 
-  /** 연도별 통계. 총 지출 = 위 고정값 표시용. 순수익 = 매출 - 사업 및 경비 (항상 이 공식. 21~23은 사업·경비 없음→데이터 없음, 24·25 시드, 2026+ 세금·사업경비만) */
+  /** 연도별 통계. 총 지출 = 위 고정값 표시용. 순수익 = 매출 - 사업 및 경비 (21~25 시드, 2026+ 세금·사업경비만) */
   const yearlySummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearList = Array.from({ length: currentYear - 2020 }, (_, i) => 2021 + i);
@@ -518,11 +524,17 @@ export default function FinancePage() {
       const 지출데이터있음 = 지출표시값 != null;
       const 지출 = 지출표시값 ?? 0;
       const 사업및경비: number | null =
-        y === 2024
-          ? seed2024Business
-          : y === 2025
-            ? seed2025Business
-            : y >= 2026
+        y === 2021
+          ? seed2021Business
+          : y === 2022
+            ? seed2022Business
+            : y === 2023
+              ? seed2023Business
+              : y === 2024
+                ? seed2024Business
+                : y === 2025
+                  ? seed2025Business
+                  : y >= 2026
               ? entries
                   .filter((e) => e.date.startsWith(String(y)))
                   .filter((e) => {
@@ -537,7 +549,7 @@ export default function FinancePage() {
       const 월평균수익 = 순수익 != null && 12 > 0 ? 순수익 / 12 : 0;
       return { year: y, 매출, 지출, 지출데이터있음, 순수익, 월평균수익 };
     });
-  }, [incomeEntries, entries, keywords, monthExtras, seed2024Business, seed2025Business]);
+  }, [incomeEntries, entries, keywords, monthExtras, seed2021Business, seed2022Business, seed2023Business, seed2024Business, seed2025Business]);
 
   return (
     <div className="min-w-0 space-y-6">

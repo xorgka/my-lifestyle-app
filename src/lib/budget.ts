@@ -110,6 +110,28 @@ function saveJson(key: string, value: unknown): void {
   } catch {}
 }
 
+/** 2021년 세금·경비 시드 (수입 페이지·순수익용). 부가세·종합소득세 0, 건강보험·국민연금만 */
+export const SEED_BUDGET_2021_TAX: BudgetEntry[] = [
+  { id: "seed-tax-2021-1", date: "2021-01-01", item: "건강보험", amount: 1_317_760 },
+  { id: "seed-tax-2021-2", date: "2021-01-01", item: "국민연금", amount: 580_350 },
+];
+
+/** 2022년 세금·경비 시드. 종합소득세 228,470 + 2,284,790, 건강보험, 국민연금 */
+export const SEED_BUDGET_2022_TAX: BudgetEntry[] = [
+  { id: "seed-tax-2022-1", date: "2022-01-01", item: "종합소득세", amount: 228_470 },
+  { id: "seed-tax-2022-2", date: "2022-01-01", item: "종합소득세", amount: 2_284_790 },
+  { id: "seed-tax-2022-3", date: "2022-01-01", item: "건강보험", amount: 1_464_440 },
+  { id: "seed-tax-2022-4", date: "2022-01-01", item: "국민연금", amount: 966_680 },
+];
+
+/** 2023년 세금·경비 시드. 종합소득세 11,335,670 + 1,133,560, 건강보험, 국민연금 */
+export const SEED_BUDGET_2023_TAX: BudgetEntry[] = [
+  { id: "seed-tax-2023-1", date: "2023-01-01", item: "종합소득세", amount: 11_335_670 },
+  { id: "seed-tax-2023-2", date: "2023-01-01", item: "종합소득세", amount: 1_133_560 },
+  { id: "seed-tax-2023-3", date: "2023-01-01", item: "건강보험", amount: 2_540_380 },
+  { id: "seed-tax-2023-4", date: "2023-01-01", item: "국민연금", amount: 2_364_600 },
+];
+
 /** 2024년 세금·경비 시드 (수입 페이지 세금 및 경비용). */
 export const SEED_BUDGET_2024_TAX: BudgetEntry[] = [
   { id: "seed-tax-2024-01-1", date: "2024-01-01", item: "부가세", amount: 376_810 },
