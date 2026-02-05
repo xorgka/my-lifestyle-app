@@ -255,7 +255,7 @@ export default function InsightPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="max-w-full text-base leading-relaxed sm:text-lg">{item.text}</p>
+                    <p className="max-w-full text-base leading-relaxed">{item.text}</p>
                     <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                       <span>{formatDate(item.createdAt)}</span>
                       <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -371,7 +371,7 @@ export default function InsightPage() {
                     </div>
                   ) : (
                     <>
-                      <p className="max-w-full text-base leading-relaxed sm:text-lg">{item.text}</p>
+                      <p className="max-w-full text-base leading-relaxed">{item.text}</p>
                       <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                         <span>{formatDate(item.createdAt)}</span>
                         <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -413,7 +413,7 @@ export default function InsightPage() {
             aria-label="문장 보기"
           >
             <div
-              className="relative flex min-w-0 max-w-2xl flex-col items-center gap-4 sm:flex-row sm:gap-4"
+              className="relative flex min-w-0 max-w-3xl flex-col items-center gap-4 sm:flex-row sm:gap-4"
               onClick={(e) => e.stopPropagation()}
             >
               {/* PC: 좌측 화살표 */}
