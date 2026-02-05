@@ -69,11 +69,8 @@ export default function RoutinePage() {
   const [dragOverId, setDragOverId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [statsTab, setStatsTab] = useState<"주별" | "월별" | "이번달">("주별");
-  const [weeklyViewMode, setWeeklyViewMode] = useState<"current_week" | "this_month" | "last_month" | "custom">("current_week");
-  const [statsMonth, setStatsMonth] = useState<{ year: number; month: number }>(() => {
-    const d = new Date();
-    return { year: d.getFullYear(), month: d.getMonth() + 1 };
-  });
+  /** 주별: 0 = 현재 주, -1 = 저번 주, -2 = 그저번 주 … (좌우 화살표로 이동) */
+  const [weeklyOffset, setWeeklyOffset] = useState(0);
   const [monthlyRangeMode, setMonthlyRangeMode] = useState<"6months" | "1year" | "year">("6months");
   const [monthlyRangeYear, setMonthlyRangeYear] = useState<number>(() => new Date().getFullYear());
   /** 리스트 편집 모드: 켜면 드래그·수정·삭제 표시, 끄면 체크+제목만 */
@@ -254,45 +251,46 @@ export default function RoutinePage() {
     [dailyCompletions, items.length]
   );
 
-  const currentWeekData = useMemo((): WeekData | null => {
-    const now = new Date();
-    let mon = new Date(now);
-    while (mon.getDay() !== 1) mon.setDate(mon.getDate() - 1);
-    const weeks = getWeeksForMonth(mon.getFullYear(), mon.getMonth() + 1);
-    const found = weeks.find((w) =>
-      w.days.some((day) => day.date.toDateString() === now.toDateString())
-    );
-    if (found) return found;
-    const totalItems = items.length || 1;
-    const days: { date: Date; key: string; pct: number }[] = [];
-    let weekCompleted = 0;
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
-      const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-      const count = (dailyCompletions[key] ?? []).length;
-      const pct = Math.round((count / totalItems) * 100);
-      days.push({ date: day, key, pct });
-      weekCompleted += count;
-    }
-    return { start: new Date(mon), days, weekPct: Math.round((weekCompleted / (7 * totalItems)) * 100) };
-  }, [getWeeksForMonth, dailyCompletions, items.length]);
-
-  const weeklyStatsForMonth = useMemo(
-    () => getWeeksForMonth(statsMonth.year, statsMonth.month),
-    [statsMonth, getWeeksForMonth]
+  /** 해당 월요일을 시작일로 하는 한 주 치 WeekData 반환 */
+  const getWeekDataForMonday = useCallback(
+    (monday: Date): WeekData => {
+      const totalItems = items.length || 1;
+      const days: { date: Date; key: string; pct: number }[] = [];
+      let weekCompleted = 0;
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+        const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+        const count = (dailyCompletions[key] ?? []).length;
+        const pct = Math.round((count / totalItems) * 100);
+        days.push({ date: day, key, pct });
+        weekCompleted += count;
+      }
+      return {
+        start: new Date(monday),
+        days,
+        weekPct: Math.round((weekCompleted / (7 * totalItems)) * 100),
+      };
+    },
+    [dailyCompletions, items.length]
   );
 
-  const weeksToShow = useMemo((): WeekData[] => {
+  /** 현재 주 월요일 00:00 */
+  const currentWeekMonday = useMemo(() => {
     const now = new Date();
-    if (weeklyViewMode === "current_week") return currentWeekData ? [currentWeekData] : [];
-    if (weeklyViewMode === "this_month")
-      return getWeeksForMonth(now.getFullYear(), now.getMonth() + 1);
-    if (weeklyViewMode === "last_month") {
-      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return getWeeksForMonth(prev.getFullYear(), prev.getMonth() + 1);
-    }
-    return weeklyStatsForMonth;
-  }, [weeklyViewMode, currentWeekData, weeklyStatsForMonth, getWeeksForMonth]);
+    const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    while (mon.getDay() !== 1) mon.setDate(mon.getDate() - 1);
+    return mon;
+  }, []);
+
+  /** 주별에서 보고 있는 주 (offset 0 = 현재 주) */
+  const viewingWeek = useMemo((): WeekData => {
+    const viewMonday = new Date(currentWeekMonday);
+    viewMonday.setDate(viewMonday.getDate() + weeklyOffset * 7);
+    return getWeekDataForMonday(viewMonday);
+  }, [currentWeekMonday, weeklyOffset, getWeekDataForMonday]);
+
+  /** 오늘이 포함된 주인지 (현재 주인지) */
+  const isViewingCurrentWeek = weeklyOffset === 0;
 
   const monthlyStatsAll = useMemo(() => {
     const byMonth: Record<string, { total: number; days: number; completed: number }> = {};
@@ -364,25 +362,6 @@ export default function RoutinePage() {
     const totalPct = totalPossible === 0 ? 0 : Math.round((monthCompleted / totalPossible) * 100);
     return { year, month: month + 1, cells, daysInMonth, totalPct };
   }, [dailyCompletions, items.length]);
-
-  const monthOptions = useMemo(() => {
-    const months = new Set<string>();
-    Object.keys(dailyCompletions).forEach((key) => {
-      if (key.length >= 7) months.add(key.slice(0, 7));
-    });
-    const now = new Date();
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonth = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
-    return Array.from(months)
-      .sort((a, b) => b.localeCompare(a))
-      .map((ym) => {
-        const [y, m] = ym.split("-").map(Number);
-        const label =
-          ym === thisMonth ? "이번 달" : ym === lastMonth ? "지난달" : `${y}년 ${m}월`;
-        return { year: y, month: m, label };
-      });
-  }, [dailyCompletions]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -547,7 +526,7 @@ export default function RoutinePage() {
                       {completedToday.has(item.id) ? "✓" : ""}
                     </div>
                     <span
-                      className={`min-w-0 flex-1 break-words text-left text-sm font-medium sm:text-base ${
+                      className={`min-w-0 flex-1 break-words text-left text-sm font-medium sm:text-[1.3rem] ${
                         completedToday.has(item.id) ? "text-white" : "text-neutral-900"
                       } ${completedToday.has(item.id) ? "line-through opacity-90" : ""}`}
                     >
@@ -654,110 +633,72 @@ export default function RoutinePage() {
 
         {statsTab === "주별" && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <button
                 type="button"
-                onClick={() => setWeeklyViewMode("current_week")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  weeklyViewMode === "current_week"
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
+                onClick={() => setWeeklyOffset((o) => o - 1)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
+                aria-label="이전 주"
               >
-                현재 주
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
+              <span className="min-w-[10rem] text-center text-sm font-semibold text-neutral-900">
+                {isViewingCurrentWeek ? "현재 주" : formatWeekRange(viewingWeek)}
+              </span>
               <button
                 type="button"
-                onClick={() => setWeeklyViewMode("this_month")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  weeklyViewMode === "this_month"
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
+                onClick={() => setWeeklyOffset((o) => Math.min(0, o + 1))}
+                disabled={isViewingCurrentWeek}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:border-neutral-200"
+                aria-label="다음 주"
               >
-                이번달
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
               </button>
-              <button
-                type="button"
-                onClick={() => setWeeklyViewMode("last_month")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  weeklyViewMode === "last_month"
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
-              >
-                저번달
-              </button>
-              <select
-                value={weeklyViewMode === "custom" ? `${statsMonth.year}-${statsMonth.month}` : ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (!v) return;
-                  const [y, m] = v.split("-").map(Number);
-                  setStatsMonth({ year: y, month: m });
-                  setWeeklyViewMode("custom");
-                }}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700"
-              >
-                <option value="">달 선택</option>
-                {monthOptions.map((opt) => (
-                  <option key={`${opt.year}-${opt.month}`} value={`${opt.year}-${opt.month}`}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
             </div>
-            {weeksToShow.length === 0 ? (
-              <p className="text-sm text-neutral-400">
-                {weeklyViewMode === "current_week" ? "이번 주 기록이 없어요." : "해당 달에 기록이 없어요."}
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {weeksToShow.map((week, wi) => (
+            <div
+              className={`rounded-2xl border p-4 shadow-sm ${
+                viewingWeek.weekPct === 100
+                  ? "border-red-400/80 bg-gradient-to-br from-red-400 via-red-500 to-red-600"
+                  : "border-neutral-200 bg-white"
+              }`}
+            >
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <span className={viewingWeek.weekPct === 100 ? "text-sm text-red-100" : "text-sm text-neutral-500"}>
+                  {formatWeekRange(viewingWeek)}
+                </span>
+                <div className="text-right">
+                  <span className={viewingWeek.weekPct === 100 ? "text-xs text-red-100" : "text-xs text-neutral-400"}>주간 총</span>
+                  <span className={`ml-2 text-2xl font-bold tabular-nums ${viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-900"}`}>
+                    {viewingWeek.weekPct}%
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {weekDayNames.map((name, i) => (
                   <div
-                    key={wi}
-                    className={`rounded-2xl border p-4 shadow-sm ${
-                      week.weekPct === 100
-                        ? "border-red-400/80 bg-gradient-to-br from-red-400 via-red-500 to-red-600"
-                        : "border-neutral-200 bg-white"
+                    key={name}
+                    className={`flex-1 rounded-xl py-2 text-center ${
+                      viewingWeek.days[i].pct === 100
+                        ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
+                        : viewingWeek.weekPct === 100
+                          ? "bg-white/15 text-red-50"
+                          : "bg-neutral-50"
                     }`}
                   >
-                    <div className="mb-3 flex items-baseline justify-between gap-2">
-                      <span className={week.weekPct === 100 ? "text-sm text-red-100" : "text-sm text-neutral-500"}>
-                        {formatWeekRange(week)}
-                      </span>
-                      <div className="text-right">
-                        <span className={week.weekPct === 100 ? "text-xs text-red-100" : "text-xs text-neutral-400"}>주간 총</span>
-                        <span className={`ml-2 text-2xl font-bold tabular-nums ${week.weekPct === 100 ? "text-white" : "text-neutral-900"}`}>
-                          {week.weekPct}%
-                        </span>
-                      </div>
+                    <div className={`text-[10px] font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
+                      {name}
                     </div>
-                    <div className="flex gap-2">
-                      {weekDayNames.map((name, i) => (
-                        <div
-                          key={name}
-                          className={`flex-1 rounded-xl py-2 text-center ${
-                            week.days[i].pct === 100
-                              ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
-                              : week.weekPct === 100
-                                ? "bg-white/15 text-red-50"
-                                : "bg-neutral-50"
-                          }`}
-                        >
-                          <div className={`text-[10px] font-medium uppercase ${week.days[i].pct === 100 ? "text-red-100" : week.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
-                            {name}
-                          </div>
-                          <div className={`mt-0.5 text-sm font-semibold tabular-nums ${week.days[i].pct === 100 || week.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
-                            {week.days[i].pct}%
-                          </div>
-                        </div>
-                      ))}
+                    <div className={`mt-0.5 text-sm font-semibold tabular-nums ${viewingWeek.days[i].pct === 100 || viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
+                      {viewingWeek.days[i].pct}%
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
         )}
 
