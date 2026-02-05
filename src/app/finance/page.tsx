@@ -127,9 +127,11 @@ export default function FinancePage() {
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
   const [exportRangeFrom, setExportRangeFrom] = useState(() => {
     const d = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-    return d.toISOString().slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
-  const [exportRangeTo, setExportRangeTo] = useState(() => now.toISOString().slice(0, 10));
+  const [exportRangeTo, setExportRangeTo] = useState(() =>
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  );
   const [dayDetailEditingId, setDayDetailEditingId] = useState<string | null>(null);
   const [dayDetailEditItem, setDayDetailEditItem] = useState("");
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
@@ -698,7 +700,9 @@ export default function FinancePage() {
             onClick={() => {
               const d = new Date(selectedDate + "T12:00:00");
               d.setDate(d.getDate() + 1);
-              setSelectedDate(d.toISOString().slice(0, 10));
+              setSelectedDate(
+                `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+              );
             }}
             className="flex h-[42px] items-center rounded-lg border border-neutral-200 bg-white px-3 text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900"
             title="다음 날"

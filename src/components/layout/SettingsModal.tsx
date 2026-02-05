@@ -17,6 +17,7 @@ import {
   type BudgetEntry,
 } from "@/lib/budget";
 import { loadYoutubeChannels } from "@/lib/youtubeDb";
+import { todayStr } from "@/lib/dateUtil";
 import { loadIncomeEntries, type IncomeEntry } from "@/lib/income";
 
 function formatDateLabel(dateStr: string): string {
@@ -148,8 +149,11 @@ type Props = { onClose: () => void };
 export function SettingsModal({ onClose }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
-  const defaultTo = now.toISOString().slice(0, 10);
-  const defaultFrom = new Date(currentYear - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+  const defaultTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const defaultFrom = (() => {
+    const d = new Date(currentYear - 1, now.getMonth(), now.getDate());
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
 
   type RangeType = "month" | "year" | "range" | "all";
   const [exporting, setExporting] = useState<string | null>(null);
@@ -224,7 +228,7 @@ export function SettingsModal({ onClose }: Props) {
       zip.file(budget.filename, budget.blob);
       zip.file(income.filename, income.blob);
       const blob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(blob, `MyLifestyle_전체내보내기_${new Date().toISOString().slice(0, 10)}.zip`);
+      downloadBlob(blob, `MyLifestyle_전체내보내기_${todayStr()}.zip`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "전체 내보내기 실패");
     } finally {

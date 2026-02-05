@@ -400,7 +400,8 @@ export const RECOMMENDED_INSIGHTS: QuoteEntry[] = [
 ];
 
 function pickDailyIndex(length: number): number {
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   let hash = 0;
   for (let i = 0; i < todayKey.length; i++) {
     hash = (hash * 31 + todayKey.charCodeAt(i)) | 0;

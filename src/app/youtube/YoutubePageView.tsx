@@ -82,9 +82,11 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
   const [exportRangeFrom, setExportRangeFrom] = useState(() => {
     const d = new Date(currentYear - 1, now.getMonth(), now.getDate());
-    return d.toISOString().slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
-  const [exportRangeTo, setExportRangeTo] = useState(() => now.toISOString().slice(0, 10));
+  const [exportRangeTo, setExportRangeTo] = useState(() =>
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  );
 
   const getFromTo = (): [string, string] => {
     if (exportRange === "month") {

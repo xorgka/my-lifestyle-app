@@ -4,6 +4,7 @@
  * - Supabase 연결 시 DB 사용, 없으면 localStorage
  */
 
+import { localDateStr, todayStr as todayStrFromUtil } from "./dateUtil";
 import { supabase } from "./supabase";
 import {
   loadEntriesFromDb,
@@ -302,27 +303,27 @@ export function isExcludedFromMonthTotal(item: string): boolean {
 }
 
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayStrFromUtil();
 }
 
 export function toYearMonth(dateStr: string): string {
   return dateStr.slice(0, 7);
 }
 
-/** 이번 주 (일~토) 시작일 YYYY-MM-DD */
+/** 이번 주 (일~토) 시작일 YYYY-MM-DD (로컬 기준) */
 export function getThisWeekStart(): string {
   const d = new Date();
   const day = d.getDay();
   const diff = d.getDate() - day;
   const start = new Date(d);
   start.setDate(diff);
-  return start.toISOString().slice(0, 10);
+  return localDateStr(start);
 }
 
-/** 이번 주 끝일 (토) */
+/** 이번 주 끝일 (토) (로컬 기준) */
 export function getThisWeekEnd(): string {
   const start = getThisWeekStart();
   const s = new Date(start + "T12:00:00");
   s.setDate(s.getDate() + 6);
-  return s.toISOString().slice(0, 10);
+  return localDateStr(s);
 }

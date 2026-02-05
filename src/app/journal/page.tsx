@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
+import { localDateStr } from "@/lib/dateUtil";
 import {
   type JournalEntry,
   loadJournalEntries,
@@ -15,7 +16,8 @@ import {
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 type DraftSnapshot = { content: string; important: boolean };
@@ -190,13 +192,13 @@ export default function JournalPage() {
   const goPrevDay = () => {
     const d = new Date(selectedDate + "T12:00:00");
     d.setDate(d.getDate() - 1);
-    setSelectedDate(d.toISOString().slice(0, 10));
+    setSelectedDate(localDateStr(d));
   };
 
   const goNextDay = () => {
     const d = new Date(selectedDate + "T12:00:00");
     d.setDate(d.getDate() + 1);
-    const next = d.toISOString().slice(0, 10);
+    const next = localDateStr(d);
     if (next > todayStr()) return;
     setSelectedDate(next);
   };
@@ -268,7 +270,7 @@ export default function JournalPage() {
     let d = new Date();
     const today = todayStr();
     while (true) {
-      const key = d.toISOString().slice(0, 10);
+      const key = localDateStr(d);
       if (key > today) break;
       if (entryDates.has(key)) count++;
       else if (key !== today) break;
@@ -285,7 +287,7 @@ export default function JournalPage() {
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
   const [exportRangeFrom, setExportRangeFrom] = useState(() => {
     const d = new Date(currentYear - 1, now.getMonth(), now.getDate());
-    return d.toISOString().slice(0, 10);
+    return localDateStr(d);
   });
   const [exportRangeTo, setExportRangeTo] = useState(todayStr());
   const searchQueryNorm = searchQuery.trim().toLowerCase();
