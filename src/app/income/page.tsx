@@ -219,8 +219,11 @@ export default function IncomePage() {
   const businessAndExpense = taxExpenseTotalForYear;
   /** 연 순수익 = 총 매출 - 사업 및 경비 */
   const yearNetProfit = yearIncomeTotal - businessAndExpense;
-  /** 월 평균 수익 = 연 순수익 ÷ 12 */
-  const monthNetProfit = yearNetProfit / 12;
+  /** 월 평균 수익 = 연 순수익 ÷ 현재 달 수(올해) 또는 12(과거 연도) */
+  const currentYear = new Date().getFullYear();
+  const currentMonthNum = new Date().getMonth() + 1;
+  const monthsForAverage = incomeYear === currentYear ? currentMonthNum : 12;
+  const monthNetProfit = monthsForAverage > 0 ? yearNetProfit / monthsForAverage : yearNetProfit;
 
   const incomeByCategory = useMemo(() => {
     const map: Record<string, number> = {};
@@ -558,7 +561,7 @@ export default function IncomePage() {
           </div>
           <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
-              월 평균수익 (연 순수익 ÷ 12)
+              월 평균수익 (연 순수익 ÷ {monthsForAverage})
             </div>
             <div className="mt-2 text-[25px] font-bold tracking-tight">
               <AmountToggle
