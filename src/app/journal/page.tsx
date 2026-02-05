@@ -324,7 +324,7 @@ export default function JournalPage() {
       )}
 
       <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
-        <Card className="relative flex min-w-0 flex-col">
+        <Card className="relative flex min-w-0 flex-col overflow-visible">
           {/* 중요한 날: 우측 상단 별표 (크게, 비활성도 꽉 찬 별) */}
           <button
             type="button"
@@ -389,52 +389,56 @@ export default function JournalPage() {
               "저장 버튼을 눌러 일기에 반영하세요"}
           </p>
 
-          {/* 본문 박스 + 우측 상단 편집/보기 토글 (한 개 아이콘) */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setViewMode((m) => (m === "write" ? "preview" : "write"))}
-              title={viewMode === "write" ? "미리보기" : "편집"}
-              aria-label={viewMode === "write" ? "미리보기로 전환" : "편집으로 전환"}
-              className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
-            >
-              {viewMode === "write" ? (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              )}
-            </button>
-            {viewMode === "write" ? (
-              <textarea
-                ref={textareaRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    save();
-                  }
-                }}
-                placeholder="오늘 하루를 적어보세요. **볼드**는 미리보기에서 보여요."
-                className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50/50 pt-10 pr-10 pb-4 pl-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-                rows={16}
-              />
-            ) : (
-              <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-neutral-50/50 pt-10 pr-10 pb-4 pl-4 text-[18px] leading-relaxed text-neutral-800">
-                {draft.trim() ? (
-                  <div
-                    dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
+          {/* 본문 박스: 모바일에서만 화면 가로 꽉(full-bleed), PC는 카드 안 그대로 */}
+          <div className="relative ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen md:ml-0 md:mr-0 md:w-full">
+            <div className="bg-neutral-50/50 px-4 py-4 md:bg-transparent md:px-0 md:py-0">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setViewMode((m) => (m === "write" ? "preview" : "write"))}
+                  title={viewMode === "write" ? "미리보기" : "편집"}
+                  aria-label={viewMode === "write" ? "미리보기로 전환" : "편집으로 전환"}
+                  className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+                >
+                  {viewMode === "write" ? (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  )}
+                </button>
+                {viewMode === "write" ? (
+                  <textarea
+                    ref={textareaRef}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                        e.preventDefault();
+                        save();
+                      }
+                    }}
+                    placeholder="오늘 하루를 적어보세요. **볼드**는 미리보기에서 보여요."
+                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-10 pb-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-4 md:pr-10"
+                    rows={16}
                   />
                 ) : (
-                  <p className="text-neutral-400">내용이 없어요.</p>
+                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-10 pb-4 text-[18px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pr-10">
+                    {draft.trim() ? (
+                      <div
+                        dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
+                      />
+                    ) : (
+                      <p className="text-neutral-400">내용이 없어요.</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
