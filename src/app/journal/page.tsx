@@ -320,7 +320,7 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0 space-y-6 pb-10">
       {/* 저장 토스트 */}
       {saveToast && (
         <div
@@ -423,24 +423,36 @@ export default function JournalPage() {
           <div className="relative ml-[calc(-50vw+50%)] mr-[calc(-50vw+50%)] w-screen md:ml-0 md:mr-0 md:w-full">
             <div className="bg-neutral-50/50 px-4 py-4 md:bg-transparent md:px-0 md:py-0">
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setViewMode((m) => (m === "write" ? "preview" : "write"))}
-                  title={viewMode === "write" ? "미리보기" : "편집"}
-                  aria-label={viewMode === "write" ? "미리보기로 전환" : "편집으로 전환"}
-                  className="absolute right-2 top-2 z-10 rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
-                >
-                  {viewMode === "write" ? (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  )}
-                </button>
+                {/* 좌측 상단: 볼드 버튼 + 쓰기/미리보기 토글 */}
+                <div className="absolute left-2 top-2 z-10 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={insertBold}
+                    title="볼드 (Ctrl+B / ⌘+B)"
+                    aria-label="선택한 글자 볼드"
+                    className="rounded-lg p-1.5 font-bold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
+                  >
+                    B
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode((m) => (m === "write" ? "preview" : "write"))}
+                    title={viewMode === "write" ? "미리보기" : "편집"}
+                    aria-label={viewMode === "write" ? "미리보기로 전환" : "편집으로 전환"}
+                    className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+                  >
+                    {viewMode === "write" ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {viewMode === "write" ? (
                   <textarea
                     ref={textareaRef}
@@ -452,12 +464,12 @@ export default function JournalPage() {
                         save();
                       }
                     }}
-                    placeholder="오늘 하루를 적어보세요. **볼드**는 미리보기에서 보여요."
-                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-10 pb-4 text-[18px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-4 md:pr-10"
+                    placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
+                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-white pt-10 pb-4 text-[19px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:bg-neutral-50/50 md:pl-12 md:pr-10"
                     rows={16}
                   />
                 ) : (
-                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-10 pb-4 text-[18px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pr-10">
+                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-white px-4 pt-10 pb-4 text-[19px] leading-relaxed text-neutral-800 md:bg-neutral-50/50 md:pl-12 md:pr-10">
                     {draft.trim() ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
@@ -523,22 +535,24 @@ export default function JournalPage() {
           </div>
         </Card>
 
-        {/* 드로어: 달력·검색·내보내기 (오른쪽에서 슬라이드) */}
-        {drawerOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-black/30 transition-opacity duration-200"
-              aria-hidden
-              onClick={() => setDrawerOpen(false)}
-            />
-            <aside
-              className={clsx(
-                "fixed right-0 top-0 z-50 flex h-full w-[min(320px,90vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
-                drawerAnimated ? "translate-x-0" : "translate-x-full"
-              )}
-              role="dialog"
-              aria-label="달력·검색"
-            >
+        {/* 드로어: 달력·검색·내보내기 (body에 포탈 → 화면 전체 어둡게, 오른쪽에서 슬라이드) */}
+        {drawerOpen &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <>
+              <div
+                className="fixed inset-0 z-40 min-h-screen min-w-[100vw] bg-black/40 transition-opacity duration-200"
+                aria-hidden
+                onClick={() => setDrawerOpen(false)}
+              />
+              <aside
+                className={clsx(
+                  "fixed right-0 top-12 z-50 flex h-[75vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
+                  drawerAnimated ? "translate-x-0" : "translate-x-full"
+                )}
+                role="dialog"
+                aria-label="달력·검색"
+              >
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
                 <span className="text-sm font-semibold text-neutral-800">달력 · 검색</span>
                 <button
@@ -703,8 +717,9 @@ export default function JournalPage() {
                 </div>
               </div>
             </aside>
-          </>
-        )}
+          </>,
+            document.body
+          )}
       </div>
     </div>
   );
