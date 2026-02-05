@@ -6,7 +6,7 @@ import { RegisterServiceWorker } from "@/components/layout/RegisterServiceWorker
 export const metadata: Metadata = {
   title: "My Lifestyle Dashboard",
   description: "애플 스타일 올인원 라이프스타일 대시보드",
-  manifest: "/manifest.json",
+  manifest: "/manifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -32,7 +32,7 @@ export default function RootLayout({
       <head>
         <meta httpEquiv="Content-Language" content="ko" />
         <link rel="icon" href={faviconUrl} />
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="/manifest" />
         <meta name="theme-color" content="#1a1a1a" />
         <link rel="apple-touch-icon" href={faviconUrl} />
         <link
