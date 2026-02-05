@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { DashboardShell } from "@/components/layout/DashboardShell";
+import { ConditionalShell } from "@/components/layout/ConditionalShell";
 import { RegisterServiceWorker } from "@/components/layout/RegisterServiceWorker";
 
 export const metadata: Metadata = {
   title: "My Lifestyle Dashboard",
   description: "애플 스타일 올인원 라이프스타일 대시보드",
   manifest: "/manifest",
+  robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -31,6 +32,7 @@ export default function RootLayout({
     <html lang="ko">
       <head>
         <meta httpEquiv="Content-Language" content="ko" />
+        <meta name="robots" content="noindex, nofollow" />
         <link rel="icon" href={faviconUrl} />
         <link rel="manifest" href="/manifest" />
         <meta name="theme-color" content="#1a1a1a" />
@@ -44,7 +46,7 @@ export default function RootLayout({
       </head>
       <body lang="ko" className="bg-soft-bg font-sans antialiased">
         <RegisterServiceWorker />
-        <DashboardShell>{children}</DashboardShell>
+        <ConditionalShell>{children}</ConditionalShell>
       </body>
     </html>
   );

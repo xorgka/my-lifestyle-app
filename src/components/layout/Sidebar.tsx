@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
+import { createClient } from "@/lib/supabase/client";
 
 const menuItems = [
   { href: "/", label: "홈" },
@@ -21,6 +22,14 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
@@ -67,6 +76,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           );
         })}
       </nav>
+
+      <div className="mt-auto border-t border-neutral-100 pt-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[16px] font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
+        >
+          <span>로그아웃</span>
+        </button>
+      </div>
     </aside>
   );
 }
