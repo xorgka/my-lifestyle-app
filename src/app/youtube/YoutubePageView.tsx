@@ -81,11 +81,11 @@ export function YoutubePageView(props: Record<string, unknown>) {
             subtitle="채널별 수익, 계정 정보, 메모를 한 곳에서 관리해요."
             className="mb-0 pb-0"
           />
-          <p className={useSupabase ? "mt-1 text-xs text-emerald-600" : "mt-1 text-xs text-amber-600"}>
-            {useSupabase
-              ? "데이터가 Supabase에 저장돼요. (PC·모바일 동기화)"
-              : "데이터가 이 기기만 저장돼요. 모바일 연동: 배포 환경에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 설정 후 재배포하세요."}
-          </p>
+          {!useSupabase && (
+            <p className="mt-1 text-xs text-amber-600">
+              데이터가 이 기기만 저장돼요. 모바일 연동: 배포 환경에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 설정 후 재배포하세요.
+            </p>
+          )}
         </div>
         <button
           type="button"

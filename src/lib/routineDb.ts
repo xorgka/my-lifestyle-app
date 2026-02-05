@@ -1,0 +1,204 @@
+/**
+ * 루틴: Supabase 연결 시 DB 사용(모바일·PC 동기화), 없으면 localStorage
+ */
+
+import { supabase } from "./supabase";
+
+export type RoutineItem = {
+  id: number;
+  title: string;
+};
+
+const STORAGE_ITEMS = "routine-items";
+const STORAGE_DAILY = "routine-daily";
+const KEEP_DAILY_MONTHS = 12;
+
+function getCutoffDateKey(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - KEEP_DAILY_MONTHS);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function loadItemsFromStorage(): RoutineItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_ITEMS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { id: number; title: string }[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveItemsToStorage(items: RoutineItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_ITEMS, JSON.stringify(items));
+  } catch {}
+}
+
+function loadCompletionsFromStorage(): Record<string, number[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_DAILY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number[]>;
+    const cutoff = getCutoffDateKey();
+    const out: Record<string, number[]> = {};
+    Object.entries(parsed).forEach(([key, ids]) => {
+      if (key >= cutoff) out[key] = ids;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function saveCompletionsToStorage(completions: Record<string, number[]>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_DAILY, JSON.stringify(completions));
+  } catch {}
+}
+
+/** 루틴 항목 로드 (Supabase 우선. DB 비어 있고 localStorage 있으면 한 번 업로드 후 localStorage 삭제) */
+export async function loadRoutineItems(): Promise<RoutineItem[]> {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("routine_items")
+      .select("id, title, sort_order")
+      .order("sort_order", { ascending: true });
+    if (error) {
+      console.error("[routineDb] loadRoutineItems", error);
+      return loadItemsFromStorage();
+    }
+    const fromDb = (data ?? []).map((row) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+    }));
+    if (fromDb.length > 0) return fromDb;
+    const fromStorage = loadItemsFromStorage();
+    if (fromStorage.length > 0) {
+      const saved = await saveRoutineItems(fromStorage);
+      if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_ITEMS);
+      return saved;
+    }
+    return [];
+  }
+  return loadItemsFromStorage();
+}
+
+/** 루틴 항목 저장. 새 항목은 DB insert 후 반환된 id로 교체되어 반환됨. */
+export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineItem[]> {
+  if (supabase) {
+    const { data: existingRows } = await supabase
+      .from("routine_items")
+      .select("id")
+      .order("id", { ascending: true });
+    const existingIds = new Set((existingRows ?? []).map((r) => Number(r.id)));
+    const result: RoutineItem[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (existingIds.has(item.id)) {
+        await supabase
+          .from("routine_items")
+          .update({ title: item.title, sort_order: i })
+          .eq("id", item.id);
+        result.push(item);
+      } else {
+        const { data: inserted, error } = await supabase
+          .from("routine_items")
+          .insert({ title: item.title, sort_order: i })
+          .select("id, title")
+          .single();
+        if (error) {
+          console.error("[routineDb] insert item", error);
+          result.push(item);
+        } else {
+          result.push({ id: Number(inserted.id), title: inserted.title ?? item.title });
+        }
+      }
+    }
+    const keepIds = new Set(result.map((r) => r.id));
+    const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
+    if (toDelete.length > 0) {
+      await supabase.from("routine_items").delete().in("id", toDelete);
+    }
+    return result;
+  }
+  saveItemsToStorage(items);
+  return items;
+}
+
+/** 일별 완료 기록 로드 (cutoff 이후만) */
+export async function loadRoutineCompletions(): Promise<Record<string, number[]>> {
+  const cutoff = getCutoffDateKey();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("routine_completions")
+      .select("date, item_id")
+      .gte("date", cutoff);
+    if (error) {
+      console.error("[routineDb] loadRoutineCompletions", error);
+      return loadCompletionsFromStorage();
+    }
+    const out: Record<string, number[]> = {};
+    (data ?? []).forEach((row) => {
+      const d = row.date;
+      const id = Number(row.item_id);
+      if (!out[d]) out[d] = [];
+      out[d].push(id);
+    });
+    return out;
+  }
+  return loadCompletionsFromStorage();
+}
+
+/** 일별 완료 기록 저장 (cutoff 이후 전체 교체) */
+export async function saveRoutineCompletions(completions: Record<string, number[]>): Promise<void> {
+  const cutoff = getCutoffDateKey();
+  if (supabase) {
+    await supabase.from("routine_completions").delete().gte("date", cutoff);
+    const rows: { date: string; item_id: number }[] = [];
+    Object.entries(completions).forEach(([date, ids]) => {
+      if (date >= cutoff) ids.forEach((item_id) => rows.push({ date, item_id }));
+    });
+    if (rows.length > 0) {
+      const { error } = await supabase.from("routine_completions").insert(rows);
+      if (error) console.error("[routineDb] saveRoutineCompletions", error);
+    }
+    return;
+  }
+  saveCompletionsToStorage(completions);
+}
+
+/** 완료 토글 (한 건만 반영, 저장 시 사용) */
+export async function toggleRoutineCompletion(
+  date: string,
+  itemId: number,
+  completed: boolean
+): Promise<void> {
+  if (supabase) {
+    if (completed) {
+      const { error } = await supabase.from("routine_completions").insert({ date, item_id: itemId });
+      if (error) console.error("[routineDb] toggleCompletion insert", error);
+    } else {
+      const { error } = await supabase
+        .from("routine_completions")
+        .delete()
+        .eq("date", date)
+        .eq("item_id", itemId);
+      if (error) console.error("[routineDb] toggleCompletion delete", error);
+    }
+    return;
+  }
+  const prev = loadCompletionsFromStorage();
+  const list = prev[date] ?? [];
+  if (completed) {
+    if (!list.includes(itemId)) prev[date] = [...list, itemId];
+  } else {
+    prev[date] = list.filter((x) => x !== itemId);
+  }
+  saveCompletionsToStorage(prev);
+}

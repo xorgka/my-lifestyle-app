@@ -5,14 +5,18 @@ import { createPortal } from "react-dom";
 import confetti from "canvas-confetti";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
+import {
+  loadRoutineItems,
+  saveRoutineItems,
+  loadRoutineCompletions,
+  saveRoutineCompletions,
+} from "@/lib/routineDb";
 
 type RoutineItem = {
   id: number;
   title: string;
 };
 
-const STORAGE_ITEMS = "routine-items";
-const STORAGE_DAILY = "routine-daily";
 const KEEP_DAILY_MONTHS = 12; // 이 기간만 보관, 그 이전 데이터는 자동 삭제
 
 function getCutoffDateKey(): string {
@@ -75,6 +79,8 @@ export default function RoutinePage() {
   const [monthlyRangeYear, setMonthlyRangeYear] = useState<number>(() => new Date().getFullYear());
   /** 리스트 편집 모드: 켜면 드래그·수정·삭제 표시, 끄면 체크+제목만 */
   const [listEditMode, setListEditMode] = useState(false);
+  /** 초기 로드 완료 후에만 저장 (다른 기기 데이터 덮어쓰기 방지) */
+  const [routineLoaded, setRoutineLoaded] = useState(false);
 
   const todayKey = getTodayKey();
   const completedToday = useMemo(
@@ -83,34 +89,38 @@ export default function RoutinePage() {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_ITEMS);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { id: number; title: string; description?: string }[];
-        if (Array.isArray(parsed) && parsed.length > 0)
-          setItems(parsed.map(({ id, title }) => ({ id, title })));
-      }
-      const rawDaily = window.localStorage.getItem(STORAGE_DAILY);
-      if (rawDaily) setDailyCompletions(pruneOldCompletions(JSON.parse(rawDaily)));
-    } catch {
-      // ignore
-    }
+    let cancelled = false;
+    Promise.all([loadRoutineItems(), loadRoutineCompletions()]).then(([itemsData, completionsData]) => {
+      if (cancelled) return;
+      setItems(itemsData.length > 0 ? itemsData : defaultItems);
+      setDailyCompletions(completionsData);
+      setRoutineLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_ITEMS, JSON.stringify(items));
-  }, [items]);
+    if (!routineLoaded) return;
+    saveRoutineItems(items)
+      .then((updated) => {
+        const same =
+          updated.length === items.length &&
+          updated.every((u, i) => u.id === items[i].id && u.title === items[i].title);
+        if (!same) setItems(updated);
+      })
+      .catch(console.error);
+  }, [routineLoaded, items]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!routineLoaded) return;
     const toSave = pruneOldCompletions(dailyCompletions);
-    window.localStorage.setItem(STORAGE_DAILY, JSON.stringify(toSave));
+    saveRoutineCompletions(toSave).catch(console.error);
     if (Object.keys(toSave).length < Object.keys(dailyCompletions).length) {
       setDailyCompletions(toSave);
     }
-  }, [dailyCompletions]);
+  }, [routineLoaded, dailyCompletions]);
 
   useEffect(() => {
     if (addOpen) {
