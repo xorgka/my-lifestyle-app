@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import {
@@ -255,13 +256,16 @@ export default function FinancePage() {
     return map;
   }, [viewMonthEntries]);
 
-  /** 해당 월 달력 그리드 (7×6): 각 셀은 null 또는 { day, dateStr } */
+  /** 해당 월 달력 그리드: 필요한 주 수만큼만 (5주 또는 6주), 각 셀은 null 또는 { day, dateStr } */
   const viewMonthCalendar = useMemo(() => {
     const [y, m] = yearMonthForView.split("-").map(Number);
     const lastDay = new Date(y, m, 0).getDate();
     const firstDayOfWeek = new Date(y, m - 1, 1).getDay();
+    const totalCells = firstDayOfWeek + lastDay;
+    const rowCount = Math.ceil(totalCells / 7);
+    const cellCount = rowCount * 7;
     const cells: ({ day: number; dateStr: string } | null)[] = [];
-    for (let i = 0; i < 42; i++) {
+    for (let i = 0; i < cellCount; i++) {
       if (i < firstDayOfWeek || i >= firstDayOfWeek + lastDay) {
         cells.push(null);
       } else {
@@ -777,7 +781,7 @@ export default function FinancePage() {
       {/* 보기: 이번달(고정) / 올해(1~12월 드롭다운) / 특정 연·월(연·월 드롭다운) */}
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900">기간별 보기</h2>
-        <div ref={periodDropdownRef} className="mt-3 mb-8 flex flex-wrap items-center gap-2">
+        <div ref={periodDropdownRef} className="mt-3 mb-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setViewMode("thisMonth")}
@@ -897,7 +901,7 @@ export default function FinancePage() {
                 </button>
               ))}
             </div>
-            <div className="mt-8 pt-4">
+            <div className="mt-5 pt-3">
               <div className="text-base font-semibold text-neutral-800">[ 해당 월 일별 내역 ]</div>
               {Object.keys(viewMonthByDay).length === 0 ? (
                 <p className="mt-3 text-sm text-neutral-400">해당 월에 입력된 내역이 없어요.</p>
@@ -1072,18 +1076,20 @@ export default function FinancePage() {
       )}
 
       {/* 날짜별 상세 모달 (달력 셀 클릭) */}
-      {dayDetailDate && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => {
-            setDayDetailDate(null);
-            setDayDetailEditingId(null);
-          }}
-        >
+      {dayDetailDate &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            onClick={() => {
+              setDayDetailDate(null);
+              setDayDetailEditingId(null);
+            }}
           >
+            <div
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
             <h3 className="text-lg font-semibold text-neutral-900">
               {formatDateLabel(dayDetailDate)}
             </h3>
@@ -1191,22 +1197,25 @@ export default function FinancePage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 카테고리별 상세 항목 모달 */}
-      {categoryDetailModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => {
-            setCategoryDetailModal(null);
-            setExpandedDetailItems(new Set());
-          }}
-        >
+      {categoryDetailModal &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            onClick={() => {
+              setCategoryDetailModal(null);
+              setExpandedDetailItems(new Set());
+            }}
           >
+            <div
+              className="my-auto max-h-[85vh] w-full max-w-2xl shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
             <h3 className="text-lg font-semibold text-neutral-900">
               {CATEGORY_LABELS[categoryDetailModal]} · {yearMonthForView} 상세
             </h3>
@@ -1289,7 +1298,8 @@ export default function FinancePage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 키워드 관리 모달 */}
@@ -1456,7 +1466,7 @@ export default function FinancePage() {
               </tr>
             </thead>
             <tbody>
-              {yearlySummary.map((row) => {
+              {[...yearlySummary].reverse().map((row) => {
                 const 순수익있음 = row.순수익 != null;
                 const 저축값 = row.지출데이터있음 ? row.매출 - row.지출 : null;
                 const 순수익표시 = !순수익있음 ? "데이터 없음" : formatManwon(row.순수익!);
