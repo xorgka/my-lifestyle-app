@@ -1070,74 +1070,76 @@ export default function IncomePage() {
         document.body
       )}
 
-      {showCategoryModal && (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4"
-          onClick={() => {
-            setShowCategoryModal(false);
-            setNewCategoryName("");
-          }}
-        >
-          <div className="flex min-h-[100dvh] items-center justify-center py-8">
+      {showCategoryModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => {
+              setShowCategoryModal(false);
+              setNewCategoryName("");
+            }}
+          >
             <div
               className="my-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-            <h3 className="text-lg font-semibold text-neutral-900">구분 관리</h3>
-            <p className="mt-1 text-sm text-neutral-500">
-              수입 구분을 추가하거나 삭제할 수 있어요.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {categories.map((c) => (
-                <span
-                  key={c}
-                  className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-neutral-700"
-                >
-                  {c}
-                  <button
-                    type="button"
-                    onClick={() => removeCategory(c)}
-                    className="text-neutral-400 hover:text-red-600"
-                    aria-label={`${c} 삭제`}
+              <h3 className="text-lg font-semibold text-neutral-900">구분 관리</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                수입 구분을 추가하거나 삭제할 수 있어요.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {categories.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-neutral-700"
                   >
-                    ×
-                  </button>
-                </span>
-              ))}
+                    {c}
+                    <button
+                      type="button"
+                      onClick={() => removeCategory(c)}
+                      className="text-neutral-400 hover:text-red-600"
+                      aria-label={`${c} 삭제`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="새 구분 이름"
+                  className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
+                />
+                <button
+                  type="button"
+                  onClick={addCategory}
+                  className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-700"
+                >
+                  추가
+                </button>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCategoryModal(false);
+                    setNewCategoryName("");
+                  }}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
-            <div className="mt-4 flex gap-2">
-              <input
-                type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="새 구분 이름"
-                className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-800"
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
-              />
-              <button
-                type="button"
-                onClick={addCategory}
-                className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-700"
-              >
-                추가
-              </button>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCategoryModal(false);
-                  setNewCategoryName("");
-                }}
-                className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

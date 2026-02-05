@@ -1356,21 +1356,24 @@ export default function FinancePage() {
       )}
 
       {/* 키워드 관리 모달 */}
-      {showKeywordModal && (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4"
-          onClick={() => {
-            setShowKeywordModal(false);
-            setAddKeywordCategory(null);
-            setAddKeywordValue("");
-            setPendingKeyword(null);
-          }}
-        >
-          <div className="flex min-h-[100dvh] items-center justify-center py-8">
-            <div
-              className="my-auto max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
+      {showKeywordModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => {
+              setShowKeywordModal(false);
+              setAddKeywordCategory(null);
+              setAddKeywordValue("");
+              setPendingKeyword(null);
+            }}
+          >
+            <div className="flex min-h-full items-center justify-center py-8">
+              <div
+                className="my-auto max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
             <h3 className="text-lg font-semibold text-neutral-900">카테고리 키워드 관리</h3>
             <p className="mt-1 text-sm text-neutral-500">
               항목명에 포함된 키워드로 자동 분류돼요. 키워드는 추가·삭제할 수 있어요.
@@ -1497,7 +1500,8 @@ export default function FinancePage() {
             </div>
           </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 연도별 통계 */}

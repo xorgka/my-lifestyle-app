@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +20,7 @@ export default function InsightPage() {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [viewer, setViewer] = useState<{ list: InsightItem[]; index: number } | null>(null);
 
   // Load from localStorage
   useEffect(() => {
@@ -207,10 +209,27 @@ export default function InsightPage() {
             {recentInsights.map((item) => (
               <div
                 key={item.id}
-                className="group min-w-0 rounded-3xl bg-neutral-50 px-6 py-4 text-base text-neutral-900 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_14px_34px_rgba(0,0,0,0.06)]"
+                role={editingId === item.id ? undefined : "button"}
+                tabIndex={editingId === item.id ? undefined : 0}
+                onClick={
+                  editingId === item.id
+                    ? undefined
+                    : () => setViewer({ list: recentInsights, index: recentInsights.findIndex((i) => i.id === item.id) })
+                }
+                onKeyDown={
+                  editingId === item.id
+                    ? undefined
+                    : (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setViewer({ list: recentInsights, index: recentInsights.findIndex((i) => i.id === item.id) });
+                        }
+                      }
+                }
+                className="group min-w-0 cursor-pointer rounded-3xl bg-neutral-50 px-6 py-4 text-base text-neutral-900 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_14px_34px_rgba(0,0,0,0.06)]"
               >
                 {editingId === item.id ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     <textarea
                       value={editingText}
                       onChange={(e) => setEditingText(e.target.value)}
@@ -239,7 +258,7 @@ export default function InsightPage() {
                     <p className="max-w-full text-lg leading-relaxed">{item.text}</p>
                     <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                       <span>{formatDate(item.createdAt)}</span>
-                      <div className="flex gap-2 opacity-0 transition group-hover:opacity-100">
+                      <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => startEdit(item)}
@@ -306,10 +325,27 @@ export default function InsightPage() {
               {selectedMonthItems.map((item) => (
                 <div
                   key={item.id}
-                  className="group min-w-0 rounded-3xl bg-neutral-50 px-6 py-4 text-sm text-neutral-900 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_12px_30px_rgba(0,0,0,0.05)]"
+                  role={editingId === item.id ? undefined : "button"}
+                  tabIndex={editingId === item.id ? undefined : 0}
+                  onClick={
+                    editingId === item.id
+                      ? undefined
+                      : () => setViewer({ list: selectedMonthItems, index: selectedMonthItems.findIndex((i) => i.id === item.id) })
+                  }
+                  onKeyDown={
+                    editingId === item.id
+                      ? undefined
+                      : (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setViewer({ list: selectedMonthItems, index: selectedMonthItems.findIndex((i) => i.id === item.id) });
+                          }
+                        }
+                  }
+                  className="group min-w-0 cursor-pointer rounded-3xl bg-neutral-50 px-6 py-4 text-sm text-neutral-900 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_12px_30px_rgba(0,0,0,0.05)]"
                 >
                   {editingId === item.id ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                       <textarea
                         value={editingText}
                         onChange={(e) => setEditingText(e.target.value)}
@@ -338,7 +374,7 @@ export default function InsightPage() {
                       <p className="max-w-full text-lg leading-relaxed">{item.text}</p>
                       <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                         <span>{formatDate(item.createdAt)}</span>
-                        <div className="flex gap-2 opacity-0 transition group-hover:opacity-100">
+                        <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => startEdit(item)}
@@ -363,6 +399,66 @@ export default function InsightPage() {
           )}
         </Card>
       )}
+
+      {/* 문장 뷰어 모달 */}
+      {viewer &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/55 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => setViewer(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="문장 보기"
+          >
+            <div
+              className="relative flex min-w-0 max-w-2xl items-center gap-2 sm:gap-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
+                disabled={viewer.index <= 0}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                aria-label="이전 문장"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div className="min-w-0 flex-1 rounded-3xl bg-white px-8 py-10 shadow-2xl sm:px-12 sm:py-14">
+                <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
+                  {viewer.list[viewer.index]?.text}
+                </p>
+                <p className="mt-6 text-sm text-neutral-500">
+                  {viewer.list[viewer.index] && formatDate(viewer.list[viewer.index].createdAt)}
+                </p>
+                <p className="mt-1 text-xs text-neutral-400">
+                  {viewer.index + 1} / {viewer.list.length}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setViewer((v) =>
+                    v && v.index < v.list.length - 1 ? { ...v, index: v.index + 1 } : v
+                  )
+                }
+                disabled={viewer.index >= viewer.list.length - 1}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                aria-label="다음 문장"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
