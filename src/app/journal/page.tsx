@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -388,31 +389,40 @@ export default function JournalPage() {
               "저장 버튼을 눌러 일기에 반영하세요"}
           </p>
 
-          {/* 쓰기/미리보기 탭 (볼드는 Ctrl+B) */}
+          {/* 미리보기(눈) / 쓰기(연필) 탭 (볼드는 Ctrl+B) */}
           <div className="mb-2 flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5">
             <button
               type="button"
-              onClick={() => setViewMode("write")}
-              className={clsx(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition",
-                viewMode === "write"
-                  ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-600 hover:text-neutral-800"
-              )}
-            >
-              쓰기
-            </button>
-            <button
-              type="button"
               onClick={() => setViewMode("preview")}
+              title="미리보기"
+              aria-label="미리보기"
               className={clsx(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                "rounded-md p-2 text-sm font-medium transition",
                 viewMode === "preview"
                   ? "bg-white text-neutral-900 shadow-sm"
                   : "text-neutral-600 hover:text-neutral-800"
               )}
             >
-              미리보기
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("write")}
+              title="쓰기"
+              aria-label="쓰기"
+              className={clsx(
+                "rounded-md p-2 text-sm font-medium transition",
+                viewMode === "write"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-800"
+              )}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
             </button>
           </div>
 
@@ -586,6 +596,11 @@ export default function JournalPage() {
                 const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                 const entry = entriesByDate[dateStr];
                 const hasEntry = !!entry;
+                const hasDraftForThisDate = dateStr === selectedDate && draft.trim().length > 0;
+                const showTooltip = hasEntry || hasDraftForThisDate;
+                const tooltipText = hasEntry
+                  ? firstLinePreview(entry!.content, 80)
+                  : firstLinePreview(draft, 80);
                 const isImportant = entry?.important ?? false;
                 const isSelected = dateStr === selectedDate;
                 const dimmed = showOnlyImportant && (!hasEntry || !isImportant);
@@ -595,11 +610,11 @@ export default function JournalPage() {
                     type="button"
                     onClick={() => setSelectedDate(dateStr)}
                     onMouseEnter={(e) => {
-                      if (!hasEntry) return;
+                      if (!showTooltip || !tooltipText.trim()) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       setCellTooltip({
                         dateStr,
-                        text: firstLinePreview(entry!.content, 80),
+                        text: tooltipText,
                         x: rect.left + rect.width / 2,
                         y: rect.top,
                       });
@@ -639,18 +654,21 @@ export default function JournalPage() {
               ★
             </button>
           </div>
-          {cellTooltip && (
-            <div
-              className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg bg-neutral-800 px-4 py-2.5 text-base text-white shadow-lg"
-              style={{
-                left: cellTooltip.x,
-                top: cellTooltip.y - 8,
-                maxWidth: "min(320px, 90vw)",
-              }}
-            >
-              {cellTooltip.text}
-            </div>
-          )}
+          {cellTooltip &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full rounded-lg bg-neutral-800 px-4 py-2.5 text-base text-white shadow-lg"
+                style={{
+                  left: cellTooltip.x,
+                  top: cellTooltip.y - 8,
+                  maxWidth: "min(320px, 90vw)",
+                }}
+              >
+                {cellTooltip.text}
+              </div>,
+              document.body
+            )}
         </Card>
 
         {/* 달력 아래: 내보내기 */}

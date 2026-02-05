@@ -46,6 +46,9 @@ git push -u origin main
 - **Value**: 본인 Supabase 대시보드에서 복사한 실제 값 붙여넣기 (공백 없이)
 - **Environment**: Production, Preview, Development **세 개 다 체크** 해두면 배포·미리보기 모두 동작
 
+**이 변수가 없으면** 가계부·일기·**유튜브** 데이터가 서버가 아니라 **각 기기 브라우저(localStorage)에만** 저장됩니다.  
+스마트폰에서도 같은 데이터를 보려면 **반드시** 배포 환경(Vercel 등)에 위 두 변수를 넣고 **재배포**해야 합니다.
+
 이미 배포한 뒤에 넣고 싶다면:
 
 1. Vercel 대시보드 → 해당 프로젝트 클릭

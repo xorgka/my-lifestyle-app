@@ -8,6 +8,7 @@ import {
   saveYoutubeChannels,
   deleteYoutubeChannel,
 } from "@/lib/youtubeDb";
+import { supabase } from "@/lib/supabase";
 
 const ACCOUNT_VIEW_PIN = "2013";
 
@@ -271,6 +272,7 @@ export default function YoutubePage() {
   const viewProps = {
     channels,
     channelsLoading,
+    useSupabase: !!supabase,
     setChannels,
     modal,
     setModal,

@@ -20,6 +20,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const p = props;
   const channels = (p.channels as ChannelRecord[]) ?? [];
   const channelsLoading = (p.channelsLoading as boolean) ?? false;
+  const useSupabase = (p.useSupabase as boolean) ?? false;
   const setChannels = p.setChannels as React.Dispatch<React.SetStateAction<ChannelRecord[]>>;
   const modal = p.modal as "add" | "edit" | null;
   const setModal = p.setModal as React.Dispatch<React.SetStateAction<"add" | "edit" | null>>;
@@ -74,11 +75,18 @@ export function YoutubePageView(props: Record<string, unknown>) {
   return (
     <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <SectionTitle
-          title="유튜브"
-          subtitle="채널별 수익, 계정 정보, 메모를 한 곳에서 관리해요."
-          className="mb-0 pb-0"
-        />
+        <div className="min-w-0 flex-1">
+          <SectionTitle
+            title="유튜브"
+            subtitle="채널별 수익, 계정 정보, 메모를 한 곳에서 관리해요."
+            className="mb-0 pb-0"
+          />
+          <p className={useSupabase ? "mt-1 text-xs text-emerald-600" : "mt-1 text-xs text-amber-600"}>
+            {useSupabase
+              ? "데이터가 Supabase에 저장돼요. (PC·모바일 동기화)"
+              : "데이터가 이 기기만 저장돼요. 모바일 연동: 배포 환경에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 설정 후 재배포하세요."}
+          </p>
+        </div>
         <button
           type="button"
           onClick={openAdd}
