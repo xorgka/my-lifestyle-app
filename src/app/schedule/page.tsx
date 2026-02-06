@@ -107,8 +107,8 @@ function getSystemCategoryClass(
       : `${base} text-violet-600`;
   if (item.type === "builtin" && item.builtinKind === "other")
     return opts?.weekRow
-      ? `${base} text-slate-500 group-hover:text-slate-200`
-      : `${base} text-slate-500`;
+      ? `${base} text-slate-500/60 group-hover:text-slate-200/80`
+      : `${base} text-slate-500/60`;
   return `${base} text-neutral-400`;
 }
 
@@ -120,7 +120,7 @@ function getSystemCategoryCardClass(item: ScheduleItem, opts?: { calendar?: bool
   if (item.type === "builtin" && item.builtinKind === "birthday")
     return "border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" + hover;
   if (item.type === "builtin" && item.builtinKind === "other")
-    return "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100" + hover;
+    return "border-slate-200/50 bg-slate-50/50 text-slate-700/70 hover:bg-slate-100/60" + hover;
   return opts?.calendar
     ? "border-neutral-200/70 bg-neutral-50 text-neutral-700 hover:bg-neutral-200" + hover
     : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100";
