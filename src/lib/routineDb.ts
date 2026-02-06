@@ -8,6 +8,8 @@ import { supabase } from "./supabase";
 export type RoutineItem = {
   id: number;
   title: string;
+  /** 중요 항목 여부 (별표로 표시, 이번달 탭에서 항목별 O/X 보기) */
+  isImportant?: boolean;
 };
 
 const STORAGE_ITEMS = "routine-items";
@@ -25,8 +27,9 @@ function loadItemsFromStorage(): RoutineItem[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_ITEMS);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as { id: number; title: string }[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw) as { id: number; title: string; isImportant?: boolean }[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((p) => ({ id: p.id, title: p.title ?? "", isImportant: !!p.isImportant }));
   } catch {
     return [];
   }
@@ -68,7 +71,7 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
   if (supabase) {
     const { data, error } = await supabase
       .from("routine_items")
-      .select("id, title, sort_order")
+      .select("id, title, sort_order, is_important")
       .order("sort_order", { ascending: true });
     if (error) {
       console.error("[routineDb] loadRoutineItems", error);
@@ -77,6 +80,7 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
     const fromDb = (data ?? []).map((row) => ({
       id: Number(row.id),
       title: String(row.title ?? ""),
+      isImportant: !!(row as { is_important?: boolean }).is_important,
     }));
     if (fromDb.length > 0) return fromDb;
     const fromStorage = loadItemsFromStorage();
@@ -104,20 +108,24 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
       if (existingIds.has(item.id)) {
         await supabase
           .from("routine_items")
-          .update({ title: item.title, sort_order: i })
+          .update({ title: item.title, sort_order: i, is_important: !!item.isImportant })
           .eq("id", item.id);
         result.push(item);
       } else {
         const { data: inserted, error } = await supabase
           .from("routine_items")
-          .insert({ title: item.title, sort_order: i })
+          .insert({ title: item.title, sort_order: i, is_important: !!item.isImportant })
           .select("id, title")
           .single();
         if (error) {
           console.error("[routineDb] insert item", error);
           result.push(item);
         } else {
-          result.push({ id: Number(inserted.id), title: inserted.title ?? item.title });
+          result.push({
+            id: Number(inserted.id),
+            title: inserted.title ?? item.title,
+            isImportant: !!item.isImportant,
+          });
         }
       }
     }

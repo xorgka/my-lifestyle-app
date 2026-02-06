@@ -10,12 +10,8 @@ import {
   saveRoutineItems,
   loadRoutineCompletions,
   saveRoutineCompletions,
+  type RoutineItem,
 } from "@/lib/routineDb";
-
-type RoutineItem = {
-  id: number;
-  title: string;
-};
 
 const KEEP_DAILY_MONTHS = 12; // 이 기간만 보관, 그 이전 데이터는 자동 삭제
 
@@ -35,10 +31,10 @@ function pruneOldCompletions(data: Record<string, number[]>): Record<string, num
 }
 
 const defaultItems: RoutineItem[] = [
-  { id: 1, title: "아침 물 한 잔" },
-  { id: 2, title: "10분 스트레칭" },
-  { id: 3, title: "오늘의 우선순위 3가지 적기" },
-  { id: 4, title: "30분 집중 작업" },
+  { id: 1, title: "아침 물 한 잔", isImportant: false },
+  { id: 2, title: "10분 스트레칭", isImportant: false },
+  { id: 3, title: "오늘의 우선순위 3가지 적기", isImportant: false },
+  { id: 4, title: "30분 집중 작업", isImportant: false },
 ];
 
 function getTodayKey(): string {
@@ -81,6 +77,12 @@ export default function RoutinePage() {
   const [listEditMode, setListEditMode] = useState(false);
   /** 초기 로드 완료 후에만 저장 (다른 기기 데이터 덮어쓰기 방지) */
   const [routineLoaded, setRoutineLoaded] = useState(false);
+  /** 이번달 탭: 보고 있는 연·월 (0 = 이번달, -1 = 지난달, +1 = 다음달 등) */
+  const [monthOffset, setMonthOffset] = useState(0);
+  /** 이번달 탭: 중요 항목 필터 (null = 전체 달성률, 숫자 = 해당 항목만 O/X) */
+  const [selectedImportantItemId, setSelectedImportantItemId] = useState<number | null>(null);
+  /** 월별 탭: 중요 항목 필터 (null = 전체, 숫자 = 해당 항목만 O/X 비율) */
+  const [selectedMonthlyImportantItemId, setSelectedMonthlyImportantItemId] = useState<number | null>(null);
 
   const todayKey = getTodayKey();
   const completedToday = useMemo(
@@ -184,7 +186,7 @@ export default function RoutinePage() {
     const t = newTitle.trim();
     if (!t) return;
     const newId = Math.max(0, ...items.map((i) => i.id)) + 1;
-    setItems((prev) => [...prev, { id: newId, title: t }]);
+    setItems((prev) => [...prev, { id: newId, title: t, isImportant: false }]);
     setNewTitle("");
     setAddOpen(false);
   };
@@ -323,24 +325,52 @@ export default function RoutinePage() {
       .sort((a, b) => b.month.localeCompare(a.month));
   }, [dailyCompletions, items.length]);
 
+  /** 월별 탭에서 단일(중요) 항목 선택 시: 월별 O/X (한 날 수 / 해당 월 일수) */
+  const monthlyStatsBySingleItem = useMemo(() => {
+    const itemId = selectedMonthlyImportantItemId;
+    if (itemId == null) return null;
+    const byMonth: Record<string, { doneDays: number; daysInMonth: number }> = {};
+    Object.entries(dailyCompletions).forEach(([key, ids]) => {
+      const month = key.slice(0, 7);
+      if (!byMonth[month]) {
+        const [y, m] = month.split("-").map(Number);
+        byMonth[month] = { doneDays: 0, daysInMonth: new Date(y, m, 0).getDate() };
+      }
+      if (ids.includes(itemId)) byMonth[month].doneDays += 1;
+    });
+    return Object.entries(byMonth)
+      .map(([month, v]) => ({
+        month,
+        label: `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`,
+        doneDays: v.doneDays,
+        daysInMonth: v.daysInMonth,
+        rate: v.daysInMonth === 0 ? 0 : Math.round((v.doneDays / v.daysInMonth) * 100),
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [dailyCompletions, selectedMonthlyImportantItemId]);
+
   const monthlyStatsFiltered = useMemo(() => {
     const now = new Date();
     const thisYear = now.getFullYear();
     const thisMonth = now.getMonth() + 1;
+    const list =
+      selectedMonthlyImportantItemId != null && monthlyStatsBySingleItem != null
+        ? monthlyStatsBySingleItem
+        : monthlyStatsAll;
     if (monthlyRangeMode === "6months") {
       const cutoff = new Date(thisYear, thisMonth - 1, 1);
       cutoff.setMonth(cutoff.getMonth() - 6);
       const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}`;
-      return monthlyStatsAll.filter((m) => m.month >= cutoffKey);
+      return list.filter((m) => m.month >= cutoffKey);
     }
     if (monthlyRangeMode === "1year") {
       const cutoff = new Date(thisYear, thisMonth - 1, 1);
       cutoff.setMonth(cutoff.getMonth() - 12);
       const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}`;
-      return monthlyStatsAll.filter((m) => m.month >= cutoffKey);
+      return list.filter((m) => m.month >= cutoffKey);
     }
-    return monthlyStatsAll.filter((m) => m.month.startsWith(String(monthlyRangeYear)));
-  }, [monthlyRangeMode, monthlyRangeYear, monthlyStatsAll]);
+    return list.filter((m) => m.month.startsWith(String(monthlyRangeYear)));
+  }, [monthlyRangeMode, monthlyRangeYear, monthlyStatsAll, monthlyStatsBySingleItem, selectedMonthlyImportantItemId]);
 
   const yearOptions = useMemo(() => {
     const years = new Set(monthlyStatsAll.map((m) => m.month.slice(0, 4)));
@@ -349,29 +379,66 @@ export default function RoutinePage() {
       .sort((a, b) => b - a);
   }, [monthlyStatsAll]);
 
+  /** 이번달 탭에서 보고 있는 연·월 */
+  const viewingMonthDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + monthOffset);
+    return d;
+  }, [monthOffset]);
+  const viewingYear = viewingMonthDate.getFullYear();
+  const viewingMonth = viewingMonthDate.getMonth() + 1;
+
+  const importantItems = useMemo(
+    () => items.filter((i) => i.isImportant),
+    [items]
+  );
+
+  /** 이번달 탭 달력 데이터 (전체 % 또는 단일 항목 O/X) */
   const thisMonthCalendar = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const first = new Date(year, month, 1);
-    const last = new Date(year, month + 1, 0);
+    const year = viewingYear;
+    const month = viewingMonth;
+    const month0 = month - 1;
+    const first = new Date(year, month0, 1);
+    const last = new Date(year, month, 0);
     const startPad = first.getDay();
     const daysInMonth = last.getDate();
     const totalItems = items.length || 1;
-    const cells: { day: number | null; pct: number; key: string }[] = [];
+    const singleItemId = selectedImportantItemId;
+    const cells: { day: number | null; pct: number; key: string; done?: boolean }[] = [];
     let monthCompleted = 0;
+    let doneDays = 0;
     for (let i = 0; i < startPad; i++) cells.push({ day: null, pct: 0, key: "" });
     for (let d = 1; d <= daysInMonth; d++) {
-      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const count = (dailyCompletions[key] ?? []).length;
-      monthCompleted += count;
-      cells.push({ day: d, pct: Math.round((count / totalItems) * 100), key });
+      const key = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const completedIds = dailyCompletions[key] ?? [];
+      if (singleItemId != null) {
+        const done = completedIds.includes(singleItemId);
+        if (done) doneDays++;
+        cells.push({ day: d, pct: done ? 100 : 0, key, done });
+      } else {
+        const count = completedIds.length;
+        monthCompleted += count;
+        cells.push({ day: d, pct: Math.round((count / totalItems) * 100), key });
+      }
     }
     while (cells.length % 7 !== 0) cells.push({ day: null, pct: 0, key: "" });
+    if (singleItemId != null) {
+      const totalPct = daysInMonth === 0 ? 0 : Math.round((doneDays / daysInMonth) * 100);
+      return {
+        year,
+        month,
+        cells,
+        daysInMonth,
+        totalPct,
+        singleItemId,
+        doneDays,
+        totalDays: daysInMonth,
+      };
+    }
     const totalPossible = daysInMonth * totalItems;
     const totalPct = totalPossible === 0 ? 0 : Math.round((monthCompleted / totalPossible) * 100);
-    return { year, month: month + 1, cells, daysInMonth, totalPct };
-  }, [dailyCompletions, items.length]);
+    return { year, month, cells, daysInMonth, totalPct };
+  }, [dailyCompletions, items.length, viewingYear, viewingMonth, selectedImportantItemId]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -542,6 +609,28 @@ export default function RoutinePage() {
                     >
                       {item.title}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setItems((prev) =>
+                        prev.map((i) =>
+                          i.id === item.id ? { ...i, isImportant: !i.isImportant } : i
+                        )
+                      );
+                    }}
+                    className={`shrink-0 rounded-lg p-1.5 transition sm:p-2 ${
+                      item.isImportant
+                        ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600"
+                        : "text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500"
+                    }`}
+                    title={item.isImportant ? "중요 항목 해제" : "중요 항목으로 표시 (별표를 누르면 이번달 탭에서 이 항목만 O/X로 볼 수 있어요)"}
+                    aria-label={item.isImportant ? "중요 항목 해제" : "중요 항목으로 표시"}
+                  >
+                    <svg className="h-5 w-5 sm:h-5 sm:w-5" fill={item.isImportant ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
                   </button>
                   {listEditMode && (
                     <div className="flex shrink-0 items-center gap-1">
@@ -718,75 +807,108 @@ export default function RoutinePage() {
 
         {statsTab === "월별" && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setMonthlyRangeMode("6months")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  monthlyRangeMode === "6months"
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
-              >
-                최근 6개월
-              </button>
-              <button
-                type="button"
-                onClick={() => setMonthlyRangeMode("1year")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  monthlyRangeMode === "1year"
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
-              >
-                최근 1년
-              </button>
-              <select
-                value={monthlyRangeMode === "year" ? monthlyRangeYear : ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (!v) return;
-                  setMonthlyRangeYear(Number(v));
-                  setMonthlyRangeMode("year");
-                }}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700"
-              >
-                <option value="">연도 선택</option>
-                {yearOptions.length === 0 && (
-                  <option value={new Date().getFullYear()}>{new Date().getFullYear()}년</option>
-                )}
-                {yearOptions.map((y) => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMonthlyRangeMode("6months")}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    monthlyRangeMode === "6months"
+                      ? "bg-neutral-900 text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  최근 6개월
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthlyRangeMode("1year")}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    monthlyRangeMode === "1year"
+                      ? "bg-neutral-900 text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  최근 1년
+                </button>
+                <select
+                  value={monthlyRangeMode === "year" ? monthlyRangeYear : ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    setMonthlyRangeYear(Number(v));
+                    setMonthlyRangeMode("year");
+                  }}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700"
+                >
+                  <option value="">연도 선택</option>
+                  {yearOptions.length === 0 && (
+                    <option value={new Date().getFullYear()}>{new Date().getFullYear()}년</option>
+                  )}
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>{y}년</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-neutral-500">중요 항목:</span>
+                <select
+                  value={selectedMonthlyImportantItemId ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSelectedMonthlyImportantItemId(v === "" ? null : Number(v));
+                  }}
+                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 min-w-[10rem]"
+                >
+                  <option value="">전체 (달성률 %)</option>
+                  {importantItems.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.title}
+                    </option>
+                  ))}
+                  {importantItems.length === 0 && (
+                    <option value="" disabled>중요 항목 없음</option>
+                  )}
+                </select>
+              </div>
             </div>
             {monthlyStatsFiltered.length === 0 ? (
               <p className="text-sm text-neutral-400">해당 기간 기록이 없어요.</p>
             ) : (
               <div className="space-y-2">
-                {monthlyStatsFiltered.map(({ month, label, rate, completed, total }) => (
-                  <div
-                    key={month}
-                    className={`flex items-center gap-3 rounded-xl px-4 py-2 ${
-                      rate === 100
-                        ? "bg-gradient-to-r from-red-400 via-red-500 to-red-600"
-                        : "bg-neutral-50"
-                    }`}
-                  >
-                    <span className={`w-24 text-sm font-medium ${rate === 100 ? "text-white" : "text-neutral-700"}`}>{label}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className={`h-2 w-full overflow-hidden rounded-full ${rate === 100 ? "bg-white/30" : "bg-neutral-200"}`}>
-                        <div
-                          className={`h-full rounded-full transition-all ${rate === 100 ? "bg-white" : "bg-neutral-700"}`}
-                          style={{ width: `${rate}%` }}
-                        />
+                {monthlyStatsFiltered.map((row) => {
+                  const rate = row.rate;
+                  const isSingleItem = "doneDays" in row && "daysInMonth" in row;
+                  const displayText = isSingleItem
+                    ? `${(row as { doneDays: number; daysInMonth: number }).doneDays}/${(row as { daysInMonth: number }).daysInMonth} (${rate}%)`
+                    : `${rate}% (${(row as { completed: number }).completed}/${(row as { total: number }).total})`;
+                  const isFull = rate === 100;
+                  return (
+                    <div
+                      key={row.month}
+                      className={`flex items-center gap-3 rounded-xl px-4 py-2 ${
+                        isFull
+                          ? isSingleItem
+                            ? "bg-gradient-to-r from-neutral-600 via-neutral-800 to-neutral-950"
+                            : "bg-gradient-to-r from-red-400 via-red-500 to-red-600"
+                          : "bg-neutral-50"
+                      }`}
+                    >
+                      <span className={`w-24 text-sm font-medium ${isFull ? "text-white" : "text-neutral-700"}`}>{row.label}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={`h-2 w-full overflow-hidden rounded-full ${isFull ? "bg-white/30" : "bg-neutral-200"}`}>
+                          <div
+                            className={`h-full rounded-full transition-all ${isFull ? "bg-white" : "bg-neutral-700"}`}
+                            style={{ width: `${rate}%` }}
+                          />
+                        </div>
                       </div>
+                      <span className={`w-28 text-right text-sm tabular-nums font-medium ${isFull ? "text-white" : "text-neutral-600"}`}>
+                        {displayText}
+                      </span>
                     </div>
-                    <span className={`w-14 text-right text-sm tabular-nums font-medium ${rate === 100 ? "text-white" : "text-neutral-600"}`}>
-                      {rate}% ({completed}/{total})
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -794,6 +916,54 @@ export default function RoutinePage() {
 
         {statsTab === "이번달" && (
           <div className="space-y-6">
+            <div className="flex flex-col gap-3">
+              <div className="flex w-full items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMonthOffset((o) => o - 1)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
+                  aria-label="이전 달"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="min-w-0 flex-1 text-center text-base font-semibold text-neutral-900">
+                  {thisMonthCalendar.year}년 {thisMonthCalendar.month}월
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setMonthOffset((o) => o + 1)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
+                  aria-label="다음 달"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex w-full items-center justify-end gap-2 sm:justify-between">
+                <span className="text-sm text-neutral-500">중요 항목:</span>
+                <select
+                  value={selectedImportantItemId ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSelectedImportantItemId(v === "" ? null : Number(v));
+                  }}
+                  className="min-w-[10rem] rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                >
+                  <option value="">전체 (달성률 %)</option>
+                  {importantItems.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.title}
+                    </option>
+                  ))}
+                  {importantItems.length === 0 && (
+                    <option value="" disabled>중요 항목 없음</option>
+                  )}
+                </select>
+              </div>
+            </div>
             <div
               className={`rounded-2xl border-2 px-6 py-5 text-center ${
                 thisMonthCalendar.totalPct === 100
@@ -802,14 +972,22 @@ export default function RoutinePage() {
               }`}
             >
               <p className={thisMonthCalendar.totalPct === 100 ? "text-sm font-medium text-red-100" : "text-sm font-medium text-neutral-500"}>
-                {thisMonthCalendar.year}년 {thisMonthCalendar.month}월 총 달성률
+                {thisMonthCalendar.year}년 {thisMonthCalendar.month}월
+                {"singleItemId" in thisMonthCalendar && thisMonthCalendar.singleItemId != null
+                  ? " O/X 달성"
+                  : " 총 달성률"}
               </p>
               <p className={`mt-2 text-4xl font-bold tabular-nums sm:text-5xl ${thisMonthCalendar.totalPct === 100 ? "text-white" : "text-neutral-900"}`}>
-                {thisMonthCalendar.totalPct}%
+                {"doneDays" in thisMonthCalendar && "totalDays" in thisMonthCalendar
+                  ? `${thisMonthCalendar.doneDays}/${thisMonthCalendar.totalDays} (${thisMonthCalendar.totalPct}%)`
+                  : `${thisMonthCalendar.totalPct}%`}
               </p>
             </div>
             <p className="text-base font-medium text-neutral-600">
-              {thisMonthCalendar.year}년 {thisMonthCalendar.month}월 · 날짜별 달성률
+              {thisMonthCalendar.year}년 {thisMonthCalendar.month}월
+              {"singleItemId" in thisMonthCalendar && thisMonthCalendar.singleItemId != null
+                ? " · 날짜별 O/X"
+                : " · 날짜별 달성률"}
             </p>
             <div className="w-full min-w-0">
               <div className="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-neutral-500">
@@ -822,30 +1000,35 @@ export default function RoutinePage() {
               <div className="grid grid-cols-7 gap-2 text-center">
                 {thisMonthCalendar.cells.map((cell, i) => {
                   const isToday = cell.key === todayKey;
+                  const isOX = "done" in cell && cell.done !== undefined;
+                  const isDone = isOX ? cell.done : cell.pct === 100;
+                  const isSingleItemView = isOX;
+                  const doneBg = isSingleItemView
+                    ? "bg-gradient-to-br from-neutral-600 via-neutral-800 to-neutral-950 text-white"
+                    : "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white";
                   return (
-                  <div
-                    key={i}
-                    className={`min-h-[4rem] rounded-xl py-3 ${
-                      cell.day === null
-                        ? "invisible"
-                        : cell.pct === 100
-                          ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
-                          : "bg-neutral-100"
-                    } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2" : ""}`}
-                    title={cell.key ? `${cell.key} ${cell.pct}%` : ""}
-                  >
-                    {cell.day != null && (
-                      <>
-                        <div className={`text-base font-semibold ${cell.pct === 100 ? "text-white" : "text-neutral-800"}`}>
-                          {cell.day}
-                          {isToday && <span className="ml-0.5 text-xs font-normal opacity-90">(오늘)</span>}
-                        </div>
-                        <div className={`mt-0.5 text-sm font-medium tabular-nums ${cell.pct === 100 ? "text-red-100" : "text-neutral-600"}`}>
-                          {cell.pct}%
-                        </div>
-                      </>
-                    )}
-                  </div>
+                    <div
+                      key={i}
+                      className={`min-h-[4rem] rounded-xl py-3 ${
+                        cell.day === null
+                          ? "invisible"
+                          : isDone
+                            ? doneBg
+                            : "bg-neutral-100"
+                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2" : ""}`}
+                      title={cell.key ? (isOX ? `${cell.key} ${cell.done ? "O" : "X"}` : `${cell.key} ${cell.pct}%`) : ""}
+                    >
+                      {cell.day != null && (
+                        <>
+                          <div className={`text-base font-semibold ${isDone ? "text-white" : "text-neutral-800"}`}>
+                            {cell.day}
+                          </div>
+                          <div className={`mt-0.5 text-sm font-medium tabular-nums ${isDone ? (isSingleItemView ? "text-neutral-300" : "text-red-100") : "text-neutral-600"}`}>
+                            {isOX ? (cell.done ? "O" : "X") : `${cell.pct}%`}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   );
                 })}
               </div>

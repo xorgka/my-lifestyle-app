@@ -1,76 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  loadScheduleEntries,
-  getScheduleItemsInRange,
-  type ScheduleItem,
-} from "@/lib/scheduleDb";
-import { todayStr, addDays } from "@/lib/dateUtil";
+import { loadAllAlertItems, type AlertItem } from "@/lib/alertBarData";
 
-const ROTATE_INTERVAL_MS = 3500;
-
-function isToday(dateStr: string, today: string) {
-  return dateStr === today;
-}
-
-/** 오늘/내일 스케줄 한 건을 문장으로 (예: "오늘은 [설날]이 있어요!", "내일은 [창환 생일]이 있어요!") */
-function itemToSentence(item: ScheduleItem, today: string): string {
-  const dayLabel = isToday(item.date, today) ? "오늘" : "내일";
-  const t = item.title.trim();
-  if (!t) return `${dayLabel} 예정이 있어요!`;
-  const wrapped = `[${t}]`;
-  const last = t.charCodeAt(t.length - 1);
-  const hasJong = (last - 0xac00) % 28 !== 0;
-  const subject = hasJong ? `${wrapped}이` : `${wrapped}가`;
-  return `${dayLabel}은 ${subject} 있어요!`;
-}
-
-/** [] 부분에 자간 적용용으로 앞·중간·뒤 분리 */
-function itemToSentenceParts(
-  item: ScheduleItem,
-  today: string
-): { prefix: string; bracketed: string; suffix: string } {
-  const dayLabel = isToday(item.date, today) ? "오늘" : "내일";
-  const t = item.title.trim();
-  if (!t) return { prefix: `${dayLabel}은 `, bracketed: "예정", suffix: "이 있어요!" };
-  const last = t.charCodeAt(t.length - 1);
-  const hasJong = (last - 0xac00) % 28 !== 0;
-  return {
-    prefix: `${dayLabel}은 `,
-    bracketed: t,
-    suffix: hasJong ? "이 있어요!" : "가 있어요!",
-  };
-}
+const ROTATE_INTERVAL_MS = 8000;
 
 export function TodayAlertBar() {
-  const [entries, setEntries] = useState<Awaited<ReturnType<typeof loadScheduleEntries>>>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
 
-  const today = todayStr();
-  const tomorrow = addDays(today, 1);
-  const items = useMemo(
-    () => getScheduleItemsInRange(today, tomorrow, entries),
-    [today, tomorrow, entries]
-  );
-  const sentences = useMemo(
-    () => items.map((item) => itemToSentence(item, today)),
-    [items, today]
-  );
-
-  const hasMultiple = sentences.length > 1;
-  const emptyMessage = "오늘·내일 예정된 스케줄이 없어요. 탭해서 스케줄을 확인해 보세요!";
-  const currentItem = items.length > 0 ? items[index % items.length] : null;
-  const sentenceParts = currentItem ? itemToSentenceParts(currentItem, today) : null;
+  const hasMultiple = alerts.length > 1;
+  const current = alerts.length > 0 ? alerts[index % alerts.length] : null;
+  const emptyMessage = "오늘 알림이 없어요. 탭해서 홈을 둘러보세요!";
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    loadScheduleEntries()
+    loadAllAlertItems()
       .then((data) => {
-        if (!cancelled) setEntries(data);
+        if (!cancelled) setAlerts(data);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -83,18 +33,18 @@ export function TodayAlertBar() {
   useEffect(() => {
     if (!hasMultiple) return;
     const id = setInterval(() => {
-      setIndex((i) => (i + 1) % sentences.length);
+      setIndex((i) => (i + 1) % alerts.length);
     }, ROTATE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [hasMultiple, sentences.length]);
+  }, [hasMultiple, alerts.length]);
 
   const goPrev = useCallback(() => {
-    setIndex((i) => (i - 1 + sentences.length) % sentences.length);
-  }, [sentences.length]);
+    setIndex((i) => (i - 1 + alerts.length) % alerts.length);
+  }, [alerts.length]);
 
   const goNext = useCallback(() => {
-    setIndex((i) => (i + 1) % sentences.length);
-  }, [sentences.length]);
+    setIndex((i) => (i + 1) % alerts.length);
+  }, [alerts.length]);
 
   const barClass =
     "alert-bar-texture flex min-w-0 items-center gap-2 rounded-full py-1.5 px-4 " +
@@ -108,6 +58,8 @@ export function TodayAlertBar() {
       </div>
     );
   }
+
+  const href = current?.type === "schedule" ? current.href : current?.type === "plain" ? current.href : "/";
 
   return (
     <div className={barClass}>
@@ -125,15 +77,17 @@ export function TodayAlertBar() {
         <span className="text-base leading-none md:text-lg">‹</span>
       </button>
       <Link
-        href="/schedule"
+        href={href}
         className="min-w-0 flex-1 truncate text-left text-[15px] font-medium text-neutral-100 hover:text-white md:text-[17px]"
       >
-        {sentenceParts ? (
+        {current?.type === "schedule" ? (
           <>
-            {sentenceParts.prefix}
-            <span className="tracking-wider">[{sentenceParts.bracketed}]</span>
-            {sentenceParts.suffix}
+            {current.prefix}
+            <span className="tracking-wider">[{current.bracketed}]</span>
+            {current.suffix}
           </>
+        ) : current?.type === "plain" ? (
+          current.text
         ) : (
           emptyMessage
         )}

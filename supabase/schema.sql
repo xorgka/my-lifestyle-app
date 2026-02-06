@@ -85,13 +85,15 @@ comment on column youtube_channels.monthly_revenues is '월별 수익 원. 예: 
 -- 4. 루틴
 -- ------------------------------------------------------------
 
--- 루틴 항목 정의 (드래그 순서는 sort_order로 유지)
+-- 루틴 항목 정의 (드래그 순서는 sort_order로 유지, is_important = 중요 항목 표시)
 create table if not exists routine_items (
   id serial primary key,
   title text not null,
   sort_order integer not null default 0,
+  is_important boolean not null default false,
   created_at timestamptz not null default now()
 );
+alter table routine_items add column if not exists is_important boolean not null default false;
 
 -- 일별 완료 기록 (날짜 + 항목 = 한 행)
 create table if not exists routine_completions (
