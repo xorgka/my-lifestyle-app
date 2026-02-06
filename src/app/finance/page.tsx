@@ -65,7 +65,7 @@ function groupByBaseName(detail: Record<string, { total: number; entries: Detail
   return result;
 }
 
-type ViewMode = "thisMonth" | "yearMonth" | "custom";
+type ViewMode = "thisMonth" | "yearMonth" | "custom" | "yearAtGlance";
 
 /** 항목 입력 (일반 input으로 state와 동기화해 추가 버튼이 확실히 동작) */
 const ItemInput = memo(function ItemInput({
@@ -112,6 +112,7 @@ export default function FinancePage() {
   const [yearMonthSelect, setYearMonthSelect] = useState(new Date().getMonth() + 1);
   const [customYear, setCustomYear] = useState(new Date().getFullYear());
   const [customMonth, setCustomMonth] = useState(new Date().getMonth() + 1);
+  const [glanceYear, setGlanceYear] = useState(2026);
   const [periodDropdown, setPeriodDropdown] = useState<"yearMonth" | "custom" | null>(null);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
   const [newItem, setNewItem] = useState("");
@@ -231,8 +232,9 @@ export default function FinancePage() {
       return `${y}-${String(yearMonthSelect).padStart(2, "0")}`;
     if (viewMode === "custom")
       return `${customYear}-${String(customMonth).padStart(2, "0")}`;
+    if (viewMode === "yearAtGlance") return `${glanceYear}-01`;
     return toYearMonth(todayStr());
-  }, [viewMode, yearMonthSelect, customYear, customMonth]);
+  }, [viewMode, yearMonthSelect, customYear, customMonth, glanceYear]);
 
   const keywordsForSelectedMonth = getKeywordsForMonth(
     keywords,
@@ -314,10 +316,9 @@ export default function FinancePage() {
     return map;
   }, [viewMonthEntries, entryDetails, keywords, monthExtras]);
 
-  /** 선택한 연도(기간별 보기 연도)의 1~12월 월별 지출 합계 (표시용: 제외 항목 뺀 금액) */
-  const viewYearByMonth = useMemo(() => {
-    const [viewYear] = yearMonthForView.split("-").map(Number);
-    const yearPrefix = String(viewYear);
+  /** 한눈에 탭: 선택 연도의 1~12월 월별 지출 합계 (표시용: 제외 항목 뺀 금액) */
+  const viewYearByMonthGlance = useMemo(() => {
+    const yearPrefix = String(glanceYear);
     const entriesInYear = displayEntries.filter((e) => e.date.startsWith(yearPrefix));
     const byMonth: Record<number, number> = {};
     for (let m = 1; m <= 12; m++) byMonth[m] = 0;
@@ -328,8 +329,8 @@ export default function FinancePage() {
         byMonth[month] += add;
       }
     });
-    return { year: viewYear, byMonth };
-  }, [displayEntries, yearMonthForView]);
+    return { year: glanceYear, byMonth };
+  }, [displayEntries, glanceYear]);
 
   const viewMonthByDay = useMemo(() => {
     const map: Record<string, BudgetEntry[]> = {};
@@ -1464,7 +1465,73 @@ placeholder="항목"
               </div>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setViewMode("yearAtGlance")}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              viewMode === "yearAtGlance"
+                ? "bg-neutral-800 text-white"
+                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            }`}
+          >
+            한눈에
+          </button>
         </div>
+
+        {viewMode === "yearAtGlance" && (
+          <div className="mt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-sm font-medium text-neutral-600">연도</span>
+              <select
+                value={glanceYear}
+                onChange={(e) => setGlanceYear(Number(e.target.value))}
+                className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value={2026}>2026년</option>
+                <option value={2027}>2027년</option>
+              </select>
+            </div>
+            <div className="text-base font-semibold text-neutral-800">{viewYearByMonthGlance.year}년 1~12월 지출</div>
+            <div className="mt-2 grid grid-cols-6 gap-2">
+              {[1, 2, 3, 4, 5, 6].map((m) => {
+                const total = viewYearByMonthGlance.byMonth[m] ?? 0;
+                return (
+                  <div key={m} className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center">
+                    <div className="text-xs text-neutral-500">{m}월</div>
+                    <div className="mt-0.5 text-sm font-semibold text-neutral-800">{formatAmountShort(total)}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 grid grid-cols-6 gap-2">
+              {[7, 8, 9, 10, 11, 12].map((m) => {
+                const total = viewYearByMonthGlance.byMonth[m] ?? 0;
+                return (
+                  <div key={m} className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center">
+                    <div className="text-xs text-neutral-500">{m}월</div>
+                    <div className="mt-0.5 text-sm font-semibold text-neutral-800">{formatAmountShort(total)}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {(() => {
+              const yearTotal = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+                (s, m) => s + (viewYearByMonthGlance.byMonth[m] ?? 0),
+                0
+              );
+              return (
+                <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-neutral-200 pt-4 text-sm">
+                  <span className="text-neutral-600">
+                    그해 총 지출: <strong className="text-neutral-900">{formatNum(yearTotal)}원</strong>
+                  </span>
+                  <span className="text-neutral-600">
+                    월 평균 지출: <strong className="text-neutral-900">{formatNum(Math.round(yearTotal / 12))}원</strong>
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {(viewMode === "thisMonth" || viewMode === "yearMonth" || viewMode === "custom") && (
           <div className="mt-4 space-y-4">
@@ -1536,30 +1603,6 @@ placeholder="항목"
                     {formatAmountShort(viewMonthCardExpenseSummary.total)}
                 </span>
               </button>
-            </div>
-            <div className="mt-4">
-              <div className="text-sm font-semibold text-neutral-700">{viewYearByMonth.year}년 1~12월 지출</div>
-              <div className="mt-2 grid grid-cols-6 gap-1.5 sm:grid-cols-12">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
-                  const total = viewYearByMonth.byMonth[m] ?? 0;
-                  const isCurrentViewMonth = yearMonthForView === `${viewYearByMonth.year}-${String(m).padStart(2, "0")}`;
-                  return (
-                    <div
-                      key={m}
-                      className={`rounded-lg border px-2 py-2 text-center ${
-                        isCurrentViewMonth
-                          ? "border-neutral-400 bg-neutral-100 font-medium"
-                          : "border-neutral-200 bg-white"
-                      }`}
-                    >
-                      <div className="text-[10px] text-neutral-500 sm:text-xs">{m}월</div>
-                      <div className="mt-0.5 text-xs font-semibold text-neutral-800 sm:text-sm">
-                        {formatAmountShort(total)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
             <div className="mt-5 pt-3">
               <div className="text-base font-semibold text-neutral-800">[ 해당 월 일별 내역 ]</div>
