@@ -22,6 +22,8 @@ export default function InsightPage() {
   const [insightLoading, setInsightLoading] = useState(true);
   /** 마지막 로드가 Supabase에서 성공했으면 true, 폴백(로컬)이면 false */
   const [lastLoadFromSupabase, setLastLoadFromSupabase] = useState<boolean | null>(null);
+  /** 동기화 실패 시 오류 메시지 (모바일 디버깅용) */
+  const [lastLoadError, setLastLoadError] = useState<string | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -41,10 +43,12 @@ export default function InsightPage() {
       .then((result) => {
         setInsights(result.entries);
         setLastLoadFromSupabase(result.fromSupabase);
+        setLastLoadError(result.errorMessage ?? null);
       })
       .catch(() => {
         setInsights(loadInsightEntriesFromStorage());
         setLastLoadFromSupabase(false);
+        setLastLoadError(null);
       })
       .finally(() => setInsightLoading(false));
   };
@@ -251,7 +255,15 @@ export default function InsightPage() {
           ) : lastLoadFromSupabase === false ? (
             <>
               <p className="text-sm text-neutral-600">
-                동기화에 실패했을 수 있습니다. 모바일에서는 Wi‑Fi·데이터 연결을 확인한 뒤 아래 버튼으로 다시 불러오기 해 보세요.
+                동기화에 실패했을 수 있습니다. 네트워크 연결을 확인한 뒤 아래 버튼으로 다시 불러오기 해 보세요.
+              </p>
+              {lastLoadError && (
+                <p className="mt-2 text-xs text-neutral-500" title="개발자 도구에서도 확인 가능">
+                  오류: {lastLoadError}
+                </p>
+              )}
+              <p className="mt-2 text-xs text-neutral-500">
+                모바일에서 계속 실패하면, Supabase 대시보드 → Settings → API에서 이 사이트 주소가 허용 목록에 있는지 확인해 보세요.
               </p>
               <button
                 type="button"

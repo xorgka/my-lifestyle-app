@@ -62,40 +62,57 @@ export type LoadInsightResult = {
   entries: InsightEntry[];
   /** DB에서 정상 로드됐으면 true, 폴백(로컬)이면 false */
   fromSupabase: boolean;
+  /** 폴백 시 마지막 오류 메시지 (화면 표시·디버깅용) */
+  errorMessage?: string;
 };
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null && "message" in err) return String((err as { message: unknown }).message);
+  return String(err);
+}
+
+/** 지연 후 재시도 (모바일 네트워크 대기용) */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function loadInsightEntries(): Promise<LoadInsightResult> {
   if (!supabase) {
     const entries = loadFromStorage();
     return { entries, fromSupabase: false };
   }
-  let fromDb: InsightEntry[] = [];
-  try {
-    fromDb = await fetchFromSupabase();
-    // Supabase가 비어있고 로컬에 데이터가 있으면 → 로컬을 Supabase로 올리고 다시 조회
-    if (fromDb.length === 0) {
-      const local = loadFromStorage();
-      if (local.length > 0) {
-        for (const e of local) {
-          const { error: insertErr } = await supabase
-            .from("insight_entries")
-            .insert({ text: e.text, author: e.author ?? null, created_at: e.createdAt });
-          if (insertErr) console.error("[insight] migrate local→Supabase", e.id, insertErr);
-        }
-        fromDb = await fetchFromSupabase();
-      }
-    }
-    return { entries: fromDb, fromSupabase: true };
-  } catch (err) {
-    console.error("[insight] loadInsightEntries", err);
+  const maxAttempts = 3;
+  const delaysMs = [0, 1500, 3000]; // 1차 즉시, 2차 1.5초 후, 3차 3초 후
+  let lastError: string | undefined;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) await delay(delaysMs[attempt] ?? 0);
     try {
-      fromDb = await fetchFromSupabase();
+      let fromDb = await fetchFromSupabase();
+      // Supabase가 비어있고 로컬에 데이터가 있으면 → 로컬을 Supabase로 올리고 다시 조회
+      if (fromDb.length === 0) {
+        const local = loadFromStorage();
+        if (local.length > 0) {
+          for (const e of local) {
+            const { error: insertErr } = await supabase
+              .from("insight_entries")
+              .insert({ text: e.text, author: e.author ?? null, created_at: e.createdAt });
+            if (insertErr) console.error("[insight] migrate local→Supabase", e.id, insertErr);
+          }
+          fromDb = await fetchFromSupabase();
+        }
+      }
       return { entries: fromDb, fromSupabase: true };
-    } catch (retryErr) {
-      console.error("[insight] loadInsightEntries retry", retryErr);
-      return { entries: loadFromStorage(), fromSupabase: false };
+    } catch (err) {
+      lastError = getErrorMessage(err);
+      console.error("[insight] loadInsightEntries attempt", attempt + 1, err);
     }
   }
+  return {
+    entries: loadFromStorage(),
+    fromSupabase: false,
+    errorMessage: lastError,
+  };
 }
 
 export async function addInsightEntry(text: string, author?: string): Promise<InsightEntry> {
