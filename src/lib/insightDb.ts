@@ -40,23 +40,26 @@ function saveToStorage(entries: InsightEntry[]): void {
   } catch {}
 }
 
+async function fetchFromSupabase(): Promise<InsightEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("insight_entries")
+    .select("id, text, created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    text: row.text ?? "",
+    createdAt: row.created_at ?? new Date().toISOString(),
+  }));
+}
+
 export async function loadInsightEntries(): Promise<InsightEntry[]> {
   if (!supabase) return loadFromStorage();
+  let fromDb: InsightEntry[] = [];
   try {
-    const { data, error } = await supabase
-      .from("insight_entries")
-      .select("id, text, created_at")
-      .order("created_at", { ascending: false });
-    if (error) {
-      console.error("[insight] loadInsightEntries", error);
-      return loadFromStorage();
-    }
-    const fromDb = (data ?? []).map((row) => ({
-      id: row.id,
-      text: row.text ?? "",
-      createdAt: row.created_at ?? new Date().toISOString(),
-    }));
-    // Supabase는 비어있는데 로컬에 데이터가 있으면 → 로컬을 Supabase로 올리고 다시 조회
+    fromDb = await fetchFromSupabase();
+    // Supabase가 비어있고 로컬에 데이터가 있으면 → 로컬을 Supabase로 올리고 다시 조회
     if (fromDb.length === 0) {
       const local = loadFromStorage();
       if (local.length > 0) {
@@ -66,21 +69,19 @@ export async function loadInsightEntries(): Promise<InsightEntry[]> {
             .insert({ text: e.text, created_at: e.createdAt });
           if (insertErr) console.error("[insight] migrate local→Supabase", e.id, insertErr);
         }
-        const { data: refetch } = await supabase
-          .from("insight_entries")
-          .select("id, text, created_at")
-          .order("created_at", { ascending: false });
-        return (refetch ?? []).map((row) => ({
-          id: row.id,
-          text: row.text ?? "",
-          createdAt: row.created_at ?? new Date().toISOString(),
-        }));
+        fromDb = await fetchFromSupabase();
       }
     }
     return fromDb;
   } catch (err) {
-    console.error("[insight] loadInsightEntries throw", err);
-    return loadFromStorage();
+    console.error("[insight] loadInsightEntries", err);
+    try {
+      fromDb = await fetchFromSupabase();
+      return fromDb;
+    } catch (retryErr) {
+      console.error("[insight] loadInsightEntries retry", retryErr);
+      return loadFromStorage();
+    }
   }
 }
 

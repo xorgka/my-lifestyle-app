@@ -13,6 +13,7 @@ import {
   deleteInsightEntry,
   type InsightEntry,
 } from "@/lib/insightDb";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export default function InsightPage() {
   const [input, setInput] = useState("");
@@ -30,13 +31,16 @@ export default function InsightPage() {
     ta.style.height = `${ta.scrollHeight}px`;
   }
 
-  // Load from Supabase(동기화) 또는 localStorage
-  useEffect(() => {
+  const refetchInsights = () => {
     setInsightLoading(true);
     loadInsightEntries()
       .then(setInsights)
       .catch(() => setInsights(loadInsightEntriesFromStorage()))
       .finally(() => setInsightLoading(false));
+  };
+
+  useEffect(() => {
+    refetchInsights();
   }, []);
 
   const sortedInsights = useMemo(
@@ -213,6 +217,29 @@ export default function InsightPage() {
 
       {insightLoading && (
         <p className="text-sm text-neutral-500">인사이트 불러오는 중…</p>
+      )}
+
+      {!insightLoading && insights.length === 0 && (
+        <Card className="min-w-0">
+          {!isSupabaseConfigured ? (
+            <p className="text-sm text-neutral-600">
+              기기 간 동기화를 사용하려면 Supabase가 필요합니다. 프로젝트 루트의 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 다시 빌드해 주세요.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-600">
+                목록이 비어 있거나 동기화에 실패했을 수 있습니다.
+              </p>
+              <button
+                type="button"
+                onClick={refetchInsights}
+                className="mt-3 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+              >
+                다시 불러오기
+              </button>
+            </>
+          )}
+        </Card>
       )}
 
       {/* 최근 5개 */}
