@@ -605,30 +605,32 @@ export default function IncomePage() {
 
       <Card>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4 sm:flex-col sm:items-stretch sm:justify-start">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
               총 매출
             </div>
-            <div className="mt-2 text-[25px] font-bold tracking-tight text-neutral-900">
+            <div className="text-[25px] font-bold tracking-tight text-neutral-900 sm:mt-2">
               <AmountToggle amount={yearIncomeTotal} />
             </div>
           </div>
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4 sm:flex-col sm:items-stretch sm:justify-start">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
-              연 순수익 (총매출 - 사업 및 경비)
+              연 순수익
+              <span className="hidden sm:inline"> (총매출 - 사업 및 경비)</span>
             </div>
-            <div className="mt-2 text-[25px] font-bold tracking-tight">
+            <div className="text-[25px] font-bold tracking-tight sm:mt-2">
               <AmountToggle
                 amount={yearNetProfit}
                 variant={yearNetProfit >= 0 ? "profit" : "loss"}
               />
             </div>
           </div>
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4 sm:flex-col sm:items-stretch sm:justify-start">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
-              월 평균수익 (연 순수익 ÷ {monthsForAverage})
+              월 평균수익
+              <span className="hidden sm:inline"> (연 순수익 ÷ {monthsForAverage})</span>
             </div>
-            <div className="mt-2 text-[25px] font-bold tracking-tight">
+            <div className="text-[25px] font-bold tracking-tight sm:mt-2">
               <AmountToggle
                 amount={Math.round(monthNetProfit)}
                 variant={monthNetProfit >= 0 ? "profit" : "loss"}
