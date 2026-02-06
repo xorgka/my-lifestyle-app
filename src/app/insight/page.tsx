@@ -569,18 +569,44 @@ function InsightPageContent() {
                 >
                   이전
                 </button>
-                {Array.from({ length: systemTotalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setSystemPage(p)}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                      systemPage === p ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+                {/* 모바일: 최대 5개 페이지 번호만 표시 */}
+                {(() => {
+                  const start = Math.max(1, systemPage - 2);
+                  const end = Math.min(systemTotalPages, systemPage + 2);
+                  const mobilePages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+                  return (
+                    <>
+                      <div className="flex gap-2 sm:hidden">
+                        {mobilePages.map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setSystemPage(p)}
+                            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                              systemPage === p ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="hidden gap-2 sm:flex">
+                        {Array.from({ length: systemTotalPages }, (_, i) => i + 1).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setSystemPage(p)}
+                            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                              systemPage === p ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => setSystemPage((p) => Math.min(systemTotalPages, p + 1))}
