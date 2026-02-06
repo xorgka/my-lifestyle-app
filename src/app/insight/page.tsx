@@ -7,6 +7,7 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import {
   loadInsightEntries,
+  loadInsightEntriesFromStorage,
   addInsightEntry,
   updateInsightEntry,
   deleteInsightEntry,
@@ -34,7 +35,7 @@ export default function InsightPage() {
     setInsightLoading(true);
     loadInsightEntries()
       .then(setInsights)
-      .catch(() => setInsights([]))
+      .catch(() => setInsights(loadInsightEntriesFromStorage()))
       .finally(() => setInsightLoading(false));
   }, []);
 

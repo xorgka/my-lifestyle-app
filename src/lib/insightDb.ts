@@ -12,7 +12,7 @@ export type InsightEntry = {
 
 const STORAGE_KEY = "my-lifestyle-insights";
 
-function loadFromStorage(): InsightEntry[] {
+export function loadInsightEntriesFromStorage(): InsightEntry[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -29,6 +29,10 @@ function loadFromStorage(): InsightEntry[] {
   }
 }
 
+function loadFromStorage(): InsightEntry[] {
+  return loadInsightEntriesFromStorage();
+}
+
 function saveToStorage(entries: InsightEntry[]): void {
   if (typeof window === "undefined") return;
   try {
@@ -37,7 +41,8 @@ function saveToStorage(entries: InsightEntry[]): void {
 }
 
 export async function loadInsightEntries(): Promise<InsightEntry[]> {
-  if (supabase) {
+  if (!supabase) return loadFromStorage();
+  try {
     const { data, error } = await supabase
       .from("insight_entries")
       .select("id, text, created_at")
@@ -46,13 +51,37 @@ export async function loadInsightEntries(): Promise<InsightEntry[]> {
       console.error("[insight] loadInsightEntries", error);
       return loadFromStorage();
     }
-    return (data ?? []).map((row) => ({
+    const fromDb = (data ?? []).map((row) => ({
       id: row.id,
       text: row.text ?? "",
       createdAt: row.created_at ?? new Date().toISOString(),
     }));
+    // Supabase는 비어있는데 로컬에 데이터가 있으면 → 로컬을 Supabase로 올리고 다시 조회
+    if (fromDb.length === 0) {
+      const local = loadFromStorage();
+      if (local.length > 0) {
+        for (const e of local) {
+          const { error: insertErr } = await supabase
+            .from("insight_entries")
+            .insert({ text: e.text, created_at: e.createdAt });
+          if (insertErr) console.error("[insight] migrate local→Supabase", e.id, insertErr);
+        }
+        const { data: refetch } = await supabase
+          .from("insight_entries")
+          .select("id, text, created_at")
+          .order("created_at", { ascending: false });
+        return (refetch ?? []).map((row) => ({
+          id: row.id,
+          text: row.text ?? "",
+          createdAt: row.created_at ?? new Date().toISOString(),
+        }));
+      }
+    }
+    return fromDb;
+  } catch (err) {
+    console.error("[insight] loadInsightEntries throw", err);
+    return loadFromStorage();
   }
-  return loadFromStorage();
 }
 
 export async function addInsightEntry(text: string): Promise<InsightEntry> {
