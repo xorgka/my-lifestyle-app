@@ -701,9 +701,9 @@ export default function RoutinePage() {
                             : "bg-neutral-50"
                       } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""}`}
                     >
-                      <div className={`text-[10px] font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
+                      <div className={`text-xs font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
                         {name}
-                        {isToday && <span className="ml-0.5 text-[9px]">(오늘)</span>}
+                        {isToday && <span className="ml-0.5 text-[10px]">(오늘)</span>}
                       </div>
                       <div className={`mt-0.5 text-sm font-semibold tabular-nums ${viewingWeek.days[i].pct === 100 || viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
                         {viewingWeek.days[i].pct}%

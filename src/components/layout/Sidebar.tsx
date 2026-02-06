@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { SettingsModal } from "./SettingsModal";
 import { SnippetsModal } from "./SnippetsModal";
+import { loadScheduleEntries, getTodayCount } from "@/lib/scheduleDb";
 
 const menuItems = [
   { href: "/", label: "홈" },
+  { href: "/schedule", label: "스케줄", badge: true },
   { href: "/routine", label: "루틴" },
   { href: "/journal", label: "일기장" },
   { href: "/insight", label: "인사이트" },
@@ -26,6 +28,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [snippetsOpen, setSnippetsOpen] = useState(false);
+  const [scheduleBadge, setScheduleBadge] = useState(0);
+
+  const refreshScheduleBadge = () => {
+    loadScheduleEntries().then((entries) => setScheduleBadge(getTodayCount(entries)));
+  };
+  useEffect(() => {
+    refreshScheduleBadge();
+    window.addEventListener("schedule-changed", refreshScheduleBadge);
+    return () => window.removeEventListener("schedule-changed", refreshScheduleBadge);
+  }, []);
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
@@ -46,6 +58,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             item.href === "/"
               ? pathname === "/"
               : pathname.startsWith(item.href);
+          const showBadge = "badge" in item && item.badge && scheduleBadge > 0;
 
           return (
             <Link
@@ -53,13 +66,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={clsx(
-                "group flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[16px] font-medium tracking-tight transition-all",
+                "group flex items-center justify-between gap-2 rounded-2xl px-6 py-3 text-[17px] font-medium tracking-tight transition-all",
                 active
                   ? "bg-neutral-900 text-white shadow-[0_14px_34px_rgba(0,0,0,0.35)]"
                   : "text-neutral-600 hover:bg-neutral-100 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]"
               )}
             >
-              <span>{item.label}</span>
+              <span className="flex items-center gap-2">
+                {item.label}
+                {showBadge && (
+                  <span className="grid h-5 min-w-[1.25rem] flex-shrink-0 place-items-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold tabular-nums leading-none text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.25)]">
+                    {scheduleBadge > 99 ? "99+" : scheduleBadge}
+                  </span>
+                )}
+              </span>
               <span
                 className={clsx(
                   "text-xs transition-transform",
@@ -77,7 +97,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="flex items-center justify-center rounded-2xl p-3 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
+          className="flex items-center justify-center rounded-2xl px-4 py-3 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
           aria-label="설정"
           title="설정"
         >
@@ -89,7 +109,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={() => setSnippetsOpen(true)}
-          className="flex items-center justify-center rounded-2xl p-3 text-neutral-500 transition hover:bg-amber-50 hover:text-amber-600"
+          className="flex items-center justify-center rounded-2xl px-4 py-3 text-neutral-500 transition hover:bg-sky-50 hover:text-sky-600"
           aria-label="빠른 복사"
           title="빠른 복사"
         >

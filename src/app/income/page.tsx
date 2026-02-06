@@ -81,7 +81,7 @@ export default function IncomePage() {
   const [editMonth, setEditMonth] = useState(1);
 
   const load = useCallback(async () => {
-    let entries = loadIncomeEntries();
+    let entries = await loadIncomeEntries();
     const yearsPresent = new Set(entries.map((e) => e.year));
     const seedByYear: [number, IncomeEntry[]][] = [
       [2021, SEED_INCOME_2021],
@@ -98,7 +98,7 @@ export default function IncomePage() {
         changed = true;
       }
     }
-    if (changed) saveIncomeEntries(entries);
+    if (changed) await saveIncomeEntries(entries);
     setIncomeEntries(entries);
 
     let cats = loadIncomeCategories();
@@ -294,7 +294,7 @@ export default function IncomePage() {
       },
     ];
     setIncomeEntries(next);
-    saveIncomeEntries(next);
+    saveIncomeEntries(next).catch((e) => console.error("[income] save", e));
     setNewIncomeItem("");
     setNewIncomeAmount("");
   };
@@ -318,7 +318,7 @@ export default function IncomePage() {
   const removeIncomeEntry = (id: string) => {
     const next = incomeEntries.filter((e) => e.id !== id);
     setIncomeEntries(next);
-    saveIncomeEntries(next);
+    saveIncomeEntries(next).catch((e) => console.error("[income] save", e));
     if (editingId === id) setEditingId(null);
   };
 
@@ -337,7 +337,7 @@ export default function IncomePage() {
           }
     );
     setIncomeEntries(next);
-    saveIncomeEntries(next);
+    saveIncomeEntries(next).catch((e) => console.error("[income] save", e));
     setEditingId(null);
   };
 

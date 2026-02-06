@@ -110,7 +110,7 @@ function incomeInRange(e: IncomeEntry, from: string, to: string): boolean {
 }
 
 async function exportIncome(from: string, to: string): Promise<{ blob: Blob; filename: string }> {
-  const incomeEntries = loadIncomeEntries();
+  const incomeEntries = await loadIncomeEntries();
   const filtered = incomeEntries.filter((e) => incomeInRange(e, from, to));
   const sorted = [...filtered].sort((a, b) => a.year - b.year || a.month - b.month);
   const rows: (string | number)[][] = [["연도", "월", "구분", "항목", "금액"]];

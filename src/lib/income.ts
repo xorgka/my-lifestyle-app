@@ -1,6 +1,8 @@
 /**
- * 수입: 연도·월별 항목+금액, 구분(홈페이지/애드센스 등 추가·관리 가능)
+ * 수입: 연도·월별 항목+금액. Supabase 연결 시 기기 간 동기화, 없으면 localStorage
  */
+
+import { supabase } from "./supabase";
 
 export const INCOME_ENTRIES_KEY = "my-lifestyle-income-entries";
 export const INCOME_CATEGORIES_KEY = "my-lifestyle-income-categories";
@@ -35,9 +37,54 @@ function saveJson(key: string, value: unknown): void {
   } catch {}
 }
 
-export function loadIncomeEntries(): IncomeEntry[] {
+export async function loadIncomeEntries(): Promise<IncomeEntry[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("income_entries")
+        .select("id, year, month, item, amount, category")
+        .order("year", { ascending: true })
+        .order("month", { ascending: true });
+      if (error) throw error;
+      const fromDb = (data ?? []).map((r) => ({
+        id: String(r.id),
+        year: Number(r.year),
+        month: Number(r.month),
+        item: String(r.item ?? ""),
+        amount: Number(r.amount),
+        category: String(r.category ?? "기타"),
+      }));
+      if (fromDb.length > 0) return fromDb;
+      const fromStorage = loadJson<IncomeEntry[]>(INCOME_ENTRIES_KEY, []);
+      const list = Array.isArray(fromStorage) ? fromStorage : [];
+      if (list.length > 0) {
+        await saveIncomeEntriesToSupabase(list);
+        if (typeof window !== "undefined") window.localStorage.removeItem(INCOME_ENTRIES_KEY);
+        return list;
+      }
+      return [];
+    } catch (e) {
+      console.error("[income] loadIncomeEntries", e);
+      const data = loadJson<IncomeEntry[]>(INCOME_ENTRIES_KEY, []);
+      return Array.isArray(data) ? data : [];
+    }
+  }
   const data = loadJson<IncomeEntry[]>(INCOME_ENTRIES_KEY, []);
   return Array.isArray(data) ? data : [];
+}
+
+async function saveIncomeEntriesToSupabase(entries: IncomeEntry[]): Promise<void> {
+  if (!supabase || entries.length === 0) return;
+  const rows = entries.map((e) => ({
+    id: e.id,
+    year: e.year,
+    month: e.month,
+    item: e.item,
+    amount: e.amount,
+    category: e.category || "기타",
+  }));
+  const { error } = await supabase.from("income_entries").upsert(rows, { onConflict: "id" });
+  if (error) throw error;
 }
 
 /** 2021년 수입 시드 데이터 (저장된 데이터가 없을 때 사용) */
@@ -171,7 +218,20 @@ export const SEED_INCOME_2025: IncomeEntry[] = [
   { id: "seed-2025-12-2", year: 2025, month: 12, category: "홈페이지", item: "수입", amount: 4_577_000 },
 ];
 
-export function saveIncomeEntries(entries: IncomeEntry[]): void {
+export async function saveIncomeEntries(entries: IncomeEntry[]): Promise<void> {
+  if (supabase) {
+    try {
+      const existing = await supabase.from("income_entries").select("id");
+      const existingIds = new Set((existing.data ?? []).map((r) => String(r.id)));
+      const entryIds = new Set(entries.map((e) => e.id));
+      const toDelete = [...existingIds].filter((id) => !entryIds.has(id));
+      if (toDelete.length > 0) await supabase.from("income_entries").delete().in("id", toDelete);
+      if (entries.length > 0) await saveIncomeEntriesToSupabase(entries);
+    } catch (e) {
+      console.error("[income] saveIncomeEntries", e);
+    }
+    return;
+  }
   saveJson(INCOME_ENTRIES_KEY, entries);
 }
 

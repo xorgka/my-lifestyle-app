@@ -130,6 +130,25 @@ create index if not exists idx_insight_entries_created_at on insight_entries (cr
 comment on table insight_entries is '인사이트 페이지에서 사용자가 저장한 문장. PC/모바일 동기화';
 
 -- ------------------------------------------------------------
+-- 7. 스케줄 (사용자 등록 반복/일회성)
+-- ------------------------------------------------------------
+-- schedule_type: once(특정일), monthly(매월 N일), yearly(매년 M월 D일), weekly(매주 요일)
+create table if not exists schedule_entries (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  schedule_type text not null check (schedule_type in ('once', 'monthly', 'yearly', 'weekly')),
+  once_date date,
+  monthly_day smallint check (monthly_day is null or (monthly_day >= 1 and monthly_day <= 31)),
+  yearly_month smallint check (yearly_month is null or (yearly_month >= 1 and yearly_month <= 12)),
+  yearly_day smallint check (yearly_day is null or (yearly_day >= 1 and yearly_day <= 31)),
+  weekly_day smallint check (weekly_day is null or (weekly_day >= 0 and weekly_day <= 6)),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_schedule_entries_type on schedule_entries (schedule_type);
+comment on table schedule_entries is '스케줄: 일회성/매월/매년/매주. 공휴일은 앱에서 별도 제공';
+
+-- ------------------------------------------------------------
 -- RLS (Row Level Security) - 현재는 anon 허용, 나중에 auth 붙이면 user_id로 제한
 -- ------------------------------------------------------------
 
@@ -142,6 +161,7 @@ alter table routine_items enable row level security;
 alter table routine_completions enable row level security;
 alter table insight_system_quotes enable row level security;
 alter table insight_entries enable row level security;
+alter table schedule_entries enable row level security;
 
 -- anon 키로 모든 작업 허용 (단일 사용자/비로그인 사용 가정)
 create policy "allow all budget_entries" on budget_entries for all using (true) with check (true);
@@ -153,6 +173,7 @@ create policy "allow all routine_items" on routine_items for all using (true) wi
 create policy "allow all routine_completions" on routine_completions for all using (true) with check (true);
 create policy "allow all insight_system_quotes" on insight_system_quotes for all using (true) with check (true);
 create policy "allow all insight_entries" on insight_entries for all using (true) with check (true);
+create policy "allow all schedule_entries" on schedule_entries for all using (true) with check (true);
 
 -- updated_at 자동 갱신 (선택)
 create or replace function set_updated_at()

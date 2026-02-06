@@ -269,7 +269,7 @@ export default function InsightPage() {
                         }
                       }
                 }
-                className="group min-w-0 cursor-pointer rounded-3xl bg-neutral-50 px-6 py-4 text-base text-neutral-900 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_14px_34px_rgba(0,0,0,0.06)]"
+                className="group min-w-0 cursor-pointer rounded-3xl border border-neutral-200/70 bg-neutral-50 px-6 py-4 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_14px_34px_rgba(0,0,0,0.06)]"
               >
                 {editingId === item.id ? (
                   <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
@@ -304,7 +304,7 @@ export default function InsightPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="max-w-full text-base leading-relaxed">{item.text}</p>
+                    <p className="max-w-full text-base leading-relaxed line-clamp-1 text-neutral-600 sm:text-[17px]">{item.text}</p>
                     <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                       <span>{formatDate(item.createdAt)}</span>
                       <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -335,7 +335,7 @@ export default function InsightPage() {
       {/* 월별 아카이브 */}
       {!insightLoading && monthEntries.length > 0 && (
         <Card className="min-w-0 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-neutral-900">
               월별로 모아보기
             </h2>
@@ -391,7 +391,7 @@ export default function InsightPage() {
                           }
                         }
                   }
-                  className="group min-w-0 cursor-pointer rounded-3xl bg-neutral-50 px-6 py-4 text-sm text-neutral-900 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_12px_30px_rgba(0,0,0,0.05)]"
+                  className="group min-w-0 cursor-pointer rounded-3xl border border-neutral-200/70 bg-neutral-50 px-6 py-4 text-sm text-neutral-600 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_12px_30px_rgba(0,0,0,0.05)] sm:text-[17px]"
                 >
                   {editingId === item.id ? (
                     <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
@@ -426,7 +426,7 @@ export default function InsightPage() {
                     </div>
                   ) : (
                     <>
-                      <p className="max-w-full text-base leading-relaxed">{item.text}</p>
+                      <p className="max-w-full text-base leading-relaxed line-clamp-1 text-neutral-600 sm:text-[17px]">{item.text}</p>
                       <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                         <span>{formatDate(item.createdAt)}</span>
                         <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -460,7 +460,7 @@ export default function InsightPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/55 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/75 p-4"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={() => setViewer(null)}
             role="dialog"
@@ -488,12 +488,14 @@ export default function InsightPage() {
                 <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
                   {viewer.list[viewer.index]?.text}
                 </p>
-                <p className="mt-6 text-sm text-neutral-500">
-                  {viewer.list[viewer.index] && formatDate(viewer.list[viewer.index].createdAt)}
-                </p>
-                <p className="mt-1 text-xs text-neutral-400">
-                  {viewer.index + 1} / {viewer.list.length}
-                </p>
+                <div className="mt-6 flex w-full items-center justify-between text-sm">
+                  <span className="text-neutral-500">
+                    {viewer.list[viewer.index] && formatDate(viewer.list[viewer.index].createdAt)}
+                  </span>
+                  <span className="text-xs text-neutral-400">
+                    {viewer.index + 1} / {viewer.list.length}
+                  </span>
+                </div>
               </div>
 
               {/* PC: 우측 화살표 */}

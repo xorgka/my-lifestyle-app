@@ -155,7 +155,7 @@ export default function FinancePage() {
       setEntries(Array.isArray(e) ? e : []);
       setKeywords(k);
       setMonthExtras(m);
-      setIncomeEntries(loadIncomeEntries());
+      setIncomeEntries(await loadIncomeEntries());
     } finally {
       setBudgetLoading(false);
     }

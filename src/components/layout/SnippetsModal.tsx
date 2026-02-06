@@ -147,7 +147,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
 
         <ul className="mt-4 space-y-2">
           {snippets.map((item) => (
-            <li key={item.id} className="rounded-xl border border-neutral-200 bg-neutral-50/80">
+            <li key={item.id} className="rounded-xl border border-neutral-200 bg-neutral-50/80 transition-all duration-200 hover:bg-neutral-200/90 hover:shadow-md hover:border-neutral-300/80">
               {editingId === item.id ? (
                 <div className="p-4 space-y-3">
                   <input
@@ -193,7 +193,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                   <button
                     type="button"
                     onClick={() => handleCopy(item)}
-                    className="min-w-0 flex-1 text-left rounded-lg p-2 transition hover:bg-white"
+                    className="min-w-0 flex-1 text-left rounded-lg p-2 transition"
                   >
                     <span className="block text-sm font-medium text-neutral-800">
                       {item.label || item.text.split("\n")[0]?.slice(0, 30) || "이름 없음"}

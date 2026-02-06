@@ -97,9 +97,29 @@ body {
 .widget-grain-texture > * {
   z-index: 1;
 }
-.widget-grain-texture > div,
-.widget-grain-texture > span:last-of-type {
+.widget-grain-texture > div {
   position: relative;
+}
+
+/* 오늘의 알림 바: 블랙 그라데이션 + 그레인 텍스처 (fractalNoise) */
+.alert-bar-texture {
+  position: relative;
+  overflow: hidden;
+}
+.alert-bar-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  opacity: 0.22;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+.alert-bar-texture > * {
+  position: relative;
+  z-index: 1;
 }
 
 * {
