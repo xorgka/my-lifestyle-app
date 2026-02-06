@@ -13,8 +13,28 @@ export type RoutineItem = {
 };
 
 const STORAGE_ITEMS = "routine-items";
+const STORAGE_IMPORTANT_IDS = "routine-important-ids";
 const STORAGE_DAILY = "routine-daily";
 const KEEP_DAILY_MONTHS = 12;
+
+function loadImportantIdsFromStorage(): Set<number> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_IMPORTANT_IDS);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.map(Number).filter((n) => !Number.isNaN(n))) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveImportantIdsToStorage(ids: number[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_IMPORTANT_IDS, JSON.stringify(ids));
+  } catch {}
+}
 
 function getCutoffDateKey(): string {
   const d = new Date();
@@ -82,7 +102,14 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
       title: String(row.title ?? ""),
       isImportant: !!(row as { is_important?: boolean }).is_important,
     }));
-    if (fromDb.length > 0) return fromDb;
+    if (fromDb.length > 0) {
+      const importantIds = loadImportantIdsFromStorage();
+      const merged = fromDb.map((item) => ({
+        ...item,
+        isImportant: item.isImportant || importantIds.has(item.id),
+      }));
+      return merged;
+    }
     const fromStorage = loadItemsFromStorage();
     if (fromStorage.length > 0) {
       const saved = await saveRoutineItems(fromStorage);
@@ -91,7 +118,12 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
     }
     return [];
   }
-  return loadItemsFromStorage();
+  const fromStorage = loadItemsFromStorage();
+  const importantIds = loadImportantIdsFromStorage();
+  return fromStorage.map((item) => ({
+    ...item,
+    isImportant: item.isImportant || importantIds.has(item.id),
+  }));
 }
 
 /** 루틴 항목 저장. 새 항목은 DB insert 후 반환된 id로 교체되어 반환됨. */
@@ -134,9 +166,11 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
     if (toDelete.length > 0) {
       await supabase.from("routine_items").delete().in("id", toDelete);
     }
+    saveImportantIdsToStorage(result.filter((r) => r.isImportant).map((r) => r.id));
     return result;
   }
   saveItemsToStorage(items);
+  saveImportantIdsToStorage(items.filter((i) => i.isImportant).map((i) => i.id));
   return items;
 }
 

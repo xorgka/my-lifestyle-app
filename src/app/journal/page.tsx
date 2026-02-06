@@ -417,30 +417,33 @@ export default function JournalPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          {streak > 0 && (
+      <div className="-mb-4">
+        <SectionTitle
+          title="일기장"
+          subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
+          className="!mb-3"
+        />
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          {streak > 0 ? (
             <p className="flex items-center gap-1.5 text-sm text-neutral-500">
               <span aria-hidden>🔥</span>
               연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
             </p>
+          ) : (
+            <span />
           )}
-          <SectionTitle
-            title="일기장"
-            subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
-          />
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
+            aria-label="달력·검색 열기"
+          >
+            <svg className="h-5 w-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            달력
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          className="flex shrink-0 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
-          aria-label="달력·검색 열기"
-        >
-          <svg className="h-5 w-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          달력
-        </button>
       </div>
       {journalLoading && (
         <p className="text-sm text-neutral-500">불러오는 중…</p>
