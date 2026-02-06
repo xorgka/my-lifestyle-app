@@ -417,15 +417,23 @@ export default function JournalPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <SectionTitle
-          title="일기장"
-          subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          {streak > 0 && (
+            <p className="flex items-center gap-1.5 text-sm text-neutral-500">
+              <span aria-hidden>🔥</span>
+              연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
+            </p>
+          )}
+          <SectionTitle
+            title="일기장"
+            subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
+          />
+        </div>
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
+          className="flex shrink-0 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
           aria-label="달력·검색 열기"
         >
           <svg className="h-5 w-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -496,12 +504,6 @@ export default function JournalPage() {
               ★
             </button>
           </div>
-          {streak > 0 && (
-            <p className="mb-1 flex items-center gap-1.5 text-sm text-neutral-500 md:mb-2">
-              <span aria-hidden>🔥</span>
-              연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
-            </p>
-          )}
           {/* 초안 자동 저장 상태 */}
           <p className="mb-0.5 text-xs text-neutral-500 md:mb-1">
             {draftSaveStatus === "pending" && "2초 후 초안 자동 저장"}
