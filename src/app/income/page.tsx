@@ -44,6 +44,10 @@ function formatNum(n: number): string {
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021];
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
+function yearLabel(y: number, current: number): string {
+  return y === current ? "올해" : `${y}년`;
+}
+
 export default function IncomePage() {
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetEntry[]>([]);
@@ -79,6 +83,8 @@ export default function IncomePage() {
   const [editItem, setEditItem] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editMonth, setEditMonth] = useState(1);
+  /** 모바일: 이전 연도(25~21) 펼침 여부 */
+  const [showPastYearsMobile, setShowPastYearsMobile] = useState(false);
 
   const load = useCallback(async () => {
     let entries = await loadIncomeEntries();
@@ -484,22 +490,74 @@ export default function IncomePage() {
         </div>
       </div>
 
-      {/* 2행: 연도 선택 (모바일 3열×2행, PC는 flex) */}
-      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-start">
-        {YEARS.map((y) => (
+      {/* 2행: 연도 선택. 모바일=올해+이전(펼치면 25~21), PC=전체 버튼 */}
+      <div className="sm:hidden">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            key={y}
             type="button"
-            onClick={() => setIncomeYear(y)}
+            onClick={() => setIncomeYear(currentYear)}
             className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-              incomeYear === y
+              incomeYear === currentYear
                 ? "bg-neutral-800 text-white"
                 : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
             }`}
           >
-            {y}년
+            올해
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => setShowPastYearsMobile((v) => !v)}
+            className="rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
+            aria-expanded={showPastYearsMobile}
+          >
+            이전
+          </button>
+        </div>
+        {showPastYearsMobile && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {YEARS.filter((y) => y < currentYear).map((y) => {
+              const isSelected = incomeYear === y;
+              return (
+                <button
+                  key={y}
+                  type="button"
+                  onClick={() => setIncomeYear(y)}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                    isSelected
+                      ? "bg-neutral-600 text-white/95"
+                      : "bg-neutral-100/70 text-neutral-500/80 hover:bg-neutral-200/80"
+                  }`}
+                >
+                  {y}년
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="hidden gap-2 sm:flex sm:flex-wrap sm:justify-start">
+        {YEARS.map((y) => {
+          const isPastYear = y < currentYear;
+          const isSelected = incomeYear === y;
+          return (
+            <button
+              key={y}
+              type="button"
+              onClick={() => setIncomeYear(y)}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                isSelected
+                  ? isPastYear
+                    ? "bg-neutral-600 text-white/95"
+                    : "bg-neutral-800 text-white"
+                  : isPastYear
+                    ? "bg-neutral-100/70 text-neutral-500/80 hover:bg-neutral-200/80"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+              }`}
+            >
+              {yearLabel(y, currentYear)}
+            </button>
+          );
+        })}
       </div>
 
       {searchQuery.trim() && (
@@ -798,9 +856,9 @@ export default function IncomePage() {
                   onChange={(e) => setExportYear(Number(e.target.value))}
                   className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
                 >
-                  {YEARS.map((y) => (
-                    <option key={y} value={y}>{y}년</option>
-                  ))}
+{YEARS.map((y) => (
+                  <option key={y} value={y}>{yearLabel(y, currentYear)}</option>
+                ))}
                 </select>
               </div>
               <div>
