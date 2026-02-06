@@ -86,30 +86,38 @@ function saveCompletionsToStorage(completions: Record<string, number[]>): void {
   } catch {}
 }
 
-/** 루틴 항목 로드 (NEXT_PUBLIC_SUPABASE_URL 있을 때만 routine_items 테이블 사용) */
+/** 루틴 항목 로드. Supabase 사용 시 is_important로 기기 간 동기화, 없으면 localStorage 병합 */
 export async function loadRoutineItems(): Promise<RoutineItem[]> {
+  const localImportantIds = typeof window !== "undefined" ? loadImportantIdsFromStorage() : new Set<number>();
+  const mergeImportant = (items: RoutineItem[], fromDb?: boolean) =>
+    items.map((item) => ({
+      ...item,
+      isImportant: item.isImportant || localImportantIds.has(item.id),
+    }));
+
   if (supabase) {
-    const { data, error } = await supabase
+    const res = await supabase
       .from("routine_items")
       .select("id, title, sort_order, is_important")
       .order("sort_order", { ascending: true });
-    if (error) {
-      console.error("[routineDb] loadRoutineItems", error);
-      return loadItemsFromStorage();
+    let data = res.data;
+    if (res.error) {
+      const fallback = await supabase
+        .from("routine_items")
+        .select("id, title, sort_order")
+        .order("sort_order", { ascending: true });
+      if (fallback.error) {
+        console.error("[routineDb] loadRoutineItems", fallback.error);
+        return mergeImportant(loadItemsFromStorage());
+      }
+      data = fallback.data;
     }
     const fromDb = (data ?? []).map((row) => ({
       id: Number(row.id),
       title: String(row.title ?? ""),
       isImportant: !!(row as { is_important?: boolean }).is_important,
     }));
-    if (fromDb.length > 0) {
-      const importantIds = loadImportantIdsFromStorage();
-      const merged = fromDb.map((item) => ({
-        ...item,
-        isImportant: item.isImportant || importantIds.has(item.id),
-      }));
-      return merged;
-    }
+    if (fromDb.length > 0) return mergeImportant(fromDb, true);
     const fromStorage = loadItemsFromStorage();
     if (fromStorage.length > 0) {
       const saved = await saveRoutineItems(fromStorage);
@@ -118,16 +126,14 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
     }
     return [];
   }
-  const fromStorage = loadItemsFromStorage();
-  const importantIds = loadImportantIdsFromStorage();
-  return fromStorage.map((item) => ({
-    ...item,
-    isImportant: item.isImportant || importantIds.has(item.id),
-  }));
+  return mergeImportant(loadItemsFromStorage());
 }
 
-/** 루틴 항목 저장. 새 항목은 DB insert 후 반환된 id로 교체되어 반환됨. */
+/** 루틴 항목 저장. 새 항목은 DB insert 후 반환된 id로 교체. 중요 여부는 DB에 저장(기기 동기화) + localStorage 보조 */
 export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineItem[]> {
+  const importantIds = items.filter((i) => i.isImportant).map((i) => i.id);
+  saveImportantIdsToStorage(importantIds);
+
   if (supabase) {
     const { data: existingRows } = await supabase
       .from("routine_items")
@@ -166,11 +172,9 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
     if (toDelete.length > 0) {
       await supabase.from("routine_items").delete().in("id", toDelete);
     }
-    saveImportantIdsToStorage(result.filter((r) => r.isImportant).map((r) => r.id));
     return result;
   }
   saveItemsToStorage(items);
-  saveImportantIdsToStorage(items.filter((i) => i.isImportant).map((i) => i.id));
   return items;
 }
 
