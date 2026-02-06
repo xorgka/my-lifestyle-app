@@ -314,6 +314,23 @@ export default function FinancePage() {
     return map;
   }, [viewMonthEntries, entryDetails, keywords, monthExtras]);
 
+  /** 선택한 연도(기간별 보기 연도)의 1~12월 월별 지출 합계 (표시용: 제외 항목 뺀 금액) */
+  const viewYearByMonth = useMemo(() => {
+    const [viewYear] = yearMonthForView.split("-").map(Number);
+    const yearPrefix = String(viewYear);
+    const entriesInYear = displayEntries.filter((e) => e.date.startsWith(yearPrefix));
+    const byMonth: Record<number, number> = {};
+    for (let m = 1; m <= 12; m++) byMonth[m] = 0;
+    entriesInYear.forEach((e) => {
+      const month = parseInt(e.date.slice(5, 7), 10);
+      if (month >= 1 && month <= 12) {
+        const add = isExcludedFromMonthTotal(e.item) ? 0 : e.amount;
+        byMonth[month] += add;
+      }
+    });
+    return { year: viewYear, byMonth };
+  }, [displayEntries, yearMonthForView]);
+
   const viewMonthByDay = useMemo(() => {
     const map: Record<string, BudgetEntry[]> = {};
     viewMonthEntries.forEach((e) => {
@@ -1334,11 +1351,11 @@ placeholder="항목"
                             <span className="text-neutral-400" aria-hidden>{isExpanded ? "▲" : "▼"}</span>
                           </button>
                           {isExpanded && (
-                            <ul className="mt-1.5 space-y-1 rounded-lg bg-neutral-100/80 px-3 py-2">
-                              {details.map((d) => (
+                            <ul className="mt-1.5 rounded-lg bg-neutral-100/80 px-3 py-2">
+                              {details.map((d, idx) => (
                                 <li
                                   key={d.id}
-                                  className="flex items-center justify-between gap-3 text-sm text-neutral-800"
+                                  className={`flex items-center justify-between gap-3 py-1.5 text-sm text-neutral-800 ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
                                 >
                                   <span className="min-w-0 truncate font-medium">{d.item}</span>
                                   <span className="shrink-0 tabular-nums font-semibold">
@@ -1515,10 +1532,34 @@ placeholder="항목"
                 className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm inline-flex items-center gap-3"
               >
                 <span className="font-semibold">카드출금</span>
-                <span className="font-medium">
-                  {formatAmountShort(viewMonthCardExpenseSummary.total)}
+<span className="font-medium">
+                    {formatAmountShort(viewMonthCardExpenseSummary.total)}
                 </span>
               </button>
+            </div>
+            <div className="mt-4">
+              <div className="text-sm font-semibold text-neutral-700">{viewYearByMonth.year}년 1~12월 지출</div>
+              <div className="mt-2 grid grid-cols-6 gap-1.5 sm:grid-cols-12">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
+                  const total = viewYearByMonth.byMonth[m] ?? 0;
+                  const isCurrentViewMonth = yearMonthForView === `${viewYearByMonth.year}-${String(m).padStart(2, "0")}`;
+                  return (
+                    <div
+                      key={m}
+                      className={`rounded-lg border px-2 py-2 text-center ${
+                        isCurrentViewMonth
+                          ? "border-neutral-400 bg-neutral-100 font-medium"
+                          : "border-neutral-200 bg-white"
+                      }`}
+                    >
+                      <div className="text-[10px] text-neutral-500 sm:text-xs">{m}월</div>
+                      <div className="mt-0.5 text-xs font-semibold text-neutral-800 sm:text-sm">
+                        {formatAmountShort(total)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div className="mt-5 pt-3">
               <div className="text-base font-semibold text-neutral-800">[ 해당 월 일별 내역 ]</div>
@@ -2348,28 +2389,29 @@ placeholder="항목"
                           byDate.get(r.entry.date)!.push(r);
                         });
                         const sortedDates = Array.from(byDate.keys()).sort();
-                        return sortedDates.map((date) => (
-                          <div key={date}>
-                            <div className="text-xs font-medium text-neutral-500">
-                              {formatDateLabel(date)}
-                            </div>
-                            <ul className="mt-1 space-y-0.5">
-                              {byDate.get(date)!.flatMap(({ details }) =>
-                                details.map((d) => (
+                        return sortedDates.map((date) => {
+                          const flatDetails = byDate.get(date)!.flatMap(({ details }) => details);
+                          return (
+                            <div key={date}>
+                              <div className="text-xs font-medium text-neutral-500">
+                                {formatDateLabel(date)}
+                              </div>
+                              <ul className="mt-1">
+                                {flatDetails.map((d, idx) => (
                                   <li
                                     key={d.id}
-                                    className="flex justify-between gap-2 text-sm text-neutral-800"
+                                    className={`flex justify-between gap-2 py-1.5 text-sm text-neutral-800 ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
                                   >
                                     <span className="min-w-0 truncate">{d.item}</span>
                                     <span className="shrink-0 tabular-nums font-medium">
                                       {formatNum(d.amount)}원
                                     </span>
                                   </li>
-                                ))
-                              )}
-                            </ul>
-                          </div>
-                        ));
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        });
                       })()}
                     </div>
                   </div>
