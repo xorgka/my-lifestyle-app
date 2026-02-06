@@ -21,13 +21,15 @@ export default function InsightSystemPage() {
 
   const filteredWithIndex = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return list.map((item, i) => ({ item, originalIndex: i }));
-    return list
-      .map((item, i) => ({ item, originalIndex: i }))
-      .filter(
+    let items = list.map((item, i) => ({ item, originalIndex: i }));
+    if (q) {
+      items = items.filter(
         ({ item }) =>
           item.quote.toLowerCase().includes(q) || item.author.toLowerCase().includes(q)
       );
+    }
+    // 표시 순서: 최신순(새로 추가한 것 먼저)
+    return [...items].reverse();
   }, [list, searchQuery]);
 
   useEffect(() => {
