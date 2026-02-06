@@ -160,6 +160,7 @@ export default function FinancePage() {
   /** 카드지출 입력 모달 (null = 새로 추가, 있으면 수정) */
   const [showCardExpenseModal, setShowCardExpenseModal] = useState(false);
   const [cardModalEditEntry, setCardModalEditEntry] = useState<BudgetEntry | null>(null);
+  const [cardModalDate, setCardModalDate] = useState("");
   const [cardModalItem, setCardModalItem] = useState("카드출금");
   const [cardModalTotal, setCardModalTotal] = useState("");
   const [cardModalDetails, setCardModalDetails] = useState<{ id: string; item: string; amount: number }[]>([]);
@@ -470,11 +471,13 @@ export default function FinancePage() {
       });
   };
 
-  const updateEntry = (id: string, item: string, amount: number) => {
+  const updateEntry = (id: string, item: string, amount: number, date?: string) => {
     const trimmed = item.trim();
     if (!trimmed || !Number.isFinite(amount) || amount <= 0) return;
     const next = entries.map((e) =>
-      e.id === id ? { ...e, item: trimmed, amount } : e
+      e.id === id
+        ? { ...e, item: trimmed, amount, ...(date != null && date !== "" ? { date } : {}) }
+        : e
     );
     setEntries(next);
     saveEntries(next)
@@ -489,6 +492,7 @@ export default function FinancePage() {
     setCardExpenseMessage(null);
     if (editEntry) {
       setCardModalEditEntry(editEntry);
+      setCardModalDate(editEntry.date);
       setCardModalItem(editEntry.item);
       setCardModalTotal(String(editEntry.amount));
       setCardModalDetails(
@@ -574,7 +578,7 @@ export default function FinancePage() {
 
     if (cardModalEditEntry) {
       setCardExpenseApplying(true);
-      updateEntry(cardModalEditEntry.id, item, amount);
+      updateEntry(cardModalEditEntry.id, item, amount, cardModalDate.trim() || undefined);
       const others = entryDetails.filter((d) => d.parentId !== cardModalEditEntry.id);
       const validDetails = cardModalDetails.filter(
         (r) => String(r.item || "").trim() && Number.isFinite(Number(r.amount)) && Number(r.amount) > 0
@@ -593,6 +597,7 @@ export default function FinancePage() {
           setEntryDetails(saved);
           setShowCardExpenseModal(false);
           setCardModalEditEntry(null);
+          setCardModalDate("");
           setCardModalTotal("");
           setCardModalDetails([]);
         })
@@ -2029,6 +2034,17 @@ placeholder="항목"
                 </div>
               )}
               <div className="mt-4 space-y-3">
+                {cardModalEditEntry && (
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-500">날짜 (잘못 입력했을 때 여기서 수정)</label>
+                    <input
+                      type="date"
+                      value={cardModalDate}
+                      onChange={(e) => setCardModalDate(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-neutral-500">항목명 (예: KB카드출금)</label>
                   <input
