@@ -20,6 +20,8 @@ export default function InsightPage() {
   const [authorInput, setAuthorInput] = useState("");
   const [insights, setInsights] = useState<InsightEntry[]>([]);
   const [insightLoading, setInsightLoading] = useState(true);
+  /** 마지막 로드가 Supabase에서 성공했으면 true, 폴백(로컬)이면 false */
+  const [lastLoadFromSupabase, setLastLoadFromSupabase] = useState<boolean | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -36,8 +38,14 @@ export default function InsightPage() {
   const refetchInsights = () => {
     setInsightLoading(true);
     loadInsightEntries()
-      .then(setInsights)
-      .catch(() => setInsights(loadInsightEntriesFromStorage()))
+      .then((result) => {
+        setInsights(result.entries);
+        setLastLoadFromSupabase(result.fromSupabase);
+      })
+      .catch(() => {
+        setInsights(loadInsightEntriesFromStorage());
+        setLastLoadFromSupabase(false);
+      })
       .finally(() => setInsightLoading(false));
   };
 
@@ -240,10 +248,23 @@ export default function InsightPage() {
             <p className="text-sm text-neutral-600">
               기기 간 동기화를 사용하려면 Supabase가 필요합니다. 프로젝트 루트의 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 다시 빌드해 주세요.
             </p>
+          ) : lastLoadFromSupabase === false ? (
+            <>
+              <p className="text-sm text-neutral-600">
+                동기화에 실패했을 수 있습니다. 모바일에서는 Wi‑Fi·데이터 연결을 확인한 뒤 아래 버튼으로 다시 불러오기 해 보세요.
+              </p>
+              <button
+                type="button"
+                onClick={refetchInsights}
+                className="mt-3 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+              >
+                다시 불러오기
+              </button>
+            </>
           ) : (
             <>
               <p className="text-sm text-neutral-600">
-                목록이 비어 있거나 동기화에 실패했을 수 있습니다.
+                아직 저장한 문장이 없어요. 위에서 문장을 추가해 보세요.
               </p>
               <button
                 type="button"

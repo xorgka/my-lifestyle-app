@@ -58,8 +58,17 @@ async function fetchFromSupabase(): Promise<InsightEntry[]> {
   }));
 }
 
-export async function loadInsightEntries(): Promise<InsightEntry[]> {
-  if (!supabase) return loadFromStorage();
+export type LoadInsightResult = {
+  entries: InsightEntry[];
+  /** DB에서 정상 로드됐으면 true, 폴백(로컬)이면 false */
+  fromSupabase: boolean;
+};
+
+export async function loadInsightEntries(): Promise<LoadInsightResult> {
+  if (!supabase) {
+    const entries = loadFromStorage();
+    return { entries, fromSupabase: false };
+  }
   let fromDb: InsightEntry[] = [];
   try {
     fromDb = await fetchFromSupabase();
@@ -76,15 +85,15 @@ export async function loadInsightEntries(): Promise<InsightEntry[]> {
         fromDb = await fetchFromSupabase();
       }
     }
-    return fromDb;
+    return { entries: fromDb, fromSupabase: true };
   } catch (err) {
     console.error("[insight] loadInsightEntries", err);
     try {
       fromDb = await fetchFromSupabase();
-      return fromDb;
+      return { entries: fromDb, fromSupabase: true };
     } catch (retryErr) {
       console.error("[insight] loadInsightEntries retry", retryErr);
-      return loadFromStorage();
+      return { entries: loadFromStorage(), fromSupabase: false };
     }
   }
 }

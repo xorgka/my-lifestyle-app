@@ -332,29 +332,25 @@ export default function SchedulePage() {
                         )}
                       </div>
                       {((item.type === "user" && item.entryId) || (item.type === "builtin" && item.builtinId)) && (
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (item.type === "user" && item.entryId) {
-                                const e = entries.find((x) => x.id === item.entryId);
-                                if (e) setEditingEntry(e);
-                              } else if (item.type === "builtin" && item.builtinId) {
-                                setEditingEntry(builtinItemToEntry(item));
-                              }
-                            }}
-                            className="rounded-lg px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-200"
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete((item.entryId ?? item.builtinId)!)}
-                            className="rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50"
-                          >
-                            삭제
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.type === "user" && item.entryId) {
+                              const e = entries.find((x) => x.id === item.entryId);
+                              if (e) setEditingEntry(e);
+                            } else if (item.type === "builtin" && item.builtinId) {
+                              setEditingEntry(builtinItemToEntry(item));
+                            }
+                          }}
+                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200"
+                          aria-label="수정"
+                          title="수정"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                            <path d="m15 5 4 4" />
+                          </svg>
+                        </button>
                       )}
                     </li>
                   ))}
@@ -742,6 +738,13 @@ const d = new Date(dateStr + "T12:00:00");
                 await handleUpdate(editingEntry.id, payload);
               }
             }}
+            onDelete={
+              editingEntry
+                ? async () => {
+                    await handleDelete(editingEntry.id);
+                  }
+                : undefined
+            }
             modalTitle="스케줄 수정"
             initial={editingEntry}
           />,
@@ -764,11 +767,13 @@ type FormPayload = {
 function ScheduleFormModal({
   onClose,
   onSubmit,
+  onDelete,
   modalTitle,
   initial,
 }: {
   onClose: () => void;
   onSubmit: (p: FormPayload) => Promise<void>;
+  onDelete?: () => void | Promise<void>;
   modalTitle: string;
   initial?: ScheduleEntry;
 }) {
@@ -932,21 +937,36 @@ function ScheduleFormModal({
               </div>
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !title.trim()}
-              className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
-            >
-              {saving ? "저장 중…" : "저장"}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+            <div className="flex gap-2">
+              {initial && onDelete && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onDelete();
+                  }}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  삭제
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !title.trim()}
+                className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {saving ? "저장 중…" : "저장"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

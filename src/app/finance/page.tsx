@@ -1375,7 +1375,7 @@ placeholder="항목"
           )}
       </Card>
 
-      {/* 보기: 이번달(1~12월 드롭다운, 기본 현재월) / 특정 연·월(2026·2027) / 한눈에 */}
+      {/* 보기: 이번달(1~12월 드롭다운, 기본 현재월) / 특정(2026·2027) / 한눈에 */}
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900">기간별 보기</h2>
         <div ref={periodDropdownRef} className="mt-3 mb-4 flex flex-wrap items-center gap-2">
@@ -1428,7 +1428,7 @@ placeholder="항목"
                   : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
               }`}
             >
-              특정 연·월
+              특정
               <span className="text-[10px] opacity-80">▼</span>
             </button>
             {periodDropdown === "custom" && (
