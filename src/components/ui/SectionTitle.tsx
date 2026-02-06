@@ -13,7 +13,7 @@ export function SectionTitle({ title, subtitle, className }: SectionTitleProps) 
         {title}
       </h1>
       {subtitle && (
-        <p className="mt-3 text-base text-neutral-500 md:text-lg">
+        <p className="mt-3 text-sm text-neutral-500 md:text-lg">
           {subtitle}
         </p>
       )}

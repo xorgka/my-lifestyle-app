@@ -119,6 +119,14 @@ export default function FinancePage() {
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
+  /** 모바일: 검색·키워드 관리·내보내기 메뉴 열림 */
+  const [showFinanceSettingsMenu, setShowFinanceSettingsMenu] = useState(false);
+  /** PC: 기간별 보기 달력 날짜 호버 시 해당일 내역 툴팁 */
+  const [calendarDayTooltip, setCalendarDayTooltip] = useState<{
+    dateStr: string;
+    left: number;
+    top: number;
+  } | null>(null);
   const [showMonthExpenseTooltip, setShowMonthExpenseTooltip] = useState(false);
   const monthExpenseTooltipHoverRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const now = new Date();
@@ -283,6 +291,11 @@ export default function FinancePage() {
     }
     return { cells, weekLabels: ["일", "월", "화", "수", "목", "금", "토"] };
   }, [yearMonthForView]);
+
+  const todayDateStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
 
   /** 카테고리별 → 항목별 상세 (모달용): { 항목명: { total, entries: { date, amount }[] } } */
   const viewMonthByCategoryDetail = useMemo(() => {
@@ -561,16 +574,29 @@ export default function FinancePage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <SectionTitle
-        title="가계부"
-        subtitle="일별로 항목과 지출을 입력하고, 월별·주간으로 한눈에 보세요."
-      />
+      <div className="relative pr-12 sm:pr-0">
+        <SectionTitle
+          title="가계부"
+          subtitle="지출을 입력하고, 월별·주간으로 한눈에 보세요."
+        />
+        <button
+          type="button"
+          onClick={() => setShowFinanceSettingsMenu(true)}
+          className="absolute right-0 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 sm:hidden"
+          aria-label="검색·키워드 관리·내보내기"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      </div>
       {budgetLoading && (
         <p className="text-sm text-neutral-500">불러오는 중…</p>
       )}
 
-      {/* 모바일: 키워드관리/내보내기 위 → 검색창 아래. PC: 한 줄 유지 (검색·건수·버튼) */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      {/* PC만 표시. 모바일은 설정 아이콘 → 메뉴에서 검색·키워드 관리·내보내기 */}
+      <div className="hidden flex-col gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
         <div className="order-1 flex flex-wrap items-center gap-2 sm:order-3 sm:ml-auto">
           <button
             type="button"
@@ -676,9 +702,6 @@ export default function FinancePage() {
       {/* 일별 입력 */}
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900">일별 지출 입력</h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          날짜를 선택한 뒤 항목과 금액을 입력하세요. 항목명에 따라 고정비·사업경비·생활비·신용카드·기타로 자동 분류돼요.
-        </p>
         <form
           className="mt-4 flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
@@ -964,14 +987,26 @@ export default function FinancePage() {
                                   : total > 0
                                     ? "bg-red-50 hover:bg-red-100 text-red-800"
                                     : "";
+                      const isToday = dateStr === todayDateStr;
                       return (
                         <button
                           key={i}
                           type="button"
                           onClick={() => hasData && setDayDetailDate(dateStr)}
+                          onMouseEnter={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setCalendarDayTooltip({
+                              dateStr,
+                              left: rect.right - 25,
+                              top: rect.top + 40,
+                            });
+                          }}
+                          onMouseLeave={() => setCalendarDayTooltip(null)}
                           className={`aspect-square rounded-lg px-1.5 text-center transition ${
+                            isToday ? "ring-2 ring-neutral-900 ring-offset-1 ring-offset-white" : ""
+                          } ${
                             hasData
-                              ? `${amountBg} font-medium ring-2 ring-transparent hover:ring-neutral-300`
+                              ? `${amountBg} font-medium ${isToday ? "" : "ring-2 ring-transparent hover:ring-neutral-300"}`
                               : "text-neutral-400"
                           }`}
                         >
@@ -994,6 +1029,139 @@ export default function FinancePage() {
           </div>
         )}
       </Card>
+
+      {/* PC: 달력 날짜 호버 툴팁 (body 포탈로 뷰포트 기준 위치) */}
+      {calendarDayTooltip &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (() => {
+            const entries = viewMonthByDay[calendarDayTooltip.dateStr];
+            const list = entries ?? [];
+            return (
+              <div
+                className="pointer-events-none fixed z-[110] hidden min-w-[160px] max-w-[260px] rounded-xl border border-neutral-200 bg-white py-2 shadow-lg md:block"
+                style={{
+                  left: `${calendarDayTooltip.left}px`,
+                  top: `${calendarDayTooltip.top}px`,
+                }}
+              >
+                <div className="px-3 py-1 text-xs font-semibold text-neutral-500 border-b border-neutral-100">
+                  {formatDateLabel(calendarDayTooltip.dateStr)}
+                </div>
+                <div className="px-3 py-2">
+                  {list.length === 0 ? (
+                    <p className="text-sm text-neutral-400">지출 없음</p>
+                  ) : (
+                    <ul className="space-y-1.5 text-sm">
+                      {list.map((e) => (
+                        <li key={e.id} className="flex justify-between gap-2 text-neutral-800">
+                          <span className="min-w-0 truncate" title={e.item}>
+                            {e.item}
+                          </span>
+                          <span className="shrink-0 font-medium text-neutral-900">
+                            {formatNum(e.amount)}원
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {list.length > 0 && (
+                  <div className="border-t border-neutral-100 px-3 py-1.5 text-right text-xs font-semibold text-neutral-600">
+                    합계 {formatNum(list.reduce((s, e) => s + e.amount, 0))}원
+                  </div>
+                )}
+              </div>
+            );
+          })(),
+          document.body
+        )}
+
+      {/* 모바일: 검색·키워드 관리·내보내기 메뉴 */}
+      {showFinanceSettingsMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4 sm:hidden"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => setShowFinanceSettingsMenu(false)}
+          >
+            <div
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">검색·설정</h3>
+              <div className="mt-4 space-y-4">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
+                    placeholder="항목으로 검색"
+                    className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm text-neutral-800 placeholder:text-neutral-400"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                      aria-label="검색 지우기"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {searchQuery.trim() && (
+                  <p className="text-sm text-neutral-500">
+                    검색 결과 <strong className="text-neutral-700">{displayEntries.length}</strong>건
+                  </p>
+                )}
+                <div className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFinanceSettingsMenu(false);
+                      setShowKeywordModal(true);
+                    }}
+                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                  >
+                    키워드 관리
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFinanceSettingsMenu(false);
+                      setShowExportModal(true);
+                    }}
+                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                  >
+                    내보내기
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowFinanceSettingsMenu(false)}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* 내보내기 모달 (body에 포탈 → 화면 전체 어둡게) */}
       {showExportModal &&
