@@ -43,9 +43,11 @@ function formatDateLabel(dateStr: string): string {
   return `${m}월 ${day}일 (${week})`;
 }
 
-/** "강아지 (병원)", "강아지 (사료)" → "강아지"로 묶어 total·entries 합침 */
-function groupByBaseName(detail: Record<string, { total: number; entries: { date: string; amount: number }[] }>): Record<string, { total: number; entries: { date: string; amount: number }[] }> {
-  const result: Record<string, { total: number; entries: { date: string; amount: number }[] }> = {};
+type DetailEntry = { date: string; amount: number; item: string };
+
+/** "강아지 (병원)", "강아지 (사료)" → "강아지"로 묶어 total·entries 합침. entries에는 항목명(item) 유지 */
+function groupByBaseName(detail: Record<string, { total: number; entries: DetailEntry[] }>): Record<string, { total: number; entries: DetailEntry[] }> {
+  const result: Record<string, { total: number; entries: DetailEntry[] }> = {};
   for (const [itemName, data] of Object.entries(detail)) {
     const baseName = itemName.includes(" (") ? itemName.slice(0, itemName.indexOf(" (")) : itemName;
     if (!result[baseName]) result[baseName] = { total: 0, entries: [] };
@@ -143,6 +145,10 @@ export default function FinancePage() {
   const [dayDetailEditingId, setDayDetailEditingId] = useState<string | null>(null);
   const [dayDetailEditItem, setDayDetailEditItem] = useState("");
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
+  /** 선택한 날짜 내역 박스 더블클릭 시 인라인 수정 */
+  const [listEditId, setListEditId] = useState<string | null>(null);
+  const [listEditItem, setListEditItem] = useState("");
+  const [listEditAmount, setListEditAmount] = useState("");
   const [expandedDetailItems, setExpandedDetailItems] = useState<Set<string>>(new Set());
   const itemInputRef = useRef<HTMLIFrameElement>(null);
   const isAddingRef = useRef(false);
@@ -176,6 +182,10 @@ export default function FinancePage() {
   useEffect(() => {
     if (categoryDetailModal) setExpandedDetailItems(new Set());
   }, [categoryDetailModal]);
+
+  useEffect(() => {
+    setListEditId(null);
+  }, [selectedDate]);
 
   const yearMonthForView = useMemo(() => {
     const now = new Date();
@@ -297,9 +307,9 @@ export default function FinancePage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }, []);
 
-  /** 카테고리별 → 항목별 상세 (모달용): { 항목명: { total, entries: { date, amount }[] } } */
+  /** 카테고리별 → 항목별 상세 (모달용): { 항목명: { total, entries: { date, amount, item }[] } } */
   const viewMonthByCategoryDetail = useMemo(() => {
-    const out: Record<CategoryId, Record<string, { total: number; entries: { date: string; amount: number }[] }>> = {
+    const out: Record<CategoryId, Record<string, { total: number; entries: DetailEntry[] }>> = {
       고정비: {},
       사업경비: {},
       세금: {},
@@ -311,7 +321,7 @@ export default function FinancePage() {
       const cat = getCategoryForEntry(e.item, keywordsForViewMonth);
       if (!out[cat][e.item]) out[cat][e.item] = { total: 0, entries: [] };
       out[cat][e.item].total += e.amount;
-      out[cat][e.item].entries.push({ date: e.date, amount: e.amount });
+      out[cat][e.item].entries.push({ date: e.date, amount: e.amount, item: e.item });
     });
     (Object.keys(out) as CategoryId[]).forEach((cat) => {
       Object.keys(out[cat]).forEach((item) => {
@@ -722,6 +732,21 @@ export default function FinancePage() {
             type="button"
             onClick={() => {
               const d = new Date(selectedDate + "T12:00:00");
+              d.setDate(d.getDate() - 1);
+              setSelectedDate(
+                `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+              );
+            }}
+            className="flex h-[42px] items-center rounded-lg border border-neutral-200 bg-white px-3 text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900"
+            title="이전 날"
+            aria-label="이전 날"
+          >
+            <span className="text-lg">←</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date(selectedDate + "T12:00:00");
               d.setDate(d.getDate() + 1);
               setSelectedDate(
                 `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -771,28 +796,102 @@ export default function FinancePage() {
             <ul className="mt-2 space-y-1.5">
               {entriesForSelectedDay.map((e) => {
                 const cat = getCategoryForEntry(e.item, keywordsForSelectedMonth);
+                const isListEditing = listEditId === e.id;
                 return (
                   <li
                     key={e.id}
-                    className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm"
+                    onDoubleClick={() => {
+                      if (listEditId != null) return;
+                      setListEditId(e.id);
+                      setListEditItem(e.item);
+                      setListEditAmount(String(e.amount));
+                    }}
+                    className={`flex items-center justify-between rounded-lg border border-neutral-200 px-4 py-2 text-sm ${isListEditing ? "bg-white" : "bg-neutral-50"}`}
                   >
-                    <div>
-                      <span className="font-medium text-neutral-800">{e.item}</span>
-                      <span className="ml-2 text-xs text-neutral-500">{CATEGORY_LABELS[cat]}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-neutral-900">
-                        {formatNum(e.amount)}원
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeEntry(e.id)}
-                        className="text-neutral-400 hover:text-red-600"
-                        aria-label="삭제"
-                      >
-                        ×
-                      </button>
-                    </div>
+                    {isListEditing ? (
+                      <>
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            value={listEditItem}
+                            onChange={(ev) => setListEditItem(ev.target.value)}
+                            className="min-w-[120px] flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-neutral-900"
+                            placeholder="항목"
+                            onClick={(ev) => ev.stopPropagation()}
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            value={listEditAmount}
+                            onChange={(ev) => setListEditAmount(ev.target.value)}
+                            className="w-24 rounded-lg border border-neutral-200 px-2 py-1.5 text-neutral-900"
+                            placeholder="금액"
+                            onClick={(ev) => ev.stopPropagation()}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              const amount = Number(String(listEditAmount).replace(/,/g, ""));
+                              if (listEditItem.trim() && Number.isFinite(amount) && amount > 0) {
+                                updateEntry(e.id, listEditItem.trim(), amount);
+                                setListEditId(null);
+                              }
+                            }}
+                            className="rounded-lg bg-neutral-800 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-700"
+                          >
+                            저장
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setListEditId(null);
+                            }}
+                            className="rounded-lg px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              removeEntry(e.id);
+                              setListEditId(null);
+                            }}
+                            className="text-neutral-400 hover:text-red-600"
+                            aria-label="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <span className="font-medium text-neutral-800">{e.item}</span>
+                          <span className="ml-2 text-xs text-neutral-500">{CATEGORY_LABELS[cat]}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-neutral-900">
+                            {formatNum(e.amount)}원
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              removeEntry(e.id);
+                            }}
+                            className="text-neutral-400 hover:text-red-600"
+                            aria-label="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 );
               })}
@@ -1496,13 +1595,16 @@ export default function FinancePage() {
                         </button>
                         {isExpanded && (
                           <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-sm text-neutral-600">
-                            {entries.map(({ date, amount }, i) => (
+                            {entries.map(({ date, amount, item }, i) => (
                               <li
-                                key={`${date}-${i}`}
-                                className="flex justify-between rounded-lg bg-white px-3 py-1.5"
+                                key={`${date}-${item}-${i}`}
+                                className="flex justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
                               >
-                                <span>{formatDateLabel(date)}</span>
-                                <span className="font-medium">{formatNum(amount)}원</span>
+                                <span className="min-w-0">
+                                  <span className="mr-3 text-neutral-500">{formatDateLabel(date)}</span>
+                                  <span>{item}</span>
+                                </span>
+                                <span className="shrink-0 font-medium">{formatNum(amount)}원</span>
                               </li>
                             ))}
                           </ul>
