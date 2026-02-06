@@ -235,26 +235,66 @@ function InsightPageContent() {
         subtitle="요즘 마음에 남았던 한 문장을 조용히 모아두는 공간이에요."
       />
 
-      {/* 탭: 내가 저장한 문장 | 기본 문장 */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setInsightTab("mine")}
-          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-            insightTab === "mine" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-          }`}
-        >
-          내가 저장한 문장
-        </button>
-        <button
-          type="button"
-          onClick={() => setInsightTab("system")}
-          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-            insightTab === "system" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-          }`}
-        >
-          기본 문장
-        </button>
+      {/* 탭: 인사이트 저장 | 문장 관리, 오른쪽 끝에 검색·필터(문장 관리 탭일 때만) */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setInsightTab("mine")}
+            className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+              insightTab === "mine" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+            }`}
+          >
+            인사이트 저장
+          </button>
+          <button
+            type="button"
+            onClick={() => setInsightTab("system")}
+            className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+              insightTab === "system" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+            }`}
+          >
+            문장 관리
+          </button>
+        </div>
+        {insightTab === "system" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex min-w-0 w-40 sm:w-44">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={systemSearchQuery}
+                onChange={(e) => setSystemSearchQuery(e.target.value)}
+                placeholder="문장·출처 검색"
+                className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-8 pr-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+              />
+            </div>
+            <select
+              value={systemFilterYear === "all" ? "all" : systemFilterYear}
+              onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="rounded-xl border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-800"
+            >
+              <option value="all">연도 전체</option>
+              {systemFilterYears.map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+            <select
+              value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
+              onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="rounded-xl border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-800"
+            >
+              <option value="all">월 전체</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <option key={m} value={m}>{m}월</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {insightTab === "mine" && (
@@ -351,45 +391,6 @@ function InsightPageContent() {
 
       {insightTab === "system" && (
         <>
-          <p className="text-sm text-neutral-500">
-            내가 저장한 문장과 홈에 나오는 기본 문장을 한곳에서 추가·수정·삭제할 수 있어요. 등록 최신순, 연·월 필터·페이지 이동 가능.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex min-w-0 max-w-[200px]">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                value={systemSearchQuery}
-                onChange={(e) => setSystemSearchQuery(e.target.value)}
-                placeholder="문장·출처 검색"
-                className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-              />
-            </div>
-            <select
-              value={systemFilterYear === "all" ? "all" : systemFilterYear}
-              onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-800"
-            >
-              <option value="all">연도 전체</option>
-              {systemFilterYears.map((y) => (
-                <option key={y} value={y}>{y}년</option>
-              ))}
-            </select>
-            <select
-              value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
-              onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-800"
-            >
-              <option value="all">월 전체</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <option key={m} value={m}>{m}월</option>
-              ))}
-            </select>
-          </div>
           <Card className="min-w-0 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-base text-neutral-500">
@@ -474,7 +475,7 @@ function InsightPageContent() {
                             }
                           }
                     }
-                    className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 cursor-pointer transition hover:bg-neutral-100/80"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 cursor-pointer"
                   >
                     {isEditing ? (
                       <div className="space-y-3">
@@ -613,7 +614,7 @@ function InsightPageContent() {
                 aria-label="문장 보기"
               >
                 <div
-                  className="relative flex w-[min(90vw,28rem)] flex-shrink-0 flex-col items-center gap-4 sm:flex-row sm:gap-4"
+                  className="relative flex w-[min(90vw,36rem)] flex-shrink-0 flex-col items-center gap-4 sm:flex-row sm:gap-4"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -628,7 +629,7 @@ function InsightPageContent() {
                     </svg>
                   </button>
 
-                  <div className="order-1 flex w-[min(90vw,28rem)] max-h-[85vh] flex-shrink-0 flex-col rounded-3xl bg-white shadow-2xl sm:order-none">
+                  <div className="order-1 flex w-[min(90vw,36rem)] max-h-[85vh] flex-shrink-0 flex-col rounded-3xl bg-white shadow-2xl sm:order-none">
                     <div className="min-h-0 flex-1 overflow-y-auto px-8 py-10 sm:px-12 sm:py-14">
                       <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
                         {modalText}
