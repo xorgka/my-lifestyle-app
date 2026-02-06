@@ -124,12 +124,14 @@ create index if not exists idx_insight_system_quotes_sort on insight_system_quot
 create table if not exists insight_entries (
   id uuid primary key default gen_random_uuid(),
   text text not null,
+  author text,
   created_at timestamptz not null default now()
 );
+alter table insight_entries add column if not exists author text;
 
 create index if not exists idx_insight_entries_created_at on insight_entries (created_at desc);
 
-comment on table insight_entries is '인사이트 페이지에서 사용자가 저장한 문장. PC/모바일 동기화';
+comment on table insight_entries is '인사이트 페이지에서 사용자가 저장한 문장. PC/모바일 동기화. author=출처(인물명)';
 
 -- ------------------------------------------------------------
 -- 7. 스케줄 (사용자 등록 반복/일회성)

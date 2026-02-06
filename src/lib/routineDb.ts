@@ -101,7 +101,9 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
       .select("id, title, sort_order, is_important")
       .order("sort_order", { ascending: true });
     let data = res.data;
+    let hasImportantColumn = !res.error;
     if (res.error) {
+      console.warn("[routineDb] is_important 컬럼 없음 또는 조회 실패. Supabase에 schema.sql의 routine_items.is_important 컬럼을 적용해 주세요.", res.error.message);
       const fallback = await supabase
         .from("routine_items")
         .select("id, title, sort_order")
@@ -117,7 +119,8 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
       title: String(row.title ?? ""),
       isImportant: !!(row as { is_important?: boolean }).is_important,
     }));
-    if (fromDb.length > 0) return mergeImportant(fromDb, true);
+    // DB에서 is_important를 가져온 경우 DB를 단일 소스로 사용(다른 기기와 동기화). fallback인 경우만 localStorage 병합.
+    if (fromDb.length > 0) return hasImportantColumn ? fromDb : mergeImportant(fromDb);
     const fromStorage = loadItemsFromStorage();
     if (fromStorage.length > 0) {
       const saved = await saveRoutineItems(fromStorage);
@@ -144,10 +147,13 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (existingIds.has(item.id)) {
-        await supabase
+        const upd = await supabase
           .from("routine_items")
           .update({ title: item.title, sort_order: i, is_important: !!item.isImportant })
           .eq("id", item.id);
+        if (upd.error) {
+          console.error("[routineDb] update item (is_important 등) 실패. Supabase에 is_important 컬럼이 있는지 확인하세요.", upd.error);
+        }
         result.push(item);
       } else {
         const { data: inserted, error } = await supabase
@@ -156,7 +162,7 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
           .select("id, title")
           .single();
         if (error) {
-          console.error("[routineDb] insert item", error);
+          console.error("[routineDb] insert item (is_important 포함 실패 시 schema 적용 필요)", error);
           result.push(item);
         } else {
           result.push({

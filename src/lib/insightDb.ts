@@ -7,6 +7,8 @@ import { supabase } from "./supabase";
 export type InsightEntry = {
   id: string;
   text: string;
+  /** 출처(인물명) - 기본문장관리와 동일 */
+  author?: string;
   createdAt: string; // ISO
 };
 
@@ -17,11 +19,12 @@ export function loadInsightEntriesFromStorage(): InsightEntry[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as { id: number; text: string; createdAt: string }[];
+    const parsed = JSON.parse(raw) as { id: number; text: string; author?: string; createdAt: string }[];
     if (!Array.isArray(parsed)) return [];
     return parsed.map((e) => ({
       id: String(e.id),
       text: e.text,
+      author: e.author,
       createdAt: e.createdAt,
     }));
   } catch {
@@ -44,12 +47,13 @@ async function fetchFromSupabase(): Promise<InsightEntry[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("insight_entries")
-    .select("id, text, created_at")
+    .select("id, text, author, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row) => ({
     id: row.id,
     text: row.text ?? "",
+    author: (row as { author?: string | null }).author ?? undefined,
     createdAt: row.created_at ?? new Date().toISOString(),
   }));
 }
@@ -66,7 +70,7 @@ export async function loadInsightEntries(): Promise<InsightEntry[]> {
         for (const e of local) {
           const { error: insertErr } = await supabase
             .from("insight_entries")
-            .insert({ text: e.text, created_at: e.createdAt });
+            .insert({ text: e.text, author: e.author ?? null, created_at: e.createdAt });
           if (insertErr) console.error("[insight] migrate local→Supabase", e.id, insertErr);
         }
         fromDb = await fetchFromSupabase();
@@ -85,17 +89,18 @@ export async function loadInsightEntries(): Promise<InsightEntry[]> {
   }
 }
 
-export async function addInsightEntry(text: string): Promise<InsightEntry> {
+export async function addInsightEntry(text: string, author?: string): Promise<InsightEntry> {
   const createdAt = new Date().toISOString();
+  const authorVal = author?.trim() || undefined;
   if (supabase) {
     const { data, error } = await supabase
       .from("insight_entries")
-      .insert({ text, created_at: createdAt })
-      .select("id, text, created_at")
+      .insert({ text, author: authorVal ?? null, created_at: createdAt })
+      .select("id, text, author, created_at")
       .single();
     if (error) {
       console.error("[insight] addInsightEntry", error);
-      const fallback: InsightEntry = { id: `local-${Date.now()}`, text, createdAt };
+      const fallback: InsightEntry = { id: `local-${Date.now()}`, text, author: authorVal, createdAt };
       const stored = loadFromStorage();
       stored.unshift(fallback);
       saveToStorage(stored);
@@ -104,35 +109,37 @@ export async function addInsightEntry(text: string): Promise<InsightEntry> {
     return {
       id: data.id,
       text: data.text ?? text,
+      author: (data as { author?: string | null }).author ?? undefined,
       createdAt: data.created_at ?? createdAt,
     };
   }
-  const entry: InsightEntry = { id: String(Date.now()), text, createdAt };
+  const entry: InsightEntry = { id: String(Date.now()), text, author: authorVal, createdAt };
   const stored = loadFromStorage();
   stored.unshift(entry);
   saveToStorage(stored);
   return entry;
 }
 
-export async function updateInsightEntry(id: string, text: string): Promise<void> {
+export async function updateInsightEntry(id: string, text: string, author?: string): Promise<void> {
+  const authorVal = author?.trim() || undefined;
   if (supabase) {
     if (id.startsWith("local-")) {
       const stored = loadFromStorage();
       const idx = stored.findIndex((e) => e.id === id);
       if (idx >= 0) {
-        stored[idx] = { ...stored[idx], text };
+        stored[idx] = { ...stored[idx], text, author: authorVal };
         saveToStorage(stored);
       }
       return;
     }
-    const { error } = await supabase.from("insight_entries").update({ text }).eq("id", id);
+    const { error } = await supabase.from("insight_entries").update({ text, author: authorVal ?? null }).eq("id", id);
     if (error) console.error("[insight] updateInsightEntry", id, error);
     return;
   }
   const stored = loadFromStorage();
   const idx = stored.findIndex((e) => e.id === id);
   if (idx >= 0) {
-    stored[idx] = { ...stored[idx], text };
+    stored[idx] = { ...stored[idx], text, author: authorVal };
     saveToStorage(stored);
   }
 }

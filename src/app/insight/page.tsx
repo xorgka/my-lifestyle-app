@@ -17,11 +17,13 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 
 export default function InsightPage() {
   const [input, setInput] = useState("");
+  const [authorInput, setAuthorInput] = useState("");
   const [insights, setInsights] = useState<InsightEntry[]>([]);
   const [insightLoading, setInsightLoading] = useState(true);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [editingAuthor, setEditingAuthor] = useState("");
   const [viewer, setViewer] = useState<{ list: InsightEntry[]; index: number } | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,9 +101,11 @@ export default function InsightPage() {
     const trimmed = input.trim();
     if (!trimmed) return;
 
+    const author = authorInput.trim();
     setInput("");
+    setAuthorInput("");
     try {
-      const item = await addInsightEntry(trimmed);
+      const item = await addInsightEntry(trimmed, author || undefined);
       setInsights((prev) => [item, ...prev]);
     } catch (err) {
       console.error(err);
@@ -124,26 +128,30 @@ export default function InsightPage() {
   const startEdit = (item: InsightEntry) => {
     setEditingId(item.id);
     setEditingText(item.text);
+    setEditingAuthor(item.author ?? "");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditingText("");
+    setEditingAuthor("");
   };
 
   const saveEdit = async () => {
     if (!editingId) return;
     const trimmed = editingText.trim();
     if (!trimmed) return;
+    const author = editingAuthor.trim() || undefined;
     setInsights((prev) =>
       prev.map((item) =>
-        item.id === editingId ? { ...item, text: trimmed } : item
+        item.id === editingId ? { ...item, text: trimmed, author } : item
       )
     );
     setEditingId(null);
     setEditingText("");
+    setEditingAuthor("");
     try {
-      await updateInsightEntry(editingId, trimmed);
+      await updateInsightEntry(editingId, trimmed, author);
     } catch (err) {
       console.error(err);
     }
@@ -200,6 +208,13 @@ export default function InsightPage() {
             rows={3}
             placeholder="감명받은 문장이나 오늘의 인사이트를 한 줄로 적어보세요."
             className="w-full resize-none rounded-2xl border border-soft-border bg-white px-3.5 py-3 text-base text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 hover:border-neutral-400"
+          />
+          <input
+            type="text"
+            value={authorInput}
+            onChange={(e) => setAuthorInput(e.target.value)}
+            placeholder="출처(인물명)"
+            className="w-full rounded-2xl border border-soft-border bg-white px-3.5 py-2.5 text-base text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 hover:border-neutral-400"
           />
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-500">
             <span>
@@ -285,6 +300,13 @@ export default function InsightPage() {
                       rows={2}
                       className="min-h-[4.5rem] w-full resize-none overflow-hidden rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                     />
+                    <input
+                      type="text"
+                      value={editingAuthor}
+                      onChange={(e) => setEditingAuthor(e.target.value)}
+                      placeholder="출처(인물명)"
+                      className="w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    />
                     <div className="flex items-center justify-end gap-2 text-sm">
                       <button
                         type="button"
@@ -305,6 +327,9 @@ export default function InsightPage() {
                 ) : (
                   <>
                     <p className="max-w-full text-base leading-relaxed line-clamp-1 text-neutral-600 sm:text-[17px]">{item.text}</p>
+                    {item.author && (
+                      <p className="text-sm text-neutral-500">— {item.author}</p>
+                    )}
                     <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                       <span>{formatDate(item.createdAt)}</span>
                       <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -407,6 +432,13 @@ export default function InsightPage() {
                         rows={2}
                         className="min-h-[4.5rem] w-full resize-none overflow-hidden rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                       />
+                      <input
+                        type="text"
+                        value={editingAuthor}
+                        onChange={(e) => setEditingAuthor(e.target.value)}
+                        placeholder="출처(인물명)"
+                        className="w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                      />
                       <div className="flex items-center justify-end gap-2 text-sm">
                         <button
                           type="button"
@@ -427,6 +459,9 @@ export default function InsightPage() {
                   ) : (
                     <>
                       <p className="max-w-full text-base leading-relaxed line-clamp-1 text-neutral-600 sm:text-[17px]">{item.text}</p>
+                      {item.author && (
+                        <p className="text-sm text-neutral-500">— {item.author}</p>
+                      )}
                       <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
                         <span>{formatDate(item.createdAt)}</span>
                         <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -488,6 +523,9 @@ export default function InsightPage() {
                 <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
                   {viewer.list[viewer.index]?.text}
                 </p>
+                {viewer.list[viewer.index]?.author && (
+                  <p className="mt-3 text-base text-neutral-500">— {viewer.list[viewer.index].author}</p>
+                )}
                 <div className="mt-6 flex w-full items-center justify-between text-sm">
                   <span className="text-neutral-500">
                     {viewer.list[viewer.index] && formatDate(viewer.list[viewer.index].createdAt)}
