@@ -161,15 +161,21 @@ export async function loadEntryDetailsFromDb(): Promise<BudgetEntryDetailRow[]> 
     .select("id, parent_id, item, amount")
     .order("id", { ascending: true });
   if (error) {
-    console.error("[budgetDb] loadEntryDetails", error);
+    console.error("[budgetDb] loadEntryDetails", error.message, error.code, error.details);
     return [];
   }
-  return (data ?? []).map((row: { id: string; parent_id: string; item: string; amount: number }) => ({
-    id: String(row.id),
-    parentId: String(row.parent_id),
-    item: row.item,
-    amount: Number(row.amount),
-  }));
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  return rows
+    .map((row) => {
+      const parentId = row.parent_id != null ? String(row.parent_id) : row.parentId != null ? String(row.parentId) : "";
+      return {
+        id: String(row.id ?? ""),
+        parentId,
+        item: String(row.item ?? ""),
+        amount: Number(row.amount),
+      };
+    })
+    .filter((d) => d.parentId !== "");
 }
 
 export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Promise<BudgetEntryDetailRow[]> {
