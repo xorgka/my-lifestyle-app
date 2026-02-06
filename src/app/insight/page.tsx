@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -19,7 +19,7 @@ import { loadSystemInsights, saveSystemInsights, type QuoteEntry } from "@/lib/i
 
 type InsightTab = "mine" | "system";
 
-export default function InsightPage() {
+function InsightPageContent() {
   const searchParams = useSearchParams();
   const [insightTab, setInsightTab] = useState<InsightTab>(() =>
     searchParams.get("tab") === "system" ? "system" : "mine"
@@ -863,6 +863,21 @@ export default function InsightPage() {
           document.body
         )}
     </div>
+  );
+}
+
+export default function InsightPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-w-0 space-y-6">
+          <SectionTitle title="인사이트" subtitle="요즘 마음에 남았던 한 문장을 조용히 모아두는 공간이에요." />
+          <p className="text-sm text-neutral-500">불러오는 중…</p>
+        </div>
+      }
+    >
+      <InsightPageContent />
+    </Suspense>
   );
 }
 
