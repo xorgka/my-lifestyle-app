@@ -111,20 +111,19 @@ export function TodayAlertBar() {
 
   return (
     <div className={barClass}>
-      {hasMultiple && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            goPrev();
-          }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-neutral-200"
-          aria-label="이전 알림"
-        >
-          <span className="text-base leading-none md:text-lg">‹</span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (hasMultiple) goPrev();
+        }}
+        disabled={!hasMultiple}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-neutral-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+        aria-label="이전 알림"
+      >
+        <span className="text-base leading-none md:text-lg">‹</span>
+      </button>
       <Link
         href="/schedule"
         className="min-w-0 flex-1 truncate text-left text-[15px] font-medium text-neutral-100 hover:text-white md:text-[17px]"
@@ -139,20 +138,19 @@ export function TodayAlertBar() {
           emptyMessage
         )}
       </Link>
-      {hasMultiple && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            goNext();
-          }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-neutral-200"
-          aria-label="다음 알림"
-        >
-          <span className="text-base leading-none md:text-lg">›</span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (hasMultiple) goNext();
+        }}
+        disabled={!hasMultiple}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-neutral-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+        aria-label="다음 알림"
+      >
+        <span className="text-base leading-none md:text-lg">›</span>
+      </button>
     </div>
   );
 }
