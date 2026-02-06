@@ -65,7 +65,7 @@ function groupByBaseName(detail: Record<string, { total: number; entries: Detail
   return result;
 }
 
-type ViewMode = "thisMonth" | "yearMonth" | "custom" | "yearAtGlance";
+type ViewMode = "yearMonth" | "custom" | "yearAtGlance";
 
 /** 항목 입력 (일반 input으로 state와 동기화해 추가 버튼이 확실히 동작) */
 const ItemInput = memo(function ItemInput({
@@ -108,9 +108,9 @@ export default function FinancePage() {
   const [keywords, setKeywords] = useState<CategoryKeywords>(DEFAULT_KEYWORDS);
   const [monthExtras, setMonthExtras] = useState<MonthExtraKeywords>({});
   const [selectedDate, setSelectedDate] = useState(todayStr());
-  const [viewMode, setViewMode] = useState<ViewMode>("thisMonth");
+  const [viewMode, setViewMode] = useState<ViewMode>("yearMonth");
   const [yearMonthSelect, setYearMonthSelect] = useState(new Date().getMonth() + 1);
-  const [customYear, setCustomYear] = useState(new Date().getFullYear());
+  const [customYear, setCustomYear] = useState(2026);
   const [customMonth, setCustomMonth] = useState(new Date().getMonth() + 1);
   const [glanceYear, setGlanceYear] = useState(2026);
   const [periodDropdown, setPeriodDropdown] = useState<"yearMonth" | "custom" | null>(null);
@@ -226,8 +226,6 @@ export default function FinancePage() {
   const yearMonthForView = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
-    const m = now.getMonth() + 1;
-    if (viewMode === "thisMonth") return `${y}-${String(m).padStart(2, "0")}`;
     if (viewMode === "yearMonth")
       return `${y}-${String(yearMonthSelect).padStart(2, "0")}`;
     if (viewMode === "custom")
@@ -775,6 +773,7 @@ export default function FinancePage() {
     const y = new Date().getFullYear();
     return Array.from({ length: 6 }, (_, i) => y - 2 + i);
   }, []);
+  const customYears = [2026, 2027];
   const months = useMemo(
     () => Array.from({ length: 12 }, (_, i) => i + 1),
     []
@@ -1376,26 +1375,16 @@ placeholder="항목"
           )}
       </Card>
 
-      {/* 보기: 이번달(고정) / 올해(1~12월 드롭다운) / 특정 연·월(연·월 드롭다운) */}
+      {/* 보기: 이번달(1~12월 드롭다운, 기본 현재월) / 특정 연·월(2026·2027) / 한눈에 */}
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900">기간별 보기</h2>
         <div ref={periodDropdownRef} className="mt-3 mb-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode("thisMonth")}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              viewMode === "thisMonth"
-                ? "bg-neutral-800 text-white"
-                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-            }`}
-          >
-            이번달
-          </button>
           <div className="relative">
             <button
               type="button"
               onClick={() => {
                 setViewMode("yearMonth");
+                setYearMonthSelect(new Date().getMonth() + 1);
                 setPeriodDropdown((d) => (d === "yearMonth" ? null : "yearMonth"));
               }}
               className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
@@ -1404,7 +1393,7 @@ placeholder="항목"
                   : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
               }`}
             >
-              올해
+              이번달
               <span className="text-[10px] opacity-80">▼</span>
             </button>
             {periodDropdown === "yearMonth" && (
@@ -1445,11 +1434,11 @@ placeholder="항목"
             {periodDropdown === "custom" && (
               <div className="absolute left-0 top-full z-10 mt-1 flex gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-lg">
                 <select
-                  value={customYear}
+                  value={customYears.includes(customYear) ? customYear : 2026}
                   onChange={(e) => setCustomYear(Number(e.target.value))}
                   className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
                 >
-                  {years.map((y) => (
+                  {customYears.map((y) => (
                     <option key={y} value={y}>{y}년</option>
                   ))}
                 </select>
@@ -1522,7 +1511,7 @@ placeholder="항목"
               return (
                 <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-neutral-200 pt-4 text-sm">
                   <span className="text-neutral-600">
-                    그해 총 지출: <strong className="text-neutral-900">{formatNum(yearTotal)}원</strong>
+                    한해 총 지출: <strong className="text-neutral-900">{formatNum(yearTotal)}원</strong>
                   </span>
                   <span className="text-neutral-600">
                     월 평균 지출: <strong className="text-neutral-900">{formatNum(Math.round(yearTotal / 12))}원</strong>
@@ -1533,7 +1522,7 @@ placeholder="항목"
           </div>
         )}
 
-        {(viewMode === "thisMonth" || viewMode === "yearMonth" || viewMode === "custom") && (
+        {(viewMode === "yearMonth" || viewMode === "custom") && (
           <div className="mt-4 space-y-4">
             <div>
               <div className="inline-flex items-center gap-1.5 text-2xl font-semibold text-neutral-900">
