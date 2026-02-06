@@ -14,20 +14,27 @@ import {
   saveKeywordsToDb,
   loadMonthExtrasFromDb,
   saveMonthExtrasToDb,
+  loadEntryDetailsFromDb,
+  saveEntryDetailsToDb,
 } from "./budgetDb";
 
 export const BUDGET_ENTRIES_KEY = "my-lifestyle-budget-entries";
 export const BUDGET_KEYWORDS_KEY = "my-lifestyle-budget-keywords";
 export const BUDGET_MONTH_EXTRAS_KEY = "my-lifestyle-budget-month-extras";
+export const BUDGET_ENTRY_DETAILS_KEY = "my-lifestyle-budget-entry-details";
 
 export type CategoryId = "고정비" | "사업경비" | "세금" | "생활비" | "기타";
 
-export const CATEGORY_LABELS: Record<CategoryId, string> = {
+/** 카테고리 + 미분류(카드 세부 미기입 분) 표시용 */
+export type DisplayCategoryId = CategoryId | "미분류";
+
+export const CATEGORY_LABELS: Record<DisplayCategoryId, string> = {
   고정비: "고정비",
   사업경비: "사업경비",
   세금: "세금",
   생활비: "생활비",
   기타: "기타",
+  미분류: "미분류",
 };
 
 /** 월 총 지출에서 제외할 키워드 (적금·IRP·ISA·주택청약) */
@@ -83,6 +90,14 @@ export const DEFAULT_KEYWORDS: Record<CategoryId, string[]> = {
 export type BudgetEntry = {
   id: string;
   date: string; // YYYY-MM-DD
+  item: string;
+  amount: number;
+};
+
+/** 카드지출 등 한 건 하위 세부. 키워드로 카테고리 분류, 나머지 = 미분류 */
+export type BudgetEntryDetail = {
+  id: string;
+  parentId: string;
   item: string;
   amount: number;
 };
@@ -261,6 +276,18 @@ export async function loadMonthExtras(): Promise<MonthExtraKeywords> {
 export async function saveMonthExtras(extras: MonthExtraKeywords): Promise<void> {
   if (supabase) return saveMonthExtrasToDb(extras);
   saveJson(BUDGET_MONTH_EXTRAS_KEY, extras);
+}
+
+export async function loadEntryDetails(): Promise<BudgetEntryDetail[]> {
+  if (supabase) return loadEntryDetailsFromDb();
+  const data = loadJson<BudgetEntryDetail[]>(BUDGET_ENTRY_DETAILS_KEY, []);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function saveEntryDetails(details: BudgetEntryDetail[]): Promise<BudgetEntryDetail[]> {
+  if (supabase) return saveEntryDetailsToDb(details);
+  saveJson(BUDGET_ENTRY_DETAILS_KEY, details);
+  return details;
 }
 
 /** 항목명이 키워드 목록에 매칭되는지 (포함 여부) */

@@ -7,8 +7,10 @@ import { Card } from "@/components/ui/Card";
 import { AmountToggle, formatAmountShort } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
+  type BudgetEntryDetail,
   type CategoryId,
   type CategoryKeywords,
+  type DisplayCategoryId,
   type MonthExtraKeywords,
   CATEGORY_LABELS,
   DEFAULT_KEYWORDS,
@@ -20,15 +22,18 @@ import {
   isExcludedFromMonthTotal,
   insertEntry,
   loadEntries,
+  loadEntryDetails,
   loadKeywords,
   loadMonthExtras,
   saveEntries,
+  saveEntryDetails,
   saveKeywords,
   saveMonthExtras,
   todayStr,
   toYearMonth,
 } from "@/lib/budget";
 import { type IncomeEntry, loadIncomeEntries } from "@/lib/income";
+import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 
 function formatNum(n: number): string {
@@ -62,38 +67,36 @@ function groupByBaseName(detail: Record<string, { total: number; entries: Detail
 
 type ViewMode = "thisMonth" | "yearMonth" | "custom";
 
-/** iframe 안에 input을 넣어 문서를 lang=ko로 고정 → 한글 IME 유지 시도 */
-const ITEM_IFRAME_SRCDOC = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><style>html,body{overflow:hidden;}</style></head><body style="margin:0;padding:0;height:42px;display:flex;align-items:center;overflow:hidden"><input type="text" id="item" lang="ko" autocomplete="off" placeholder="예: 배달, 보험, IRP" style="width:100%;height:100%;padding:0 12px;border:none;border-radius:0;font-size:14px;line-height:42px;box-sizing:border-box;outline:none" /></body></html>`;
-
+/** 항목 입력 (일반 input으로 state와 동기화해 추가 버튼이 확실히 동작) */
 const ItemInput = memo(function ItemInput({
-  iframeRef,
+  value,
+  onChange,
   onEnterKey,
+  inputRef,
 }: {
-  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  value: string;
+  onChange: (v: string) => void;
   onEnterKey?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
-  const iframeLoaded = useCallback(() => {
-    const doc = iframeRef.current?.contentDocument;
-    const input = doc?.getElementById("item") as HTMLInputElement | null;
-    if (!input) return;
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        onEnterKey?.();
-      }
-    });
-  }, [iframeRef, onEnterKey]);
-
   return (
     <div className="relative min-w-[180px]">
       <label className="text-xs font-medium text-neutral-500">항목</label>
-      <iframe
-        ref={iframeRef as React.RefObject<HTMLIFrameElement>}
-        title="항목 입력"
-        srcDoc={ITEM_IFRAME_SRCDOC}
-        onLoad={iframeLoaded}
-        className="mt-1 block h-[42px] w-full overflow-hidden rounded-lg border border-neutral-200 bg-white"
-        sandbox="allow-same-origin"
+      <input
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        type="text"
+        lang="ko"
+        autoComplete="off"
+        placeholder="예: 배달, 보험, IRP, 강아지"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onEnterKey?.();
+          }
+        }}
+        className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
       />
     </div>
   );
@@ -101,6 +104,7 @@ const ItemInput = memo(function ItemInput({
 
 export default function FinancePage() {
   const [entries, setEntries] = useState<BudgetEntry[]>([]);
+  const [entryDetails, setEntryDetails] = useState<BudgetEntryDetail[]>([]);
   const [keywords, setKeywords] = useState<CategoryKeywords>(DEFAULT_KEYWORDS);
   const [monthExtras, setMonthExtras] = useState<MonthExtraKeywords>({});
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -117,7 +121,8 @@ export default function FinancePage() {
   const [addKeywordValue, setAddKeywordValue] = useState("");
   const [addKeywordPersist, setAddKeywordPersist] = useState<boolean | null>(null);
   const [pendingKeyword, setPendingKeyword] = useState<{ cat: CategoryId; value: string } | null>(null);
-  const [categoryDetailModal, setCategoryDetailModal] = useState<CategoryId | null>(null);
+  const [categoryDetailModal, setCategoryDetailModal] = useState<DisplayCategoryId | null>(null);
+  const [showCardExpenseDetailModal, setShowCardExpenseDetailModal] = useState(false);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
@@ -130,7 +135,7 @@ export default function FinancePage() {
     top: number;
   } | null>(null);
   const [showMonthExpenseTooltip, setShowMonthExpenseTooltip] = useState(false);
-  const monthExpenseTooltipHoverRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const monthExpenseTooltipHoverRef = useRef<number | null>(null);
   const now = new Date();
   const [exportYear, setExportYear] = useState(now.getFullYear());
   const [exportRange, setExportRange] = useState<"month" | "year" | "range" | "all">("year");
@@ -147,10 +152,37 @@ export default function FinancePage() {
   const [dayDetailEditAmount, setDayDetailEditAmount] = useState("");
   /** 선택한 날짜 내역 박스 더블클릭 시 인라인 수정 */
   const [listEditId, setListEditId] = useState<string | null>(null);
+  /** 해당 날짜 내역에서 카드출금 세부 펼침 여부 (entry id 집합) */
+  const [expandedDailyDetailIds, setExpandedDailyDetailIds] = useState<Set<string>>(new Set());
   const [listEditItem, setListEditItem] = useState("");
   const [listEditAmount, setListEditAmount] = useState("");
   const [expandedDetailItems, setExpandedDetailItems] = useState<Set<string>>(new Set());
-  const itemInputRef = useRef<HTMLIFrameElement>(null);
+  /** 카드지출 입력 모달 (null = 새로 추가, 있으면 수정) */
+  const [showCardExpenseModal, setShowCardExpenseModal] = useState(false);
+  const [cardModalEditEntry, setCardModalEditEntry] = useState<BudgetEntry | null>(null);
+  const [cardModalItem, setCardModalItem] = useState("카드출금");
+  const [cardModalTotal, setCardModalTotal] = useState("");
+  const [cardModalDetails, setCardModalDetails] = useState<{ id: string; item: string; amount: number }[]>([]);
+  const [focusNewDetailItem, setFocusNewDetailItem] = useState(false);
+  const [cardExpenseApplying, setCardExpenseApplying] = useState(false);
+  const [cardExpenseMessage, setCardExpenseMessage] = useState<{ type: "error" | "info"; text: string } | null>(null);
+  /** 페이지 내 카드지출 (총합+세부) 입력란 */
+  const [cardSectionItem, setCardSectionItem] = useState("카드출금");
+  const [cardSectionTotal, setCardSectionTotal] = useState("");
+  const [cardSectionDetails, setCardSectionDetails] = useState<{ id: string; item: string; amount: number }[]>([]);
+  const [cardSectionApplying, setCardSectionApplying] = useState(false);
+  const [cardSectionOpen, setCardSectionOpen] = useState(false);
+  const cardSectionRef = useRef<HTMLDivElement>(null);
+  const lastDetailItemRef = useRef<HTMLInputElement>(null);
+  const cardModalTotalRef = useRef("");
+  const cardModalItemRef = useRef("카드출금");
+  const cardModalDetailsRef = useRef<{ id: string; item: string; amount: number }[]>([]);
+  /** 반영 클릭 시 DOM에서 직접 읽기 위해 (state/ref 틀어짐 방지) */
+  const cardModalContentRef = useRef<HTMLDivElement>(null);
+  const cardModalFormRef = useRef<HTMLFormElement>(null);
+  const lastDetailItemInputRef = useRef<HTMLInputElement>(null);
+  const itemInputRef = useRef<HTMLInputElement>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
   const isAddingRef = useRef(false);
   const addEntryRef = useRef<() => void>(() => {});
   const [isAdding, setIsAdding] = useState(false);
@@ -161,12 +193,14 @@ export default function FinancePage() {
   const load = useCallback(async () => {
     setBudgetLoading(true);
     try {
-      const [e, k, m] = await Promise.all([
+      const [e, ed, k, m] = await Promise.all([
         loadEntries(),
+        loadEntryDetails(),
         loadKeywords(),
         loadMonthExtras(),
       ]);
       setEntries(Array.isArray(e) ? e : []);
+      setEntryDetails(Array.isArray(ed) ? ed : []);
       setKeywords(k);
       setMonthExtras(m);
       setIncomeEntries(await loadIncomeEntries());
@@ -252,19 +286,32 @@ export default function FinancePage() {
   const viewMonthTotalDisplay = viewMonthTotalRaw - viewMonthExcluded;
 
   const viewMonthByCategory = useMemo(() => {
-    const map: Record<CategoryId, number> = {
+    const map: Record<DisplayCategoryId, number> = {
       고정비: 0,
       사업경비: 0,
       세금: 0,
       생활비: 0,
       기타: 0,
+      미분류: 0,
     };
     viewMonthEntries.forEach((e) => {
-      const cat = getCategoryForEntry(e.item, keywordsForViewMonth);
-      map[cat] += e.amount;
+      const details = entryDetails.filter((d) => d.parentId === e.id);
+      const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+      if (details.length > 0) {
+        const detailSum = details.reduce((s, d) => s + d.amount, 0);
+        details.forEach((d) => {
+          const cat = getCategoryForEntry(d.item.trim(), kw);
+          map[cat] += d.amount;
+        });
+        const unclassified = e.amount - detailSum;
+        if (unclassified > 0) map.미분류 += unclassified;
+      } else {
+        const cat = getCategoryForEntry(e.item, kw);
+        map[cat] += e.amount;
+      }
     });
     return map;
-  }, [viewMonthEntries, keywordsForViewMonth]);
+  }, [viewMonthEntries, entryDetails, keywords, monthExtras]);
 
   const viewMonthByDay = useMemo(() => {
     const map: Record<string, BudgetEntry[]> = {};
@@ -306,34 +353,91 @@ export default function FinancePage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }, []);
 
-  /** 카테고리별 → 항목별 상세 (모달용): { 항목명: { total, entries: { date, amount, item }[] } } */
+  /** 카테고리별 → 항목별 상세 (모달용). 세부 있으면 세부는 카테고리별, 나머지 = 미분류 */
   const viewMonthByCategoryDetail = useMemo(() => {
-    const out: Record<CategoryId, Record<string, { total: number; entries: DetailEntry[] }>> = {
+    const out: Record<DisplayCategoryId, Record<string, { total: number; entries: DetailEntry[] }>> = {
       고정비: {},
       사업경비: {},
       세금: {},
       생활비: {},
       기타: {},
+      미분류: {},
     };
     viewMonthEntries.forEach((e) => {
-      const cat = getCategoryForEntry(e.item, keywordsForViewMonth);
-      if (!out[cat][e.item]) out[cat][e.item] = { total: 0, entries: [] };
-      out[cat][e.item].total += e.amount;
-      out[cat][e.item].entries.push({ date: e.date, amount: e.amount, item: e.item });
+      const details = entryDetails.filter((d) => d.parentId === e.id);
+      const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+      if (details.length > 0) {
+        const detailSum = details.reduce((s, d) => s + d.amount, 0);
+        details.forEach((d) => {
+          const cat = getCategoryForEntry(d.item.trim(), kw);
+          if (!out[cat][d.item]) out[cat][d.item] = { total: 0, entries: [] };
+          out[cat][d.item].total += d.amount;
+          out[cat][d.item].entries.push({ date: e.date, amount: d.amount, item: d.item });
+        });
+        const unclassified = e.amount - detailSum;
+        if (unclassified > 0) {
+          const label = `${e.item} (미분류)`;
+          if (!out.미분류[label]) out.미분류[label] = { total: 0, entries: [] };
+          out.미분류[label].total += unclassified;
+          out.미분류[label].entries.push({ date: e.date, amount: unclassified, item: label });
+        }
+      } else {
+        const cat = getCategoryForEntry(e.item, kw);
+        if (!out[cat][e.item]) out[cat][e.item] = { total: 0, entries: [] };
+        out[cat][e.item].total += e.amount;
+        out[cat][e.item].entries.push({ date: e.date, amount: e.amount, item: e.item });
+      }
     });
-    (Object.keys(out) as CategoryId[]).forEach((cat) => {
+    (Object.keys(out) as DisplayCategoryId[]).forEach((cat) => {
       Object.keys(out[cat]).forEach((item) => {
         out[cat][item].entries.sort((a, b) => a.date.localeCompare(b.date));
       });
     });
     return out;
-  }, [viewMonthEntries, keywordsForViewMonth]);
+  }, [viewMonthEntries, entryDetails, keywords, monthExtras]);
+
+  /** 기간별 보기: 해당 월 카드출금(세부 있는 건) 총합·세부·미분류 한눈에 */
+  const viewMonthCardExpenseSummary = useMemo(() => {
+    const cardEntries = viewMonthEntries.filter((e) =>
+      entryDetails.some((d) => d.parentId === e.id)
+    );
+    let total = 0;
+    let detailTotal = 0;
+    const rows: { entry: BudgetEntry; details: BudgetEntryDetail[]; unclassified: number }[] = [];
+    cardEntries.forEach((e) => {
+      const details = entryDetails.filter((d) => d.parentId === e.id);
+      const detailSum = details.reduce((s, d) => s + d.amount, 0);
+      const unclassified = e.amount - detailSum;
+      total += e.amount;
+      detailTotal += detailSum;
+      rows.push({ entry: e, details, unclassified });
+    });
+    const unclassifiedTotal = total - detailTotal;
+    return { total, detailTotal, unclassifiedTotal, rows };
+  }, [viewMonthEntries, entryDetails]);
+
+  /** 지출 한 건 추가 (일반 추가 / 카드지출 반영 둘 다 이 함수만 사용). onDone은 카드지출 모달 닫기용 */
+  const addOneEntry = (entry: BudgetEntry, onDone?: () => void) => {
+    setEntries((prev) => [...prev, entry]);
+    insertEntry(entry)
+      .then((saved) => {
+        if (saved.id !== entry.id) {
+          setEntries((prev) => prev.map((e) => (e.id === entry.id ? saved : e)));
+        }
+        onDone?.();
+      })
+      .catch((err) => {
+        console.error("가계부 저장 실패", err);
+        setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+        alert("저장에 실패했습니다. F12 콘솔 확인.");
+      });
+  };
 
   const addEntry = () => {
     if (isAddingRef.current) return;
-    const inputEl = itemInputRef.current?.contentDocument?.getElementById("item") as HTMLInputElement | null;
-    const item = (inputEl?.value ?? newItem).trim();
-    const amount = Number(String(newAmount).replace(/,/g, ""));
+    const item = (itemInputRef.current?.value ?? newItem).toString().trim();
+    const amountRaw = (amountInputRef.current?.value ?? newAmount).toString().replace(/,/g, "");
+    const amount = Number(amountRaw) || 0;
     if (!item || !Number.isFinite(amount) || amount <= 0) return;
     isAddingRef.current = true;
     setIsAdding(true);
@@ -341,26 +445,10 @@ export default function FinancePage() {
     const newEntry: BudgetEntry = { id, date: selectedDate, item, amount };
     setNewItem("");
     setNewAmount("");
-    insertEntry(newEntry)
-      .then((saved) => setEntries((prev) => [...prev, saved]))
-      .catch((err) => {
-        console.error("가계부 저장 실패", err);
-        alert("저장에 실패했습니다. 브라우저 콘솔(F12)을 확인하거나, Supabase 대시보드에서 budget_entries 테이블 RLS 정책을 확인해 주세요.");
-      })
-      .finally(() => {
-        isAddingRef.current = false;
-        setIsAdding(false);
-        const iframe = itemInputRef.current;
-        const input = iframe?.contentDocument?.getElementById("item") as HTMLInputElement | null;
-        if (iframe && input) {
-          // iframe → 입력란 순으로 포커스한 뒤, 다음 프레임에 값 비움 (프로그래밍 포커스 시 IME 초기화 완화)
-          iframe.focus();
-          input.focus();
-          requestAnimationFrame(() => {
-            input.value = "";
-          });
-        }
-      });
+    addOneEntry(newEntry);
+    isAddingRef.current = false;
+    setIsAdding(false);
+    itemInputRef.current?.focus();
   };
 
   useEffect(() => {
@@ -370,8 +458,12 @@ export default function FinancePage() {
   const removeEntry = (id: string) => {
     const next = entries.filter((e) => e.id !== id);
     setEntries(next);
+    const nextDetails = entryDetails.filter((d) => d.parentId !== id);
+    setEntryDetails(nextDetails);
     saveEntries(next)
       .then((updated) => setEntries(updated))
+      .then(() => saveEntryDetails(nextDetails))
+      .then((saved) => setEntryDetails(saved))
       .catch((err) => {
         console.error(err);
         load();
@@ -391,6 +483,200 @@ export default function FinancePage() {
         console.error(err);
         load();
       });
+  };
+
+  const openCardExpenseModal = (editEntry?: BudgetEntry) => {
+    setCardExpenseMessage(null);
+    if (editEntry) {
+      setCardModalEditEntry(editEntry);
+      setCardModalItem(editEntry.item);
+      setCardModalTotal(String(editEntry.amount));
+      setCardModalDetails(
+        entryDetails
+          .filter((d) => d.parentId === editEntry.id)
+          .map((d) => ({ id: d.id, item: d.item, amount: d.amount }))
+      );
+      cardModalTotalRef.current = String(editEntry.amount);
+      cardModalItemRef.current = editEntry.item;
+      cardModalDetailsRef.current = entryDetails
+          .filter((d) => d.parentId === editEntry.id)
+          .map((d) => ({ id: d.id, item: d.item, amount: d.amount }));
+      setFocusNewDetailItem(false);
+      setShowCardExpenseModal(true);
+    } else {
+      setCardSectionOpen(true);
+      setTimeout(() => cardSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    }
+  };
+
+  useEffect(() => {
+    cardModalTotalRef.current = cardModalTotal;
+    cardModalItemRef.current = cardModalItem;
+    cardModalDetailsRef.current = cardModalDetails;
+  }, [cardModalTotal, cardModalItem, cardModalDetails]);
+
+  useEffect(() => {
+    if (focusNewDetailItem && lastDetailItemInputRef.current) {
+      lastDetailItemInputRef.current.focus();
+      setFocusNewDetailItem(false);
+    }
+  }, [focusNewDetailItem, cardModalDetails.length]);
+
+  const addCardModalDetailRow = (focusItem = false) => {
+    const newRow = { id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, item: "", amount: 0 };
+    setCardModalDetails((prev) => {
+      const next = [...prev, newRow];
+      cardModalDetailsRef.current = next;
+      return next;
+    });
+    if (focusItem) setFocusNewDetailItem(true);
+  };
+
+  const updateCardModalDetailRow = (rowId: string, field: "item" | "amount", value: string | number) => {
+    setCardModalDetails((prev) => {
+      const next = prev.map((r) =>
+        r.id === rowId
+          ? {
+              ...r,
+              [field]:
+                field === "amount"
+                  ? (typeof value === "number" ? value : Number(String(value).replace(/,/g, "")) || 0)
+                  : value,
+            }
+          : r
+      );
+      cardModalDetailsRef.current = next;
+      return next;
+    });
+  };
+
+  const removeCardModalDetailRow = (rowId: string) => {
+    setCardModalDetails((prev) => {
+      const next = prev.filter((r) => r.id !== rowId);
+      cardModalDetailsRef.current = next;
+      return next;
+    });
+  };
+
+  /** 카드지출 반영 = 일반지출 추가와 완전히 동일하게 addOneEntry(한 건) 호출 */
+  const applyCardExpense = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setCardExpenseMessage(null);
+
+    const item = ((cardModalItemRef.current ?? cardModalItem) || "").toString().trim() || "카드출금";
+    const totalStr = (cardModalTotalRef.current ?? cardModalTotal).toString().replace(/,/g, "");
+    const amount = Number(totalStr) || 0;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setCardExpenseMessage({ type: "error", text: "카드 총합(원)에 숫자를 입력해 주세요. (입력값: " + (totalStr || "비어있음") + ")" });
+      return;
+    }
+
+    if (cardModalEditEntry) {
+      setCardExpenseApplying(true);
+      updateEntry(cardModalEditEntry.id, item, amount);
+      const others = entryDetails.filter((d) => d.parentId !== cardModalEditEntry.id);
+      const validDetails = cardModalDetails.filter(
+        (r) => String(r.item || "").trim() && Number.isFinite(Number(r.amount)) && Number(r.amount) > 0
+      );
+      const nextDetails: BudgetEntryDetail[] = [
+        ...others,
+        ...validDetails.map((r) => ({
+          id: r.id,
+          parentId: cardModalEditEntry.id,
+          item: String(r.item).trim(),
+          amount: Number(r.amount),
+        })),
+      ];
+      saveEntryDetails(nextDetails)
+        .then((saved) => {
+          setEntryDetails(saved);
+          setShowCardExpenseModal(false);
+          setCardModalEditEntry(null);
+          setCardModalTotal("");
+          setCardModalDetails([]);
+        })
+        .catch((err) => {
+          console.error("카드지출 세부 저장 실패", err);
+          setCardExpenseMessage({ type: "error", text: "저장 실패." });
+        })
+        .finally(() => setCardExpenseApplying(false));
+      return;
+    }
+
+    // 새 카드지출: 목록에 먼저 넣고 모달 닫은 뒤, insertEntry (일반 추가와 동일)
+    const id = `e-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const newEntry: BudgetEntry = { id, date: selectedDate, item, amount };
+    setEntries((prev) => [...prev, newEntry]);
+    setShowCardExpenseModal(false);
+    setCardModalTotal("");
+    setCardModalDetails([]);
+    insertEntry(newEntry)
+      .then((saved) => {
+        if (saved.id !== newEntry.id) {
+          setEntries((prev) => prev.map((e) => (e.id === newEntry.id ? saved : e)));
+        }
+      })
+      .catch((err) => {
+        console.error("가계부 저장 실패", err);
+        setEntries((prev) => prev.filter((e) => e.id !== newEntry.id));
+        alert("저장 실패. F12 콘솔 확인.");
+      });
+  };
+
+  /** 페이지 내 카드지출(총합+세부) 반영: 부모 1건 + 세부 N건 저장, 남은 금액 = 미분류 */
+  const applyCardSection = () => {
+    const item = (cardSectionItem || "").trim() || "카드출금";
+    const total = Number(String(cardSectionTotal).replace(/,/g, "")) || 0;
+    const validDetails = cardSectionDetails.filter(
+      (r) => String(r.item || "").trim() && Number.isFinite(Number(r.amount)) && Number(r.amount) > 0
+    );
+    const detailSum = validDetails.reduce((s, r) => s + Number(r.amount), 0);
+    if (total <= 0) {
+      alert("카드 총합(원)에 숫자를 입력해 주세요.");
+      return;
+    }
+    if (detailSum > total) {
+      alert(`세부 합계(${formatNum(detailSum)}원)가 카드 총합(${formatNum(total)}원)을 넘을 수 없어요.`);
+      return;
+    }
+    setCardSectionApplying(true);
+    const parentId = `e-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const newEntry: BudgetEntry = { id: parentId, date: selectedDate, item, amount: total };
+    setEntries((prev) => [...prev, newEntry]);
+    insertEntry(newEntry)
+      .then((saved) => {
+        if (saved.id !== parentId) {
+          setEntries((prev) => prev.map((e) => (e.id === parentId ? saved : e)));
+        }
+        const finalParentId = saved.id;
+        const newDetailRows: BudgetEntryDetail[] = validDetails.map((r) => ({
+          id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          parentId: finalParentId,
+          item: String(r.item).trim(),
+          amount: Number(r.amount),
+        }));
+        return saveEntryDetails([...entryDetails, ...newDetailRows]);
+      })
+      .then((savedDetails) => {
+        setEntryDetails(savedDetails);
+        setCardSectionTotal("");
+        setCardSectionDetails([]);
+      })
+      .catch((err) => {
+        console.error("카드지출 저장 실패", err);
+        setEntries((prev) => prev.filter((e) => e.id !== parentId));
+        alert("저장 실패. F12 콘솔 확인.");
+      })
+      .finally(() => setCardSectionApplying(false));
+  };
+
+  const addCardSectionDetailRow = () => {
+    setCardSectionDetails((prev) => [
+      ...prev,
+      { id: `row-${Date.now()}`, item: "", amount: 0 },
+    ]);
+    setTimeout(() => lastDetailItemRef.current?.focus(), 50);
   };
 
   const addKeywordToCategory = (cat: CategoryId, word: string, persist: boolean) => {
@@ -756,10 +1042,16 @@ export default function FinancePage() {
           >
             <span className="text-lg">→</span>
           </button>
-          <ItemInput iframeRef={itemInputRef} onEnterKey={() => addEntryRef.current()} />
+          <ItemInput
+            value={newItem}
+            onChange={setNewItem}
+            onEnterKey={() => addEntryRef.current()}
+            inputRef={itemInputRef}
+          />
           <div className="w-28">
             <label className="text-xs font-medium text-neutral-500">금액</label>
             <input
+              ref={amountInputRef}
               type="number"
               min={1}
               value={newAmount}
@@ -775,9 +1067,119 @@ export default function FinancePage() {
           >
             {isAdding ? "저장 중…" : "추가"}
           </button>
+          <button
+            type="button"
+            onClick={() => setCardSectionOpen((o) => !o)}
+            className="rounded-xl border-2 border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-500 hover:bg-neutral-50"
+          >
+            카드지출 {cardSectionOpen ? "▲" : "▼"}
+          </button>
         </form>
-        <div className="mt-4 rounded-xl border border-neutral-200 bg-white px-5 py-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
+
+        {/* 카드지출 — 버튼으로만 펼침/접기 */}
+        {cardSectionOpen && (
+          <div ref={cardSectionRef} className="mt-4 border-t border-neutral-200 pt-4">
+            <div className="mt-4 max-w-lg">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-0 flex-[4]">
+                  <label className="block text-xs font-medium text-neutral-500">항목명</label>
+                  <input
+                    type="text"
+                    value={cardSectionItem}
+                    onChange={(e) => setCardSectionItem(e.target.value)}
+                    placeholder="예: 카드출금"
+                    className="mt-1 block w-full min-w-0 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                  />
+                </div>
+                <div className="min-w-0 flex-[6]">
+                  <label className="block text-xs font-medium text-neutral-500">카드 총합 (원)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={cardSectionTotal}
+                    onChange={(e) => setCardSectionTotal(e.target.value.replace(/[^0-9,]/g, ""))}
+                    placeholder="0"
+                    className="mt-1 block w-full min-w-0 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addCardSectionDetailRow}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
+                  title="세부 추가"
+                >
+                  +<span className="hidden sm:inline"> 세부 추가</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={applyCardSection}
+                  disabled={cardSectionApplying}
+                  className="rounded-xl bg-neutral-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {cardSectionApplying ? "반영 중…" : "반영"}
+                </button>
+              </div>
+              <div className="mt-4">
+                <label className="block text-xs font-medium text-neutral-500">세부 내역 (항목 · 금액)</label>
+                <ul className="mt-2 space-y-1.5">
+                  {cardSectionDetails.map((row, idx) => (
+                    <li
+                      key={row.id}
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2"
+                    >
+                      <input
+                        ref={idx === cardSectionDetails.length - 1 ? lastDetailItemRef : undefined}
+                        type="text"
+                        value={row.item}
+                        onChange={(e) =>
+                          setCardSectionDetails((prev) =>
+                            prev.map((r) => (r.id === row.id ? { ...r, item: e.target.value } : r))
+                          )
+                        }
+placeholder="항목"
+                      className="min-w-0 flex-[6] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={row.amount || ""}
+                      onChange={(e) =>
+                        setCardSectionDetails((prev) =>
+                          prev.map((r) =>
+                            r.id === row.id ? { ...r, amount: Number(e.target.value) || 0 } : r
+                          )
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCardSectionDetailRow();
+                        }
+                      }}
+                      placeholder="금액"
+                      className="min-w-0 flex-[4] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                    />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCardSectionDetails((prev) => prev.filter((r) => r.id !== row.id))
+                        }
+                        className="flex h-[38px] items-center justify-center rounded-lg px-2 text-neutral-400 transition hover:bg-neutral-200 hover:text-red-600"
+                        aria-label="행 삭제"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div className="text-sm font-medium text-neutral-600">
               {formatDateLabel(selectedDate)} 내역
             </div>
@@ -804,8 +1206,9 @@ export default function FinancePage() {
                       setListEditItem(e.item);
                       setListEditAmount(String(e.amount));
                     }}
-                    className={`flex items-center justify-between rounded-lg border border-neutral-200 px-4 py-2 text-sm ${isListEditing ? "bg-white" : "bg-neutral-50"}`}
+                    className={`flex flex-wrap items-center justify-between gap-y-1 rounded-lg border border-neutral-200 px-4 py-2 text-sm ${isListEditing ? "bg-white" : "bg-neutral-50"}`}
                   >
+                    <div className="flex w-full items-center justify-between">
                     {isListEditing ? (
                       <>
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -876,6 +1279,18 @@ export default function FinancePage() {
                           <span className="font-semibold text-neutral-900">
                             {formatNum(e.amount)}원
                           </span>
+                          {entryDetails.some((d) => d.parentId === e.id) && (
+                            <button
+                              type="button"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                openCardExpenseModal(e);
+                              }}
+                              className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-300"
+                            >
+                              수정
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={(ev) => {
@@ -890,12 +1305,52 @@ export default function FinancePage() {
                         </div>
                       </>
                     )}
+                    </div>
+                    {!isListEditing && entryDetails.some((d) => d.parentId === e.id) && (() => {
+                      const details = entryDetails.filter((d) => d.parentId === e.id);
+                      const isExpanded = expandedDailyDetailIds.has(e.id);
+                      return (
+                        <div className="w-full border-t border-neutral-200 mt-1.5 pt-1.5">
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setExpandedDailyDetailIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(e.id)) next.delete(e.id);
+                                else next.add(e.id);
+                                return next;
+                              });
+                            }}
+                            className="flex w-full items-center justify-between rounded-md py-1 px-2 text-left text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+                            aria-expanded={isExpanded}
+                          >
+                            <span>세부 내역 ({details.length}건)</span>
+                            <span className="text-neutral-400" aria-hidden>{isExpanded ? "▲" : "▼"}</span>
+                          </button>
+                          {isExpanded && (
+                            <ul className="mt-1.5 space-y-1 rounded-lg bg-neutral-100/80 px-3 py-2">
+                              {details.map((d) => (
+                                <li
+                                  key={d.id}
+                                  className="flex items-center justify-between gap-3 text-sm text-neutral-800"
+                                >
+                                  <span className="min-w-0 truncate font-medium">{d.item}</span>
+                                  <span className="shrink-0 tabular-nums font-semibold">
+                                    {formatNum(d.amount)}원
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </li>
                 );
               })}
             </ul>
           )}
-        </div>
       </Card>
 
       {/* 보기: 이번달(고정) / 올해(1~12월 드롭다운) / 특정 연·월(연·월 드롭다운) */}
@@ -1034,7 +1489,9 @@ export default function FinancePage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
-              {(Object.keys(viewMonthByCategory) as CategoryId[]).map((cat) => (
+              {(Object.keys(viewMonthByCategory) as DisplayCategoryId[])
+                .filter((cat) => cat !== "미분류")
+                .map((cat) => (
                 <button
                   key={cat}
                   type="button"
@@ -1047,6 +1504,16 @@ export default function FinancePage() {
                   </span>
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setShowCardExpenseDetailModal(true)}
+                className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm inline-flex items-center gap-3"
+              >
+                <span className="font-semibold">카드출금</span>
+                <span className="font-medium">
+                  {formatAmountShort(viewMonthCardExpenseSummary.total)}
+                </span>
+              </button>
             </div>
             <div className="mt-5 pt-3">
               <div className="text-base font-semibold text-neutral-800">[ 해당 월 일별 내역 ]</div>
@@ -1523,6 +1990,206 @@ export default function FinancePage() {
         document.body
       )}
 
+      {/* 카드지출 입력 모달 - body에 포탈, 화면 중앙·배경 전체 어둡게 */}
+      {showCardExpenseModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-black/55 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowCardExpenseModal(false);
+                setCardModalEditEntry(null);
+              }
+            }}
+          >
+          <div
+            ref={cardModalContentRef}
+            className="my-8 max-h-[85vh] w-full max-w-lg shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form ref={cardModalFormRef} onSubmit={(e) => e.preventDefault()}>
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {cardModalEditEntry ? "카드지출 수정" : "카드지출 입력"}
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                항목명은 아무 이름이나 적어도 됩니다 (비우면 &quot;카드출금&quot;). 카드 총합을 먼저 적고, 세부내역을 추가한 뒤 반영하세요.
+              </p>
+              <p className="mt-1 text-xs text-neutral-400">
+                저장 위치: {supabase ? "Supabase 서버" : "이 기기만 (로컬) — 지금 로컬에서 테스트 중이에요."}
+              </p>
+              {cardExpenseMessage && (
+                <div
+                  className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+                    cardExpenseMessage.type === "error" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
+                  }`}
+                >
+                  {cardExpenseMessage.text}
+                </div>
+              )}
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">항목명 (예: KB카드출금)</label>
+                  <input
+                    name="card-modal-item"
+                    type="text"
+                    value={cardModalItem}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCardModalItem(v);
+                      cardModalItemRef.current = v;
+                    }}
+                    placeholder="카드출금"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">카드 총합 (원)</label>
+                  <input
+                    name="card-modal-total"
+                    type="number"
+                    min={1}
+                    value={cardModalTotal}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCardModalTotal(v);
+                      cardModalTotalRef.current = v;
+                    }}
+                    placeholder="0"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="border-t border-neutral-200 pt-3">
+                  <div className="text-xs font-medium text-neutral-500">세부내역 (항목명에 키워드가 있으면 카테고리 자동 분류)</div>
+                  <div className="mt-2 space-y-2">
+                    {cardModalDetails.map((row, idx) => (
+                      <div
+                        key={row.id}
+                        data-card-detail-row
+                        className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/50 p-2"
+                      >
+                        <input
+                          data-card-detail-item
+                          ref={idx === cardModalDetails.length - 1 ? lastDetailItemInputRef : undefined}
+                          type="text"
+                          value={row.item}
+                          onChange={(e) => updateCardModalDetailRow(row.id, "item", e.target.value)}
+                          placeholder="항목"
+                          className="min-w-[100px] flex-1 rounded border border-neutral-200 px-2 py-1.5 text-sm"
+                        />
+                        <input
+                          data-card-detail-amount
+                          type="number"
+                          min={0}
+                          value={row.amount || ""}
+                          onChange={(e) => updateCardModalDetailRow(row.id, "amount", e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addCardModalDetailRow(true);
+                            }
+                          }}
+                          placeholder="금액"
+                          className="w-24 rounded border border-neutral-200 px-2 py-1.5 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCardModalDetailRow(row.id)}
+                          className="text-neutral-400 hover:text-red-600"
+                          aria-label="삭제"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addCardModalDetailRow(false)}
+                      className="w-full rounded-lg border border-dashed border-neutral-300 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                      + 세부 추가
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {(() => {
+                const total = Number(String(cardModalTotal).replace(/,/g, "")) || 0;
+                const valid = cardModalDetails.filter(
+                  (r) => r.item.trim() && Number.isFinite(r.amount) && r.amount > 0
+                );
+                const detailSum = valid.reduce((s, r) => s + r.amount, 0);
+                const unclassified = total - detailSum;
+                return (
+                  <div className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-600">세부 합계</span>
+                      <span className="font-medium">{formatNum(detailSum)}원</span>
+                    </div>
+                    <div className="mt-1 flex justify-between">
+                      <span className="text-neutral-600">미분류 (총합 − 세부)</span>
+                      <span className="font-medium">{formatNum(unclassified >= 0 ? unclassified : 0)}원</span>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCardExpenseModal(false);
+                    setCardModalEditEntry(null);
+                  }}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  disabled={cardModalEditEntry ? cardExpenseApplying : false}
+                  className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60 disabled:pointer-events-none"
+                  onClick={() => {
+                    if (cardModalEditEntry) {
+                      applyCardExpense();
+                      return;
+                    }
+                    const form = cardModalFormRef.current;
+                    const totalEl = form?.querySelector<HTMLInputElement>('[name="card-modal-total"]');
+                    const itemEl = form?.querySelector<HTMLInputElement>('[name="card-modal-item"]');
+                    const amount = Number((totalEl?.value ?? "").replace(/,/g, "")) || 0;
+                    const item = (itemEl?.value ?? "").toString().trim() || "카드출금";
+                    if (amount <= 0) {
+                      setCardExpenseMessage({ type: "error", text: "카드 총합(원)에 숫자를 입력해 주세요." });
+                      return;
+                    }
+                    const id = `e-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+                    const newEntry: BudgetEntry = { id, date: selectedDate, item, amount };
+                    setEntries((prev) => [...prev, newEntry]);
+                    setShowCardExpenseModal(false);
+                    setCardModalTotal("");
+                    setCardModalDetails([]);
+                    insertEntry(newEntry)
+                      .then((saved) => {
+                        if (saved.id !== newEntry.id) {
+                          setEntries((prev) => prev.map((e) => (e.id === newEntry.id ? saved : e)));
+                        }
+                      })
+                      .catch((err) => {
+                        console.error("가계부 저장 실패", err);
+                        setEntries((prev) => prev.filter((e) => e.id !== newEntry.id));
+                        alert("저장 실패. F12 콘솔 확인.");
+                      });
+                  }}
+                >
+                  {cardModalEditEntry && cardExpenseApplying ? "반영 중…" : "반영"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* 카테고리별 상세 항목 모달 */}
       {categoryDetailModal &&
         typeof document !== "undefined" &&
@@ -1627,6 +2294,93 @@ export default function FinancePage() {
         document.body
       )}
 
+      {/* 카드출금 상세 모달: 총합·세부·미분류 한눈에 */}
+      {showCardExpenseDetailModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            onClick={() => setShowCardExpenseDetailModal(false)}
+          >
+            <div
+              className="my-auto max-h-[85vh] w-full max-w-2xl shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">
+                카드출금 · {yearMonthForView} 상세
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                해당 월 카드출금 총합, 세부 내역, 미분류를 한눈에 볼 수 있어요.
+              </p>
+              {viewMonthCardExpenseSummary.total <= 0 ? (
+                <p className="mt-4 text-sm text-neutral-400">해당 월 카드출금 내역이 없어요.</p>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-xl bg-slate-100 px-4 py-3">
+                    <span className="text-sm font-medium text-neutral-600">총합</span>
+                    <span className="ml-2 text-xl font-semibold text-neutral-900">
+                      {formatNum(viewMonthCardExpenseSummary.total)}원
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-neutral-600">세부 내역</div>
+                    <div className="mt-2 space-y-3 rounded-lg border border-neutral-200 bg-neutral-50/50 p-3">
+                      {(() => {
+                        const byDate = new Map<string, { entry: BudgetEntry; details: BudgetEntryDetail[] }[]>();
+                        viewMonthCardExpenseSummary.rows.forEach((r) => {
+                          if (!byDate.has(r.entry.date)) byDate.set(r.entry.date, []);
+                          byDate.get(r.entry.date)!.push(r);
+                        });
+                        const sortedDates = Array.from(byDate.keys()).sort();
+                        return sortedDates.map((date) => (
+                          <div key={date}>
+                            <div className="text-xs font-medium text-neutral-500">
+                              {formatDateLabel(date)}
+                            </div>
+                            <ul className="mt-1 space-y-0.5">
+                              {byDate.get(date)!.flatMap(({ details }) =>
+                                details.map((d) => (
+                                  <li
+                                    key={d.id}
+                                    className="flex justify-between gap-2 text-sm text-neutral-800"
+                                  >
+                                    <span className="min-w-0 truncate">{d.item}</span>
+                                    <span className="shrink-0 tabular-nums font-medium">
+                                      {formatNum(d.amount)}원
+                                    </span>
+                                  </li>
+                                ))
+                              )}
+                            </ul>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                  {viewMonthCardExpenseSummary.unclassifiedTotal > 0 && (
+                    <div className="flex items-baseline justify-between rounded-xl bg-slate-100 px-4 py-3">
+                      <span className="text-sm font-medium text-neutral-600">미분류 (총합 − 세부)</span>
+                      <span className="text-sm font-medium text-neutral-900">
+                        {formatNum(viewMonthCardExpenseSummary.unclassifiedTotal)}원
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowCardExpenseDetailModal(false)}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* 키워드 관리 모달 */}
       {showKeywordModal &&
         typeof document !== "undefined" &&
@@ -1651,7 +2405,7 @@ export default function FinancePage() {
               항목명에 포함된 키워드로 자동 분류돼요. 키워드는 추가·삭제할 수 있어요.
             </p>
             <div className="mt-4 space-y-4">
-              {(Object.keys(CATEGORY_LABELS) as CategoryId[]).map((cat) => {
+              {((Object.keys(CATEGORY_LABELS) as DisplayCategoryId[]).filter((c): c is CategoryId => c !== "미분류")).map((cat) => {
                 const ym = toYearMonth(todayStr());
                 const { base, extra, all } = getKeywordsForCategoryInMonth(cat, ym);
                 return (

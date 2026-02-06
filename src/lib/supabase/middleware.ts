@@ -7,8 +7,18 @@ const supabaseKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
   "";
 
-/** 세션 갱신 후, 비로그인 사용자는 로그인 페이지로 리다이렉트 */
+const isSupabaseConfigured =
+  typeof supabaseUrl === "string" &&
+  supabaseUrl.length > 0 &&
+  typeof supabaseKey === "string" &&
+  supabaseKey.length > 0;
+
+/** 세션 갱신 후, 비로그인 사용자는 로그인 페이지로 리다이렉트. Supabase 미설정 시 로그인 없이 통과 */
 export async function updateSession(request: NextRequest) {
+  if (!isSupabaseConfigured) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {

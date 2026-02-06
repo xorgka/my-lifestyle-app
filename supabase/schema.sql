@@ -28,6 +28,16 @@ comment on table budget_entries is '가계부 지출 내역. 구글 시트 연�
 comment on column budget_entries.source is 'app: 앱 입력, sheets: 구글 시트에서 가져온 행';
 comment on column budget_entries.external_id is '구글 시트 행 ID 등 외부 연동 시 중복/갱신용';
 
+-- 지출 세부내역 (카드지출 등 한 건 하위. 세부는 키워드로 카테고리, 나머지 = 미분류)
+create table if not exists budget_entry_details (
+  id uuid primary key default gen_random_uuid(),
+  parent_id uuid not null references budget_entries(id) on delete cascade,
+  item text not null,
+  amount integer not null check (amount >= 0),
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_budget_entry_details_parent on budget_entry_details (parent_id);
+
 -- 카테고리별 키워드 (고정비/사업경비/세금/생활비/신용카드/기타)
 create table if not exists budget_keywords (
   category text primary key check (category in ('고정비', '사업경비', '세금', '생활비', '신용카드', '기타')),
@@ -157,6 +167,7 @@ comment on table schedule_entries is '스케줄: 일회성/매월/매년/매주.
 -- ------------------------------------------------------------
 
 alter table budget_entries enable row level security;
+alter table budget_entry_details enable row level security;
 alter table budget_keywords enable row level security;
 alter table budget_month_extras enable row level security;
 alter table journal_entries enable row level security;
@@ -169,6 +180,7 @@ alter table schedule_entries enable row level security;
 
 -- anon 키로 모든 작업 허용 (단일 사용자/비로그인 사용 가정)
 create policy "allow all budget_entries" on budget_entries for all using (true) with check (true);
+create policy "allow all budget_entry_details" on budget_entry_details for all using (true) with check (true);
 create policy "allow all budget_keywords" on budget_keywords for all using (true) with check (true);
 create policy "allow all budget_month_extras" on budget_month_extras for all using (true) with check (true);
 create policy "allow all journal_entries" on journal_entries for all using (true) with check (true);

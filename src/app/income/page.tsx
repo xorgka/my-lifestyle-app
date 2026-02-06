@@ -7,10 +7,12 @@ import { Card } from "@/components/ui/Card";
 import { AmountToggle } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
+  type BudgetEntryDetail,
   DEFAULT_KEYWORDS,
   getCategoryForEntry,
   getKeywordsForMonth,
   loadEntries,
+  loadEntryDetails,
   loadKeywords,
   loadMonthExtras,
   type MonthExtraKeywords,
@@ -51,6 +53,7 @@ function yearLabel(y: number, current: number): string {
 export default function IncomePage() {
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetEntry[]>([]);
+  const [budgetEntryDetails, setBudgetEntryDetails] = useState<BudgetEntryDetail[]>([]);
   const [budgetKeywords, setBudgetKeywords] = useState(DEFAULT_KEYWORDS);
   const [budgetMonthExtras, setBudgetMonthExtras] = useState<MonthExtraKeywords>({});
   const [incomeYear, setIncomeYear] = useState(new Date().getFullYear());
@@ -116,13 +119,15 @@ export default function IncomePage() {
       saveIncomeCategories(cats);
     }
     setCategories(cats);
-    const [budgetEntriesList, kw, extras] = await Promise.all([
+    const [budgetEntriesList, details, kw, extras] = await Promise.all([
       loadEntries(),
+      loadEntryDetails(),
       loadKeywords(),
       loadMonthExtras(),
     ]);
     // 2025 세금·경비 시드는 가계부에 저장하지 않음. 수입 페이지 '세금 및 경비' 카드에서만 집계에 사용
     setBudgetEntries(budgetEntriesList);
+    setBudgetEntryDetails(details);
     setBudgetKeywords(kw);
     setBudgetMonthExtras(extras);
   }, []);
@@ -184,7 +189,7 @@ export default function IncomePage() {
     [budgetEntries, incomeYear, incomeMonth]
   );
 
-  /** 해당 연도 세금·경비 항목별 합계. 21~25년은 시드만 사용(가계부 데이터 제외), 2026~ 가계부 연동 */
+  /** 해당 연도 세금·경비 항목별 합계. 21~25년은 시드만 사용(가계부 데이터 제외), 2026~ 가계부 연동. 카드지출 세부 내역도 반영 */
   const budgetAmountByTaxCategory = useMemo(() => {
     const yearPrefix = String(incomeYear);
     let entriesInYear: typeof budgetEntries;
@@ -205,20 +210,31 @@ export default function IncomePage() {
     TAX_EXPENSE_CATEGORIES.forEach((cat) => {
       result[cat] = 0;
     });
+    const addToResult = (item: string, amount: number, kw: Record<string, string[]>) => {
+      const cat = getCategoryForEntry(item, kw);
+      const lower = item.trim().toLowerCase();
+      if (lower.includes("부가세")) result["부가세"] += amount;
+      else if (lower.includes("종합소득세")) result["종합소득세"] += amount;
+      else if (lower.includes("국민연금")) result["국민연금"] += amount;
+      else if (lower.includes("건강보험")) result["건강보험"] += amount;
+      else if (lower.includes("사업경비") || cat === "사업경비") result["사업경비"] += amount;
+      else if (lower.includes("자동차세") || lower.includes("면허세")) result["기타"] += amount;
+    };
     for (const e of entriesInYear) {
       const yyyyMm = e.date.slice(0, 7);
       const kw = getKeywordsForMonth(budgetKeywords, budgetMonthExtras, yyyyMm);
-      const cat = getCategoryForEntry(e.item, kw);
-      const lower = e.item.trim().toLowerCase();
-      if (lower.includes("부가세")) result["부가세"] += e.amount;
-      else if (lower.includes("종합소득세")) result["종합소득세"] += e.amount;
-      else if (lower.includes("국민연금")) result["국민연금"] += e.amount;
-      else if (lower.includes("건강보험")) result["건강보험"] += e.amount;
-      else if (lower.includes("사업경비") || cat === "사업경비") result["사업경비"] += e.amount;
-      else if (lower.includes("자동차세") || lower.includes("면허세")) result["기타"] += e.amount;
+      const details = budgetEntryDetails.filter((d) => d.parentId === e.id);
+      if (details.length > 0) {
+        for (const d of details) {
+          const detailKw = getKeywordsForMonth(budgetKeywords, budgetMonthExtras, yyyyMm);
+          addToResult(d.item.trim(), d.amount, detailKw);
+        }
+      } else {
+        addToResult(e.item, e.amount, kw);
+      }
     }
     return result;
-  }, [budgetEntries, incomeYear, budgetKeywords, budgetMonthExtras]);
+  }, [budgetEntries, budgetEntryDetails, incomeYear, budgetKeywords, budgetMonthExtras]);
 
   /** 세금 및 경비 항목 총합 (해당 연도) */
   const taxExpenseTotalForYear = useMemo(
@@ -833,9 +849,16 @@ export default function IncomePage() {
               return (
                 <li
                   key={cat}
-                  className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3"
+                  className="group flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3"
                 >
-                  <span className="font-medium text-neutral-800">{cat}</span>
+                  <span className="relative inline-block font-medium text-neutral-800">
+                    {cat}
+                    {cat === "기타" && (
+                      <span className="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-sm text-white shadow-md group-hover:block" role="tooltip">
+                        포함 : 자동차세, 면허세
+                      </span>
+                    )}
+                  </span>
                   <span className="font-medium text-red-600">
                     {formatNum(fromBudget)}원
                   </span>

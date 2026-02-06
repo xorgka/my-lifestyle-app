@@ -4,6 +4,7 @@
 import { supabase } from "./supabase";
 
 type BudgetEntryRow = { id: string; date: string; item: string; amount: number };
+type BudgetEntryDetailRow = { id: string; parentId: string; item: string; amount: number };
 const CATEGORY_IDS = ["고정비", "사업경비", "세금", "생활비", "기타"] as const;
 type CategoryId = (typeof CATEGORY_IDS)[number];
 type CategoryKeywords = Record<CategoryId, string[]>;
@@ -151,4 +152,48 @@ export async function saveMonthExtrasToDb(extras: MonthExtraKeywords): Promise<v
       { onConflict: "year_month" }
     );
   }
+}
+
+export async function loadEntryDetailsFromDb(): Promise<BudgetEntryDetailRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("budget_entry_details")
+    .select("id, parent_id, item, amount")
+    .order("id", { ascending: true });
+  if (error) {
+    console.error("[budgetDb] loadEntryDetails", error);
+    return [];
+  }
+  return (data ?? []).map((row: { id: string; parent_id: string; item: string; amount: number }) => ({
+    id: String(row.id),
+    parentId: String(row.parent_id),
+    item: row.item,
+    amount: Number(row.amount),
+  }));
+}
+
+export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Promise<BudgetEntryDetailRow[]> {
+  if (!supabase) return details;
+  const keepIds = details.filter((d) => isUuid(d.id)).map((d) => d.id);
+  const { data: existingRows } = await supabase.from("budget_entry_details").select("id");
+  const existingIds = (existingRows ?? []).map((r) => String(r.id));
+  const toDelete = existingIds.filter((id) => !keepIds.includes(id));
+  if (toDelete.length > 0) {
+    await supabase.from("budget_entry_details").delete().in("id", toDelete);
+  }
+  for (const d of details) {
+    if (isUuid(d.id)) {
+      await supabase
+        .from("budget_entry_details")
+        .upsert(
+          { id: d.id, parent_id: d.parentId, item: d.item, amount: d.amount },
+          { onConflict: "id" }
+        );
+    } else {
+      await supabase
+        .from("budget_entry_details")
+        .insert({ parent_id: d.parentId, item: d.item, amount: d.amount });
+    }
+  }
+  return loadEntryDetailsFromDb();
 }
