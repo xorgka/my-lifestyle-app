@@ -77,6 +77,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showYoutubeSettingsMenu, setShowYoutubeSettingsMenu] = useState(false);
   const [exportRange, setExportRange] = useState<"month" | "year" | "range" | "all">("year");
   const [exportYear, setExportYear] = useState(currentYear);
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
@@ -163,8 +164,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
           )}
         </div>
       ) : (
-        <div className="flex flex-wrap items-end justify-between gap-2 min-w-0">
-          <div className="min-w-0">
+        <div className="relative flex flex-wrap items-end justify-between gap-2 min-w-0">
+          <div className="min-w-0 pr-10 md:pr-0">
             <SectionTitle
               title="유튜브"
               subtitle="채널별 수익, 계정 정보, 메모를 한 곳에서 관리해요."
@@ -178,8 +179,19 @@ export function YoutubePageView(props: Record<string, unknown>) {
           </div>
           <button
             type="button"
+            onClick={() => setShowYoutubeSettingsMenu(true)}
+            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 md:hidden"
+            aria-label="설정"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowExportModal(true)}
-            className="shrink-0 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+            className="hidden shrink-0 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 md:inline-flex"
           >
             내보내기
           </button>
@@ -304,7 +316,47 @@ export function YoutubePageView(props: Record<string, unknown>) {
             </div>
           </Card>
 
-          {showExportModal &&
+          {/* 모바일: 설정 메뉴 (내보내기) */}
+      {showYoutubeSettingsMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4 md:hidden"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => setShowYoutubeSettingsMenu(false)}
+          >
+            <div
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">설정</h3>
+              <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowYoutubeSettingsMenu(false);
+                    setShowExportModal(true);
+                  }}
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                >
+                  내보내기
+                </button>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowYoutubeSettingsMenu(false)}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {showExportModal &&
             typeof document !== "undefined" &&
             createPortal(
               <div
