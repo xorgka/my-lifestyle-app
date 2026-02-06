@@ -20,14 +20,13 @@ export const BUDGET_ENTRIES_KEY = "my-lifestyle-budget-entries";
 export const BUDGET_KEYWORDS_KEY = "my-lifestyle-budget-keywords";
 export const BUDGET_MONTH_EXTRAS_KEY = "my-lifestyle-budget-month-extras";
 
-export type CategoryId = "고정비" | "사업경비" | "세금" | "생활비" | "신용카드" | "기타";
+export type CategoryId = "고정비" | "사업경비" | "세금" | "생활비" | "기타";
 
 export const CATEGORY_LABELS: Record<CategoryId, string> = {
   고정비: "고정비",
   사업경비: "사업경비",
   세금: "세금",
   생활비: "생활비",
-  신용카드: "신용카드",
   기타: "기타",
 };
 
@@ -77,7 +76,6 @@ export const DEFAULT_KEYWORDS: Record<CategoryId, string[]> = {
     "컬리",
     "외식",
   ],
-  신용카드: ["악사보험", "클라우드웨이즈", "KT통신요금"],
   세금: ["부가세", "종합소득세", "자동차세", "면허세"],
   기타: [],
 };
@@ -290,7 +288,7 @@ export function getCategoryForEntry(
   item: string,
   keywordsForMonth: CategoryKeywords
 ): CategoryId {
-  const order: CategoryId[] = ["고정비", "사업경비", "세금", "생활비", "신용카드", "기타"];
+  const order: CategoryId[] = ["고정비", "사업경비", "세금", "생활비", "기타"];
   for (const cat of order) {
     if (cat !== "기타" && matchesKeyword(item, keywordsForMonth[cat])) return cat;
   }

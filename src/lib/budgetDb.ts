@@ -4,7 +4,7 @@
 import { supabase } from "./supabase";
 
 type BudgetEntryRow = { id: string; date: string; item: string; amount: number };
-const CATEGORY_IDS = ["고정비", "사업경비", "세금", "생활비", "신용카드", "기타"] as const;
+const CATEGORY_IDS = ["고정비", "사업경비", "세금", "생활비", "기타"] as const;
 type CategoryId = (typeof CATEGORY_IDS)[number];
 type CategoryKeywords = Record<CategoryId, string[]>;
 type MonthExtraKeywords = Record<string, Partial<Record<CategoryId, string[]>>>;

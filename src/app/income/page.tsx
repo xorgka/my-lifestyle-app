@@ -631,7 +631,7 @@ export default function IncomePage() {
           <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 px-5 py-4 sm:flex-col sm:items-stretch sm:justify-start">
             <div className="text-[15px] font-medium uppercase tracking-wider text-neutral-500">
               연 순수익
-              <span className="hidden sm:inline"> (총매출 - 사업 및 경비)</span>
+              <span className="hidden sm:inline"> (총매출 - 세금 및 경비)</span>
             </div>
             <div className="text-[25px] font-bold tracking-tight sm:mt-2">
               <AmountToggle
@@ -825,7 +825,7 @@ export default function IncomePage() {
         <Card>
           <h3 className="text-[28px] font-semibold text-neutral-900">세금 및 경비</h3>
           <p className="mt-1 text-sm text-neutral-500">
-            {incomeYear}년 사업 및 경비 세부 내역이에요. 연 순수익 = 총매출 - 아래 합계.
+            {incomeYear}년 세금 및 경비 세부 내역이에요.
           </p>
           <ul className="mt-4 space-y-2">
             {TAX_EXPENSE_CATEGORIES.map((cat) => {
@@ -844,7 +844,7 @@ export default function IncomePage() {
             })}
           </ul>
           <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-            <span className="font-semibold text-neutral-800">사업 및 경비 합계</span>
+            <span className="font-semibold text-neutral-800">세금 및 경비 합계</span>
             <span className="text-xl font-bold text-red-600">
               {formatNum(taxExpenseTotalForYear)}원
             </span>

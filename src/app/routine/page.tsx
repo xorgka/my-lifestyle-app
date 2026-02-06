@@ -83,11 +83,22 @@ export default function RoutinePage() {
   const [selectedImportantItemId, setSelectedImportantItemId] = useState<number | null>(null);
   /** 월별 탭: 중요 항목 필터 (null = 전체, 숫자 = 해당 항목만 O/X 비율) */
   const [selectedMonthlyImportantItemId, setSelectedMonthlyImportantItemId] = useState<number | null>(null);
+  /** 이번달 탭: 날짜 클릭 시 해당 날짜 상세 모달 (YYYY-MM-DD 또는 null) */
+  const [dayDetailModalKey, setDayDetailModalKey] = useState<string | null>(null);
+  /** 오늘의 루틴 목록에서 보고 있는 날짜 (이전/다음 날 이동용) */
+  const [listViewDateKey, setListViewDateKey] = useState(() => getTodayKey());
+  /** 오늘의 루틴 카드: 편집/항목추가 메뉴 열림 */
+  const [listMenuOpen, setListMenuOpen] = useState(false);
 
   const todayKey = getTodayKey();
   const completedToday = useMemo(
     () => new Set(dailyCompletions[todayKey] ?? []),
     [dailyCompletions, todayKey]
+  );
+  /** 목록에서 보고 있는 날짜의 완료 Set */
+  const completedForListViewDate = useMemo(
+    () => new Set(dailyCompletions[listViewDateKey] ?? []),
+    [dailyCompletions, listViewDateKey]
   );
 
   useEffect(() => {
@@ -143,15 +154,17 @@ export default function RoutinePage() {
   const toggleItem = useCallback(
     (id: number) => {
       if (isDragging) return;
-      const isCompleted = completedToday.has(id);
+      const dateKey = listViewDateKey;
+      const completedSet = new Set(dailyCompletions[dateKey] ?? []);
+      const isCompleted = completedSet.has(id);
       setDailyCompletions((prev) => {
-        const list = prev[todayKey] ?? [];
+        const list = prev[dateKey] ?? [];
         const next = isCompleted ? list.filter((x) => x !== id) : [...list, id];
-        return { ...prev, [todayKey]: next };
+        return { ...prev, [dateKey]: next };
       });
-      if (!isCompleted) fireConfetti();
+      if (!isCompleted && dateKey === todayKey) fireConfetti();
     },
-    [todayKey, completedToday, isDragging]
+    [listViewDateKey, dailyCompletions, todayKey, isDragging]
   );
 
   const startEdit = (item: RoutineItem) => {
@@ -501,8 +514,107 @@ export default function RoutinePage() {
       {/* 오늘의 루틴 목록 */}
       <Card className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold text-neutral-900">오늘의 루틴</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const d = new Date(listViewDateKey + "T12:00:00");
+                d.setDate(d.getDate() - 1);
+                setListViewDateKey(
+                  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                );
+              }}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label="이전 날"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h2 className="min-w-0 text-xl font-semibold text-neutral-900">
+              오늘의 루틴
+              <span className="ml-2 text-sm font-normal text-neutral-400">
+                {new Date(listViewDateKey + "T12:00:00").toLocaleDateString("ko-KR", {
+                  month: "long",
+                  day: "numeric",
+                  weekday: "short",
+                })}
+              </span>
+            </h2>
+            <button
+              type="button"
+              onClick={() => {
+                const d = new Date(listViewDateKey + "T12:00:00");
+                d.setDate(d.getDate() + 1);
+                setListViewDateKey(
+                  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                );
+              }}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label="다음 날"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          {/* 모바일: ⋮ 메뉴 하나 */}
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setListMenuOpen((prev) => !prev)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900"
+              aria-label="메뉴"
+              aria-expanded={listMenuOpen}
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+              </svg>
+            </button>
+            {listMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  aria-hidden
+                  onClick={() => setListMenuOpen(false)}
+                />
+                <div
+                  className="absolute right-0 top-full z-20 mt-1 min-w-[8rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+                  role="menu"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setListEditMode((prev) => {
+                        if (prev) setEditingId(null);
+                        return !prev;
+                      });
+                      setListMenuOpen(false);
+                    }}
+                    className={`w-full px-4 py-2.5 text-left text-sm transition hover:bg-neutral-50 ${
+                      listEditMode ? "font-medium text-neutral-800" : "text-neutral-700"
+                    }`}
+                  >
+                    {listEditMode ? "완료" : "편집"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAddOpen(true);
+                      setListMenuOpen(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                  >
+                    항목 추가
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          {/* PC: 편집 / 항목 추가 버튼 그대로 */}
+          <div className="hidden items-center gap-2 md:flex">
             <button
               type="button"
               onClick={() => {
@@ -588,24 +700,24 @@ export default function RoutinePage() {
                     type="button"
                     onClick={() => toggleItem(item.id)}
                     className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3 py-2.5 text-left transition-all sm:gap-3 sm:rounded-2xl sm:py-3 ${
-                      completedToday.has(item.id)
+                      completedForListViewDate.has(item.id)
                         ? "bg-neutral-900 text-white"
                         : "hover:bg-neutral-100 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)]"
                     }`}
                   >
                     <div
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-sm font-semibold sm:h-6 sm:w-6 ${
-                        completedToday.has(item.id)
+                        completedForListViewDate.has(item.id)
                           ? "border-transparent bg-white/20 text-white"
                           : "border-neutral-300 bg-white text-neutral-400"
                       }`}
                     >
-                      {completedToday.has(item.id) ? "✓" : ""}
+                      {completedForListViewDate.has(item.id) ? "✓" : ""}
                     </div>
                     <span
                       className={`min-w-0 flex-1 break-words text-left text-[19.5px] font-semibold sm:text-[1.35rem] ${
-                        completedToday.has(item.id) ? "text-white" : "text-neutral-900"
-                      } ${completedToday.has(item.id) ? "line-through opacity-90" : ""}`}
+                        completedForListViewDate.has(item.id) ? "text-white" : "text-neutral-900"
+                      } ${completedForListViewDate.has(item.id) ? "line-through opacity-90" : ""}`}
                     >
                       {item.title}
                     </span>
@@ -780,24 +892,25 @@ export default function RoutinePage() {
                 {weekDayNames.map((name, i) => {
                   const isToday = viewingWeek.days[i].key === todayKey;
                   return (
-                    <div
+                    <button
                       key={name}
-                      className={`flex-1 rounded-xl py-2 text-center ${
+                      type="button"
+                      onClick={() => setDayDetailModalKey(viewingWeek.days[i].key)}
+                      className={`flex flex-1 flex-col rounded-xl py-2 text-center ${
                         viewingWeek.days[i].pct === 100
                           ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
                           : viewingWeek.weekPct === 100
                             ? "bg-white/15 text-red-50"
                             : "bg-neutral-50"
-                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""}`}
+                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""} hover:opacity-90 transition-opacity`}
                     >
-                      <div className={`text-xs font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
+                      <div className={`text-sm font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
                         {name}
-                        {isToday && <span className="ml-0.5 text-[10px]">(오늘)</span>}
                       </div>
                       <div className={`mt-0.5 text-sm font-semibold tabular-nums ${viewingWeek.days[i].pct === 100 || viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
                         {viewingWeek.days[i].pct}%
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1007,16 +1120,19 @@ export default function RoutinePage() {
                     ? "bg-gradient-to-br from-neutral-600 via-neutral-800 to-neutral-950 text-white"
                     : "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white";
                   return (
-                    <div
+                    <button
                       key={i}
-                      className={`min-h-[4rem] rounded-xl py-3 ${
+                      type="button"
+                      onClick={() => cell.key && setDayDetailModalKey(cell.key)}
+                      className={`min-h-[4rem] w-full rounded-xl py-3 text-center ${
                         cell.day === null
-                          ? "invisible"
+                          ? "invisible cursor-default"
                           : isDone
                             ? doneBg
-                            : "bg-neutral-100"
-                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2" : ""}`}
+                            : "bg-neutral-100 hover:bg-neutral-200"
+                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2" : ""} ${cell.day != null ? "cursor-pointer" : ""}`}
                       title={cell.key ? (isOX ? `${cell.key} ${cell.done ? "O" : "X"}` : `${cell.key} ${cell.pct}%`) : ""}
+                      disabled={!cell.key}
                     >
                       {cell.day != null && (
                         <>
@@ -1028,7 +1144,7 @@ export default function RoutinePage() {
                           </div>
                         </>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1036,6 +1152,116 @@ export default function RoutinePage() {
           </div>
         )}
       </Card>
+
+      {/* 이번달 탭: 날짜 클릭 시 해당 날짜 루틴 전체(했음/안 함) 모달 */}
+      {dayDetailModalKey &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/70 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => setDayDetailModalKey(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${dayDetailModalKey} 루틴 내역`}
+          >
+            <div
+              className="relative flex w-full max-w-[calc(100vw-4rem)] items-center justify-center md:max-w-none md:gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 좌측: 이전 날짜 - 모바일에서만 모달에 겹침, PC에서는 모달 옆 */}
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date(dayDetailModalKey + "T12:00:00");
+                  d.setDate(d.getDate() - 1);
+                  setDayDetailModalKey(
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                  );
+                }}
+                className="absolute -left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 shrink-0 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow-lg transition hover:bg-white hover:text-neutral-900 md:static md:left-auto md:translate-y-0 md:h-12 md:w-12"
+                aria-label="이전 날짜"
+              >
+                <svg className="h-5 w-5 md:h-6 md:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="relative max-h-[85vh] w-full min-w-0 overflow-y-auto rounded-2xl bg-white py-4 px-6 shadow-xl md:max-w-md md:py-6 md:px-6">
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {(() => {
+                  const d = new Date(dayDetailModalKey + "T12:00:00");
+                  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+                })()}
+              </h3>
+              {(() => {
+                const completedIds = dailyCompletions[dayDetailModalKey] ?? [];
+                const total = items.length || 1;
+                const pct = Math.round((completedIds.length / total) * 100);
+                return (
+                  <div className="mt-3 rounded-xl bg-neutral-100 px-4 py-2.5">
+                    <span className="text-sm font-medium text-neutral-600">이날 달성률</span>
+                    <span className="ml-2 text-xl font-bold tabular-nums text-neutral-900">{pct}%</span>
+                    <span className="ml-1 text-sm text-neutral-500">({completedIds.length}/{total})</span>
+                  </div>
+                );
+              })()}
+              <ul className="mt-4 space-y-2">
+                {(() => {
+                  const completedIds = new Set(dailyCompletions[dayDetailModalKey] ?? []);
+                  return items.map((item) => {
+                    const done = completedIds.has(item.id);
+                    return (
+                      <li
+                        key={item.id}
+                        className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                          done
+                            ? "border-neutral-200 bg-neutral-100 text-neutral-800"
+                            : "border-neutral-200 bg-neutral-50 text-neutral-500"
+                        }`}
+                      >
+                        <span className="font-medium">{item.title}</span>
+                        <span className={`text-sm font-semibold ${done ? "text-green-600" : "text-neutral-400"}`}>
+                          {done ? "했음" : "안 함"}
+                        </span>
+                      </li>
+                    );
+                  });
+                })()}
+              </ul>
+              {items.length === 0 && (
+                <p className="mt-4 text-sm text-neutral-400">등록된 루틴 항목이 없어요.</p>
+              )}
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDayDetailModalKey(null)}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
+              </div>
+              {/* 우측: 다음 날짜 - 모바일에서만 모달에 겹침, PC에서는 모달 옆 */}
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date(dayDetailModalKey + "T12:00:00");
+                  d.setDate(d.getDate() + 1);
+                  setDayDetailModalKey(
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                  );
+                }}
+                className="absolute -right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 shrink-0 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow-lg transition hover:bg-white hover:text-neutral-900 md:static md:right-auto md:translate-y-0 md:h-12 md:w-12"
+                aria-label="다음 날짜"
+              >
+                <svg className="h-5 w-5 md:h-6 md:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
