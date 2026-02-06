@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import {
@@ -14,8 +14,17 @@ import {
   type InsightEntry,
 } from "@/lib/insightDb";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { RECOMMENDED_INSIGHTS } from "@/components/home/TodayInsightHero";
+import { loadSystemInsights, saveSystemInsights, type QuoteEntry } from "@/lib/insights";
+
+type InsightTab = "mine" | "system";
 
 export default function InsightPage() {
+  const searchParams = useSearchParams();
+  const [insightTab, setInsightTab] = useState<InsightTab>(() =>
+    searchParams.get("tab") === "system" ? "system" : "mine"
+  );
+
   const [input, setInput] = useState("");
   const [authorInput, setAuthorInput] = useState("");
   const [insights, setInsights] = useState<InsightEntry[]>([]);
@@ -30,6 +39,14 @@ export default function InsightPage() {
   const [editingAuthor, setEditingAuthor] = useState("");
   const [viewer, setViewer] = useState<{ list: InsightEntry[]; index: number } | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /** 기본 문장 탭 */
+  const [systemList, setSystemList] = useState<QuoteEntry[]>([]);
+  const [systemSearchQuery, setSystemSearchQuery] = useState("");
+  const [systemEditingIndex, setSystemEditingIndex] = useState<number | null>(null);
+  const [systemIsAdding, setSystemIsAdding] = useState(false);
+  const [systemEditQuote, setSystemEditQuote] = useState("");
+  const [systemEditAuthor, setSystemEditAuthor] = useState("");
 
   function resizeEditTextarea(ta: HTMLTextAreaElement | null) {
     if (!ta) return;
@@ -56,6 +73,57 @@ export default function InsightPage() {
   useEffect(() => {
     refetchInsights();
   }, []);
+
+  useEffect(() => {
+    if (insightTab === "system") loadSystemInsights(RECOMMENDED_INSIGHTS).then(setSystemList);
+  }, [insightTab]);
+
+  const systemFilteredWithIndex = useMemo(() => {
+    const q = systemSearchQuery.trim().toLowerCase();
+    let items = systemList.map((item, i) => ({ item, originalIndex: i }));
+    if (q) {
+      items = items.filter(
+        ({ item }) =>
+          item.quote.toLowerCase().includes(q) || item.author.toLowerCase().includes(q)
+      );
+    }
+    return [...items].reverse();
+  }, [systemList, systemSearchQuery]);
+
+  const systemSaveEdit = async () => {
+    if (systemEditingIndex == null && !systemIsAdding) return;
+    const q = systemEditQuote.trim();
+    const a = systemEditAuthor.trim();
+    if (!q) return;
+    if (systemIsAdding) {
+      const next = [...systemList, { quote: q, author: a }];
+      setSystemList(next);
+      await saveSystemInsights(next);
+      setSystemIsAdding(false);
+      setSystemEditQuote("");
+      setSystemEditAuthor("");
+    } else if (systemEditingIndex != null) {
+      const next = [...systemList];
+      next[systemEditingIndex] = { quote: q, author: a };
+      setSystemList(next);
+      await saveSystemInsights(next);
+      setSystemEditingIndex(null);
+    }
+  };
+
+  const systemCancelAddOrEdit = () => {
+    setSystemIsAdding(false);
+    setSystemEditingIndex(null);
+  };
+
+  const systemDeleteAt = async (i: number) => {
+    if (typeof window !== "undefined" && !window.confirm("이 문장을 목록에서 삭제할까요?")) return;
+    const next = systemList.filter((_, idx) => idx !== i);
+    setSystemList(next);
+    await saveSystemInsights(next);
+    if (systemEditingIndex === i) setSystemEditingIndex(null);
+    else if (systemEditingIndex != null && systemEditingIndex > i) setSystemEditingIndex(systemEditingIndex - 1);
+  };
 
   const sortedInsights = useMemo(
     () =>
@@ -192,20 +260,33 @@ export default function InsightPage() {
         subtitle="요즘 마음에 남았던 한 문장을 조용히 모아두는 공간이에요."
       />
 
-      {/* 입력 영역 - 은은한 그라데이션으로 구분, 우측 상단 톱니(기본 문장 관리) */}
-      <Card className="relative min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300">
-        <Link
-          href="/insight/system"
-          className="absolute right-4 top-4 rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
-          title="기본 문장 관리"
-          aria-label="기본 문장 관리"
+      {/* 탭: 내가 저장한 문장 | 기본 문장 */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setInsightTab("mine")}
+          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+            insightTab === "mine" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+          }`}
         >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </Link>
-        <h2 className="pr-10 text-xl font-semibold text-neutral-900">
+          내가 저장한 문장
+        </button>
+        <button
+          type="button"
+          onClick={() => setInsightTab("system")}
+          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+            insightTab === "system" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+          }`}
+        >
+          기본 문장
+        </button>
+      </div>
+
+      {insightTab === "mine" && (
+        <>
+      {/* 입력 영역 - 은은한 그라데이션으로 구분 */}
+      <Card className="relative min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300">
+        <h2 className="text-xl font-semibold text-neutral-900">
           오늘 마음에 남은 문장
         </h2>
         <p className="text-sm text-neutral-500">
@@ -522,6 +603,169 @@ export default function InsightPage() {
           )}
         </Card>
       )}
+        </>
+      )}
+
+      {insightTab === "system" && (
+        <>
+          <p className="text-sm text-neutral-500">
+            홈의 오늘의 인사이트에 섞여 나오는 기본 문장을 추가·수정·삭제할 수 있어요.
+          </p>
+          <div className="relative flex min-w-0 max-w-md">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              value={systemSearchQuery}
+              onChange={(e) => setSystemSearchQuery(e.target.value)}
+              placeholder="문장·출처 검색"
+              className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+            />
+          </div>
+          <Card className="min-w-0 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-base text-neutral-500">
+                총 {systemList.length}개 문장{systemSearchQuery.trim() ? ` (검색 결과 ${systemFilteredWithIndex.length}개)` : ""}.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSystemIsAdding(true);
+                  setSystemEditQuote("");
+                  setSystemEditAuthor("");
+                  setSystemEditingIndex(null);
+                }}
+                disabled={systemIsAdding}
+                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                + 문장 추가
+              </button>
+            </div>
+            <div className="max-h-[70vh] min-w-0 space-y-3 overflow-y-auto">
+              {systemIsAdding && (
+                <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 p-4">
+                  <div className="space-y-3">
+                    <textarea
+                      value={systemEditQuote}
+                      onChange={(e) => setSystemEditQuote(e.target.value)}
+                      rows={3}
+                      className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                      placeholder="문장"
+                    />
+                    <input
+                      type="text"
+                      value={systemEditAuthor}
+                      onChange={(e) => setSystemEditAuthor(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                      placeholder="출처(인물명)"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={systemSaveEdit}
+                        className="rounded-lg bg-neutral-900 px-4 py-2 text-base font-medium text-white hover:bg-neutral-800"
+                      >
+                        저장
+                      </button>
+                      <button
+                        type="button"
+                        onClick={systemCancelAddOrEdit}
+                        className="rounded-lg px-4 py-2 text-base text-neutral-500 hover:bg-neutral-200"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {systemFilteredWithIndex.map(({ item, originalIndex: i }) => (
+                <div
+                  key={`${i}-${item.quote.slice(0, 20)}`}
+                  className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4"
+                >
+                  {systemEditingIndex === i ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={systemEditQuote}
+                        onChange={(e) => setSystemEditQuote(e.target.value)}
+                        rows={3}
+                        className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                        placeholder="문장"
+                      />
+                      <input
+                        type="text"
+                        value={systemEditAuthor}
+                        onChange={(e) => setSystemEditAuthor(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                        placeholder="출처(인물명)"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={systemSaveEdit}
+                          className="rounded-lg bg-neutral-900 px-4 py-2 text-base font-medium text-white hover:bg-neutral-800"
+                        >
+                          저장
+                        </button>
+                        <button
+                          type="button"
+                          onClick={systemCancelAddOrEdit}
+                          className="rounded-lg px-4 py-2 text-base text-neutral-500 hover:bg-neutral-200"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                      <div className="flex justify-end gap-1 sm:order-2 sm:shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSystemIsAdding(false);
+                            setSystemEditingIndex(i);
+                            setSystemEditQuote(item.quote);
+                            setSystemEditAuthor(item.author);
+                          }}
+                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
+                          aria-label="수정"
+                          title="수정"
+                        >
+                          <svg className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => systemDeleteAt(i)}
+                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                          aria-label="삭제"
+                          title="삭제"
+                        >
+                          <svg className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="min-w-0 flex-1 pl-3 sm:order-1">
+                        <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-neutral-800 md:text-lg">
+                          {item.quote}
+                        </p>
+                        {item.author && (
+                          <p className="mt-1 text-sm text-neutral-500">— {item.author}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* 문장 뷰어 모달 */}
       {viewer &&
@@ -552,19 +796,18 @@ export default function InsightPage() {
                 </svg>
               </button>
 
-              <div className="order-1 min-w-0 flex-1 rounded-3xl bg-white px-8 py-10 shadow-2xl sm:order-none sm:px-12 sm:py-14">
-                <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
-                  {viewer.list[viewer.index]?.text}
-                </p>
-                {viewer.list[viewer.index]?.author && (
-                  <p className="mt-3 text-base text-neutral-500">— {viewer.list[viewer.index].author}</p>
-                )}
-                <div className="mt-6 flex w-full items-center justify-between text-sm">
-                  <span className="text-neutral-500">
+              <div className="order-1 flex max-h-[85vh] min-w-0 flex-1 flex-col rounded-3xl bg-white shadow-2xl sm:order-none">
+                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-10 sm:px-12 sm:py-14">
+                  <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
+                    {viewer.list[viewer.index]?.text}
+                  </p>
+                  {viewer.list[viewer.index]?.author && (
+                    <p className="mt-3 text-base text-neutral-500">— {viewer.list[viewer.index].author}</p>
+                  )}
+                </div>
+                <div className="shrink-0 border-t border-neutral-100 px-8 py-3 sm:px-12">
+                  <span className="text-sm text-neutral-500">
                     {viewer.list[viewer.index] && formatDate(viewer.list[viewer.index].createdAt)}
-                  </span>
-                  <span className="text-xs text-neutral-400">
-                    {viewer.index + 1} / {viewer.list.length}
                   </span>
                 </div>
               </div>

@@ -519,7 +519,7 @@ export function TodayInsightHero() {
 
   return (
     <>
-      <div className="font-insight-serif insight-quote-wrap mt-6 min-w-0 text-[1.15rem] font-semibold leading-relaxed text-neutral-800 md:text-[1.6rem] [text-shadow:0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(255,255,255,0.8)]" lang="ko">
+      <div className="font-insight-serif insight-quote-wrap mt-6 max-h-[50vh] min-w-0 overflow-y-auto text-[1.15rem] font-semibold leading-relaxed text-neutral-800 md:text-[1.6rem] [text-shadow:0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(255,255,255,0.8)]" lang="ko">
         {lines.map((line, i) => (
           <span key={i} lang="ko">
             {i > 0 && <br />}
