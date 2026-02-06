@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -19,6 +19,11 @@ import { loadSystemInsights, saveSystemInsights, type QuoteEntry } from "@/lib/i
 
 type InsightTab = "mine" | "system";
 
+/** 기본 문장 탭 통합 목록: 내가 저장한 문장(user) + 시스템 기본(system) */
+type UnifiedItem =
+  | { type: "user"; id: string; text: string; author?: string; createdAt: string }
+  | { type: "system"; index: number; quote: string; author: string };
+
 function InsightPageContent() {
   const searchParams = useSearchParams();
   const [insightTab, setInsightTab] = useState<InsightTab>(() =>
@@ -33,26 +38,16 @@ function InsightPageContent() {
   const [lastLoadFromSupabase, setLastLoadFromSupabase] = useState<boolean | null>(null);
   /** 동기화 실패 시 오류 메시지 (모바일 디버깅용) */
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState("");
-  const [editingAuthor, setEditingAuthor] = useState("");
-  const [viewer, setViewer] = useState<{ list: InsightEntry[]; index: number } | null>(null);
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
-
   /** 기본 문장 탭 */
   const [systemList, setSystemList] = useState<QuoteEntry[]>([]);
   const [systemSearchQuery, setSystemSearchQuery] = useState("");
-  const [systemEditingIndex, setSystemEditingIndex] = useState<number | null>(null);
+  const [systemFilterYear, setSystemFilterYear] = useState<number | "all">("all");
+  const [systemFilterMonth, setSystemFilterMonth] = useState<number | "all">("all");
+  const [systemPage, setSystemPage] = useState(1);
+  const [systemViewer, setSystemViewer] = useState<{ list: UnifiedItem[]; index: number } | null>(null);
   const [systemIsAdding, setSystemIsAdding] = useState(false);
   const [systemEditQuote, setSystemEditQuote] = useState("");
   const [systemEditAuthor, setSystemEditAuthor] = useState("");
-
-  function resizeEditTextarea(ta: HTMLTextAreaElement | null) {
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
-  }
 
   const refetchInsights = () => {
     setInsightLoading(true);
@@ -75,55 +70,10 @@ function InsightPageContent() {
   }, []);
 
   useEffect(() => {
-    if (insightTab === "system") loadSystemInsights(RECOMMENDED_INSIGHTS).then(setSystemList);
+    if (insightTab === "system") {
+      loadSystemInsights(RECOMMENDED_INSIGHTS).then(setSystemList);
+    }
   }, [insightTab]);
-
-  const systemFilteredWithIndex = useMemo(() => {
-    const q = systemSearchQuery.trim().toLowerCase();
-    let items = systemList.map((item, i) => ({ item, originalIndex: i }));
-    if (q) {
-      items = items.filter(
-        ({ item }) =>
-          item.quote.toLowerCase().includes(q) || item.author.toLowerCase().includes(q)
-      );
-    }
-    return [...items].reverse();
-  }, [systemList, systemSearchQuery]);
-
-  const systemSaveEdit = async () => {
-    if (systemEditingIndex == null && !systemIsAdding) return;
-    const q = systemEditQuote.trim();
-    const a = systemEditAuthor.trim();
-    if (!q) return;
-    if (systemIsAdding) {
-      const next = [...systemList, { quote: q, author: a }];
-      setSystemList(next);
-      await saveSystemInsights(next);
-      setSystemIsAdding(false);
-      setSystemEditQuote("");
-      setSystemEditAuthor("");
-    } else if (systemEditingIndex != null) {
-      const next = [...systemList];
-      next[systemEditingIndex] = { quote: q, author: a };
-      setSystemList(next);
-      await saveSystemInsights(next);
-      setSystemEditingIndex(null);
-    }
-  };
-
-  const systemCancelAddOrEdit = () => {
-    setSystemIsAdding(false);
-    setSystemEditingIndex(null);
-  };
-
-  const systemDeleteAt = async (i: number) => {
-    if (typeof window !== "undefined" && !window.confirm("이 문장을 목록에서 삭제할까요?")) return;
-    const next = systemList.filter((_, idx) => idx !== i);
-    setSystemList(next);
-    await saveSystemInsights(next);
-    if (systemEditingIndex === i) setSystemEditingIndex(null);
-    else if (systemEditingIndex != null && systemEditingIndex > i) setSystemEditingIndex(systemEditingIndex - 1);
-  };
 
   const sortedInsights = useMemo(
     () =>
@@ -134,47 +84,114 @@ function InsightPageContent() {
     [insights]
   );
 
-  const recentInsights = useMemo(
-    () => sortedInsights.slice(0, 5),
-    [sortedInsights]
-  );
+  /** 등록 연도 목록 (내가 저장한 문장 기준) */
+  const systemFilterYears = useMemo(() => {
+    const years = new Set(insights.map((e) => new Date(e.createdAt).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [insights]);
 
-  const monthGroups = useMemo(() => {
-    const groups: Record<
-      string,
-      { label: string; items: InsightEntry[] }
-    > = {};
-
-    for (const item of sortedInsights) {
-      const d = new Date(item.createdAt);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-      const label = d.toLocaleDateString("ko-KR", {
-        year: "numeric",
-        month: "long",
+  /** 기본 문장 탭: 내가 저장한 문장(최신순) + 시스템 기본 문장. 연/월 필터 시 해당 월 등록분만 */
+  const systemFilteredWithIndex = useMemo(() => {
+    const q = systemSearchQuery.trim().toLowerCase();
+    const userItems: UnifiedItem[] = sortedInsights.map((e) => ({
+      type: "user" as const,
+      id: e.id,
+      text: e.text,
+      author: e.author,
+      createdAt: e.createdAt,
+    }));
+    const systemItems: UnifiedItem[] = systemList.map((item, i) => ({
+      type: "system" as const,
+      index: i,
+      quote: item.quote,
+      author: item.author,
+    }));
+    let combined: UnifiedItem[] = [...userItems, ...systemItems];
+    if (systemFilterYear !== "all" && systemFilterMonth !== "all") {
+      combined = combined.filter((item) => {
+        if (item.type !== "user") return false;
+        const d = new Date(item.createdAt);
+        return d.getFullYear() === systemFilterYear && d.getMonth() + 1 === systemFilterMonth;
       });
-      if (!groups[key]) {
-        groups[key] = { label, items: [] };
-      }
-      groups[key].items.push(item);
     }
+    if (q) {
+      combined = combined.filter((item) => {
+        if (item.type === "user")
+          return item.text.toLowerCase().includes(q) || (item.author ?? "").toLowerCase().includes(q);
+        return item.quote.toLowerCase().includes(q) || item.author.toLowerCase().includes(q);
+      });
+    }
+    return combined;
+  }, [systemList, systemSearchQuery, sortedInsights, systemFilterYear, systemFilterMonth]);
 
-    return groups;
-  }, [sortedInsights]);
-
-  const monthEntries = useMemo(
+  const SYSTEM_PER_PAGE = 10;
+  const systemTotalPages = Math.max(1, Math.ceil(systemFilteredWithIndex.length / SYSTEM_PER_PAGE));
+  const systemPaginatedList = useMemo(
     () =>
-      Object.entries(monthGroups).sort((a, b) => {
-        const [keyA] = a;
-        const [keyB] = b;
-        return keyA < keyB ? 1 : -1;
-      }),
-    [monthGroups]
+      systemFilteredWithIndex.slice(
+        (systemPage - 1) * SYSTEM_PER_PAGE,
+        systemPage * SYSTEM_PER_PAGE
+      ),
+    [systemFilteredWithIndex, systemPage]
   );
 
-  const selectedMonthItems =
-    selectedMonthKey && monthGroups[selectedMonthKey]
-      ? monthGroups[selectedMonthKey].items
-      : [];
+  useEffect(() => {
+    setSystemPage(1);
+  }, [systemSearchQuery, systemFilterYear, systemFilterMonth]);
+
+  useEffect(() => {
+    if (systemPage > systemTotalPages) setSystemPage(Math.max(1, systemTotalPages));
+  }, [systemPage, systemTotalPages]);
+
+  /** 편집 중인 항목: 시스템 인덱스 또는 user id */
+  const [editingUnified, setEditingUnified] = useState<{ type: "system"; index: number } | { type: "user"; id: string } | null>(null);
+
+  const systemSaveEdit = async () => {
+    const q = systemEditQuote.trim();
+    const a = systemEditAuthor.trim();
+    if (!q) return;
+    if (systemIsAdding) {
+      const entry = await addInsightEntry(q, a || undefined);
+      setInsights((prev) => [entry, ...prev]);
+      setSystemIsAdding(false);
+      setSystemEditQuote("");
+      setSystemEditAuthor("");
+    } else if (editingUnified) {
+      if (editingUnified.type === "system") {
+        const next = [...systemList];
+        next[editingUnified.index] = { quote: q, author: a };
+        setSystemList(next);
+        await saveSystemInsights(next);
+      } else {
+        await updateInsightEntry(editingUnified.id, q, a || undefined);
+        setInsights((prev) =>
+          prev.map((e) => (e.id === editingUnified.id ? { ...e, text: q, author: a || undefined } : e))
+        );
+      }
+      setEditingUnified(null);
+    }
+  };
+
+  const systemCancelAddOrEdit = () => {
+    setSystemIsAdding(false);
+    setEditingUnified(null);
+  };
+
+  const systemDeleteAt = async (item: UnifiedItem) => {
+    if (typeof window !== "undefined" && !window.confirm("이 문장을 목록에서 삭제할까요?")) return;
+    if (item.type === "system") {
+      const next = systemList.filter((_, idx) => idx !== item.index);
+      setSystemList(next);
+      await saveSystemInsights(next);
+      if (editingUnified?.type === "system" && editingUnified.index === item.index) setEditingUnified(null);
+      else if (editingUnified?.type === "system" && editingUnified.index > item.index)
+        setEditingUnified({ type: "system", index: editingUnified.index - 1 });
+    } else {
+      setInsights((prev) => prev.filter((e) => e.id !== item.id));
+      await deleteInsightEntry(item.id);
+      if (editingUnified?.type === "user" && editingUnified.id === item.id) setEditingUnified(null);
+    }
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,10 +210,6 @@ function InsightPageContent() {
   };
 
   const handleDelete = async (id: string) => {
-    if (editingId === id) {
-      setEditingId(null);
-      setEditingText("");
-    }
     setInsights((prev) => prev.filter((item) => item.id !== id));
     try {
       await deleteInsightEntry(id);
@@ -204,44 +217,6 @@ function InsightPageContent() {
       console.error(err);
     }
   };
-
-  const startEdit = (item: InsightEntry) => {
-    setEditingId(item.id);
-    setEditingText(item.text);
-    setEditingAuthor(item.author ?? "");
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditingText("");
-    setEditingAuthor("");
-  };
-
-  const saveEdit = async () => {
-    if (!editingId) return;
-    const trimmed = editingText.trim();
-    if (!trimmed) return;
-    const author = editingAuthor.trim() || undefined;
-    setInsights((prev) =>
-      prev.map((item) =>
-        item.id === editingId ? { ...item, text: trimmed, author } : item
-      )
-    );
-    setEditingId(null);
-    setEditingText("");
-    setEditingAuthor("");
-    try {
-      await updateInsightEntry(editingId, trimmed, author);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    if (editingId != null) {
-      requestAnimationFrame(() => resizeEditTextarea(editTextareaRef.current));
-    }
-  }, [editingId, editingText]);
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
@@ -371,264 +346,54 @@ function InsightPageContent() {
         </Card>
       )}
 
-      {/* 최근 5개 */}
-      {!insightLoading && recentInsights.length > 0 && (
-        <Card className="min-w-0 space-y-3">
-          <h2 className="text-lg font-semibold text-neutral-900">
-            최근에 남긴 문장 (최신 5개)
-          </h2>
-          <div className="mt-2 min-w-0 space-y-3 text-[0.95rem]">
-            {recentInsights.map((item) => (
-              <div
-                key={item.id}
-                role={editingId === item.id ? undefined : "button"}
-                tabIndex={editingId === item.id ? undefined : 0}
-                onClick={
-                  editingId === item.id
-                    ? undefined
-                    : () => setViewer({ list: recentInsights, index: recentInsights.findIndex((i) => i.id === item.id) })
-                }
-                onKeyDown={
-                  editingId === item.id
-                    ? undefined
-                    : (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setViewer({ list: recentInsights, index: recentInsights.findIndex((i) => i.id === item.id) });
-                        }
-                      }
-                }
-                className="group min-w-0 cursor-pointer rounded-3xl border border-neutral-200/70 bg-neutral-50 px-6 py-4 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_14px_34px_rgba(0,0,0,0.06)]"
-              >
-                {editingId === item.id ? (
-                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                    <textarea
-                      ref={editTextareaRef}
-                      value={editingText}
-                      onChange={(e) => {
-                        setEditingText(e.target.value);
-                        const ta = e.target as HTMLTextAreaElement;
-                        ta.style.height = "auto";
-                        ta.style.height = `${ta.scrollHeight}px`;
-                      }}
-                      rows={2}
-                      className="min-h-[4.5rem] w-full resize-none overflow-hidden rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
-                    />
-                    <input
-                      type="text"
-                      value={editingAuthor}
-                      onChange={(e) => setEditingAuthor(e.target.value)}
-                      placeholder="출처(인물명)"
-                      className="w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
-                    />
-                    <div className="flex items-center justify-end gap-2 text-sm">
-                      <button
-                        type="button"
-                        onClick={cancelEdit}
-                        className="rounded-2xl px-3 py-1.5 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
-                      >
-                        취소
-                      </button>
-                      <button
-                        type="button"
-                        onClick={saveEdit}
-                        className="rounded-2xl bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-neutral-800"
-                      >
-                        저장
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="max-w-full text-base leading-relaxed line-clamp-1 text-neutral-600 sm:text-[17px]">{item.text}</p>
-                    {item.author && (
-                      <p className="text-sm text-neutral-500">— {item.author}</p>
-                    )}
-                    <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
-                      <span>{formatDate(item.createdAt)}</span>
-                      <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => startEdit(item)}
-                          className="rounded-full px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-100"
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="rounded-full px-2.5 py-1 text-xs text-red-500 hover:bg-red-50"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* 월별 아카이브 */}
-      {!insightLoading && monthEntries.length > 0 && (
-        <Card className="min-w-0 space-y-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-semibold text-neutral-900">
-              월별로 모아보기
-            </h2>
-            <span className="text-sm text-neutral-400">
-              총 {insights.length}개의 문장을 저장했어요.
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-2 text-base">
-            {monthEntries.map(([key, { label, items }]) => {
-              const active = key === selectedMonthKey;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() =>
-                    setSelectedMonthKey((prev) => (prev === key ? null : key))
-                  }
-                  className={`rounded-2xl px-3 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-neutral-900 text-white shadow-sm"
-                      : "bg-neutral-50 text-neutral-700 hover:bg-neutral-100"
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 text-xs text-neutral-300">
-                    {items.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedMonthKey && selectedMonthItems.length > 0 && (
-            <div className="mt-3 max-h-80 min-w-0 space-y-3 overflow-y-auto pr-1 text-[0.95rem]">
-              {selectedMonthItems.map((item) => (
-                <div
-                  key={item.id}
-                  role={editingId === item.id ? undefined : "button"}
-                  tabIndex={editingId === item.id ? undefined : 0}
-                  onClick={
-                    editingId === item.id
-                      ? undefined
-                      : () => setViewer({ list: selectedMonthItems, index: selectedMonthItems.findIndex((i) => i.id === item.id) })
-                  }
-                  onKeyDown={
-                    editingId === item.id
-                      ? undefined
-                      : (e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setViewer({ list: selectedMonthItems, index: selectedMonthItems.findIndex((i) => i.id === item.id) });
-                          }
-                        }
-                  }
-                  className="group min-w-0 cursor-pointer rounded-3xl border border-neutral-200/70 bg-neutral-50 px-6 py-4 text-sm text-neutral-600 ring-1 ring-transparent transition-all hover:bg-white hover:ring-soft-border/80 hover:shadow-[0_12px_30px_rgba(0,0,0,0.05)] sm:text-[17px]"
-                >
-                  {editingId === item.id ? (
-                    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                      <textarea
-                        ref={editTextareaRef}
-                        value={editingText}
-                        onChange={(e) => {
-                          setEditingText(e.target.value);
-                          const ta = e.target as HTMLTextAreaElement;
-                          ta.style.height = "auto";
-                          ta.style.height = `${ta.scrollHeight}px`;
-                        }}
-                        rows={2}
-                        className="min-h-[4.5rem] w-full resize-none overflow-hidden rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
-                      />
-                      <input
-                        type="text"
-                        value={editingAuthor}
-                        onChange={(e) => setEditingAuthor(e.target.value)}
-                        placeholder="출처(인물명)"
-                        className="w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
-                      />
-                      <div className="flex items-center justify-end gap-2 text-sm">
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="rounded-2xl px-3 py-1.5 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveEdit}
-                          className="rounded-2xl bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-neutral-800"
-                        >
-                          저장
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="max-w-full text-base leading-relaxed line-clamp-1 text-neutral-600 sm:text-[17px]">{item.text}</p>
-                      {item.author && (
-                        <p className="text-sm text-neutral-500">— {item.author}</p>
-                      )}
-                      <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
-                        <span>{formatDate(item.createdAt)}</span>
-                        <div className="flex gap-2 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(item)}
-                            className="rounded-full px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-100"
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item.id)}
-                            className="rounded-full px-2.5 py-1 text-xs text-red-500 hover:bg-red-50"
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
         </>
       )}
 
       {insightTab === "system" && (
         <>
           <p className="text-sm text-neutral-500">
-            홈의 오늘의 인사이트에 섞여 나오는 기본 문장을 추가·수정·삭제할 수 있어요.
+            내가 저장한 문장과 홈에 나오는 기본 문장을 한곳에서 추가·수정·삭제할 수 있어요. 등록 최신순, 연·월 필터·페이지 이동 가능.
           </p>
-          <div className="relative flex min-w-0 max-w-md">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              value={systemSearchQuery}
-              onChange={(e) => setSystemSearchQuery(e.target.value)}
-              placeholder="문장·출처 검색"
-              className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex min-w-0 max-w-[200px]">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={systemSearchQuery}
+                onChange={(e) => setSystemSearchQuery(e.target.value)}
+                placeholder="문장·출처 검색"
+                className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+              />
+            </div>
+            <select
+              value={systemFilterYear === "all" ? "all" : systemFilterYear}
+              onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-800"
+            >
+              <option value="all">연도 전체</option>
+              {systemFilterYears.map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+            <select
+              value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
+              onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-800"
+            >
+              <option value="all">월 전체</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <option key={m} value={m}>{m}월</option>
+              ))}
+            </select>
           </div>
           <Card className="min-w-0 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-base text-neutral-500">
-                총 {systemList.length}개 문장{systemSearchQuery.trim() ? ` (검색 결과 ${systemFilteredWithIndex.length}개)` : ""}.
+                총 {systemFilteredWithIndex.length}개 문장{systemSearchQuery.trim() ? ` (검색)` : ""}{systemFilterYear !== "all" || systemFilterMonth !== "all" ? " (필터 적용)" : ""}.
               </p>
               <button
                 type="button"
@@ -636,7 +401,7 @@ function InsightPageContent() {
                   setSystemIsAdding(true);
                   setSystemEditQuote("");
                   setSystemEditAuthor("");
-                  setSystemEditingIndex(null);
+                  setEditingUnified(null);
                 }}
                 disabled={systemIsAdding}
                 className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
@@ -681,185 +446,252 @@ function InsightPageContent() {
                   </div>
                 </div>
               )}
-              {systemFilteredWithIndex.map(({ item, originalIndex: i }) => (
-                <div
-                  key={`${i}-${item.quote.slice(0, 20)}`}
-                  className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4"
-                >
-                  {systemEditingIndex === i ? (
-                    <div className="space-y-3">
-                      <textarea
-                        value={systemEditQuote}
-                        onChange={(e) => setSystemEditQuote(e.target.value)}
-                        rows={3}
-                        className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
-                        placeholder="문장"
-                      />
-                      <input
-                        type="text"
-                        value={systemEditAuthor}
-                        onChange={(e) => setSystemEditAuthor(e.target.value)}
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
-                        placeholder="출처(인물명)"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={systemSaveEdit}
-                          className="rounded-lg bg-neutral-900 px-4 py-2 text-base font-medium text-white hover:bg-neutral-800"
-                        >
-                          저장
-                        </button>
-                        <button
-                          type="button"
-                          onClick={systemCancelAddOrEdit}
-                          className="rounded-lg px-4 py-2 text-base text-neutral-500 hover:bg-neutral-200"
-                        >
-                          취소
-                        </button>
+              {systemPaginatedList.map((item, listIndex) => {
+                const isEditing =
+                  !systemIsAdding &&
+                  ((item.type === "user" && editingUnified?.type === "user" && editingUnified.id === item.id) ||
+                    (item.type === "system" && editingUnified?.type === "system" && editingUnified.index === item.index));
+                const text = item.type === "user" ? item.text : item.quote;
+                const author = item.type === "user" ? item.author ?? "" : item.author;
+                const key = item.type === "user" ? `user-${item.id}` : `system-${item.index}`;
+                return (
+                  <div
+                    key={key}
+                    role={isEditing ? undefined : "button"}
+                    tabIndex={isEditing ? undefined : 0}
+                    onClick={
+                      isEditing
+                        ? undefined
+                        : () => setSystemViewer({ list: systemPaginatedList, index: listIndex })
+                    }
+                    onKeyDown={
+                      isEditing
+                        ? undefined
+                        : (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setSystemViewer({ list: systemPaginatedList, index: listIndex });
+                            }
+                          }
+                    }
+                    className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 cursor-pointer transition hover:bg-neutral-100/80"
+                  >
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={systemEditQuote}
+                          onChange={(e) => setSystemEditQuote(e.target.value)}
+                          rows={3}
+                          className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                          placeholder="문장"
+                        />
+                        <input
+                          type="text"
+                          value={systemEditAuthor}
+                          onChange={(e) => setSystemEditAuthor(e.target.value)}
+                          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                          placeholder="출처(인물명)"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={systemSaveEdit}
+                            className="rounded-lg bg-neutral-900 px-4 py-2 text-base font-medium text-white hover:bg-neutral-800"
+                          >
+                            저장
+                          </button>
+                          <button
+                            type="button"
+                            onClick={systemCancelAddOrEdit}
+                            className="rounded-lg px-4 py-2 text-base text-neutral-500 hover:bg-neutral-200"
+                          >
+                            취소
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-                      <div className="flex justify-end gap-1 sm:order-2 sm:shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSystemIsAdding(false);
-                            setSystemEditingIndex(i);
-                            setSystemEditQuote(item.quote);
-                            setSystemEditAuthor(item.author);
-                          }}
-                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
-                          aria-label="수정"
-                          title="수정"
-                        >
-                          <svg className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => systemDeleteAt(i)}
-                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"
-                          aria-label="삭제"
-                          title="삭제"
-                        >
-                          <svg className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
+                    ) : (
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                        <div className="flex justify-end gap-1 sm:order-2 sm:shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSystemIsAdding(false);
+                              setEditingUnified(item.type === "user" ? { type: "user", id: item.id } : { type: "system", index: item.index });
+                              setSystemEditQuote(text);
+                              setSystemEditAuthor(author);
+                            }}
+                            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
+                            aria-label="수정"
+                            title="수정"
+                          >
+                            <svg className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); systemDeleteAt(item); }}
+                            className="rounded-lg p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                            aria-label="삭제"
+                            title="삭제"
+                          >
+                            <svg className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="min-w-0 flex-1 pl-3 sm:order-1">
+                          <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-neutral-800 md:text-lg">
+                            {text}
+                          </p>
+                          {author && (
+                            <p className="mt-1 text-sm text-neutral-500">— {author}</p>
+                          )}
+                          {item.type === "user" && (
+                            <p className="mt-1 text-xs text-neutral-400">{formatDate(item.createdAt)}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1 pl-3 sm:order-1">
-                        <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-neutral-800 md:text-lg">
-                          {item.quote}
-                        </p>
-                        {item.author && (
-                          <p className="mt-1 text-sm text-neutral-500">— {item.author}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
+            {systemTotalPages > 1 && (
+              <div className="flex flex-wrap items-center justify-center gap-2 border-t border-neutral-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setSystemPage((p) => Math.max(1, p - 1))}
+                  disabled={systemPage <= 1}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  이전
+                </button>
+                {Array.from({ length: systemTotalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setSystemPage(p)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      systemPage === p ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSystemPage((p) => Math.min(systemTotalPages, p + 1))}
+                  disabled={systemPage >= systemTotalPages}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  다음
+                </button>
+              </div>
+            )}
           </Card>
         </>
       )}
 
-      {/* 문장 뷰어 모달 */}
-      {viewer &&
+      {/* 기본 문장 탭: 문장 보기 모달 (가로폭 고정) */}
+      {systemViewer &&
         typeof document !== "undefined" &&
         createPortal(
-          <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/75 p-4"
-            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-            onClick={() => setViewer(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label="문장 보기"
-          >
-            <div
-              className="relative flex min-w-0 max-w-3xl flex-col items-center gap-4 sm:flex-row sm:gap-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* PC: 좌측 화살표 */}
-              <button
-                type="button"
-                onClick={() => setViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
-                disabled={viewer.index <= 0}
-                className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none sm:flex"
-                aria-label="이전 문장"
+          (() => {
+            const item = systemViewer.list[systemViewer.index];
+            const modalText = item ? (item.type === "user" ? item.text : item.quote) : "";
+            const modalAuthor = item ? (item.type === "user" ? item.author : item.author) : "";
+            const modalDate = item?.type === "user" ? formatDate(item.createdAt) : null;
+            return (
+              <div
+                className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/75 p-4"
+                style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+                onClick={() => setSystemViewer(null)}
+                role="dialog"
+                aria-modal="true"
+                aria-label="문장 보기"
               >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
+                <div
+                  className="relative flex w-[min(90vw,28rem)] flex-shrink-0 flex-col items-center gap-4 sm:flex-row sm:gap-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSystemViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
+                    disabled={systemViewer.index <= 0}
+                    className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none sm:flex"
+                    aria-label="이전 문장"
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
 
-              <div className="order-1 flex max-h-[85vh] min-w-0 flex-1 flex-col rounded-3xl bg-white shadow-2xl sm:order-none">
-                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-10 sm:px-12 sm:py-14">
-                  <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
-                    {viewer.list[viewer.index]?.text}
-                  </p>
-                  {viewer.list[viewer.index]?.author && (
-                    <p className="mt-3 text-base text-neutral-500">— {viewer.list[viewer.index].author}</p>
-                  )}
-                </div>
-                <div className="shrink-0 border-t border-neutral-100 px-8 py-3 sm:px-12">
-                  <span className="text-sm text-neutral-500">
-                    {viewer.list[viewer.index] && formatDate(viewer.list[viewer.index].createdAt)}
-                  </span>
+                  <div className="order-1 flex w-[min(90vw,28rem)] max-h-[85vh] flex-shrink-0 flex-col rounded-3xl bg-white shadow-2xl sm:order-none">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-8 py-10 sm:px-12 sm:py-14">
+                      <p className="font-insight-serif whitespace-pre-wrap text-xl leading-relaxed text-neutral-800 sm:text-2xl sm:leading-relaxed">
+                        {modalText}
+                      </p>
+                      {modalAuthor && (
+                        <p className="mt-3 text-base text-neutral-500">— {modalAuthor}</p>
+                      )}
+                    </div>
+                    {modalDate && (
+                      <div className="shrink-0 border-t border-neutral-100 px-8 py-3 sm:px-12">
+                        <span className="text-sm text-neutral-500">{modalDate}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSystemViewer((v) =>
+                        v && v.index < v.list.length - 1 ? { ...v, index: v.index + 1 } : v
+                      )
+                    }
+                    disabled={systemViewer.index >= systemViewer.list.length - 1}
+                    className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none sm:flex"
+                    aria-label="다음 문장"
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  <div className="order-2 flex gap-4 sm:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSystemViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
+                      disabled={systemViewer.index <= 0}
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                      aria-label="이전 문장"
+                    >
+                      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSystemViewer((v) =>
+                          v && v.index < v.list.length - 1 ? { ...v, index: v.index + 1 } : v
+                        )
+                      }
+                      disabled={systemViewer.index >= systemViewer.list.length - 1}
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
+                      aria-label="다음 문장"
+                    >
+                      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* PC: 우측 화살표 */}
-              <button
-                type="button"
-                onClick={() =>
-                  setViewer((v) =>
-                    v && v.index < v.list.length - 1 ? { ...v, index: v.index + 1 } : v
-                  )
-                }
-                disabled={viewer.index >= viewer.list.length - 1}
-                className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none sm:flex"
-                aria-label="다음 문장"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-
-              {/* 모바일: 화살표 하단 */}
-              <div className="order-2 flex gap-4 sm:hidden">
-                <button
-                  type="button"
-                  onClick={() => setViewer((v) => (v && v.index > 0 ? { ...v, index: v.index - 1 } : v))}
-                  disabled={viewer.index <= 0}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
-                  aria-label="이전 문장"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setViewer((v) =>
-                      v && v.index < v.list.length - 1 ? { ...v, index: v.index + 1 } : v
-                    )
-                  }
-                  disabled={viewer.index >= viewer.list.length - 1}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-lg transition hover:bg-white disabled:opacity-30 disabled:pointer-events-none"
-                  aria-label="다음 문장"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>,
+            );
+          })(),
           document.body
         )}
     </div>
