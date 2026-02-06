@@ -9,7 +9,7 @@ import {
 } from "@/lib/scheduleDb";
 import { todayStr, addDays } from "@/lib/dateUtil";
 
-const ROTATE_INTERVAL_MS = 5800;
+const ROTATE_INTERVAL_MS = 3500;
 
 function isToday(dateStr: string, today: string) {
   return dateStr === today;
