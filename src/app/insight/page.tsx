@@ -5,22 +5,22 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
-
-type InsightItem = {
-  id: number;
-  text: string;
-  createdAt: string; // ISO string
-};
-
-const STORAGE_KEY = "my-lifestyle-insights";
+import {
+  loadInsightEntries,
+  addInsightEntry,
+  updateInsightEntry,
+  deleteInsightEntry,
+  type InsightEntry,
+} from "@/lib/insightDb";
 
 export default function InsightPage() {
   const [input, setInput] = useState("");
-  const [insights, setInsights] = useState<InsightItem[]>([]);
+  const [insights, setInsights] = useState<InsightEntry[]>([]);
+  const [insightLoading, setInsightLoading] = useState(true);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [viewer, setViewer] = useState<{ list: InsightItem[]; index: number } | null>(null);
+  const [viewer, setViewer] = useState<{ list: InsightEntry[]; index: number } | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   function resizeEditTextarea(ta: HTMLTextAreaElement | null) {
@@ -29,24 +29,14 @@ export default function InsightPage() {
     ta.style.height = `${ta.scrollHeight}px`;
   }
 
-  // Load from localStorage
+  // Load from Supabase(동기화) 또는 localStorage
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as InsightItem[];
-      setInsights(parsed);
-    } catch {
-      // ignore
-    }
+    setInsightLoading(true);
+    loadInsightEntries()
+      .then(setInsights)
+      .catch(() => setInsights([]))
+      .finally(() => setInsightLoading(false));
   }, []);
-
-  // Persist to localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(insights));
-  }, [insights]);
 
   const sortedInsights = useMemo(
     () =>
@@ -65,7 +55,7 @@ export default function InsightPage() {
   const monthGroups = useMemo(() => {
     const groups: Record<
       string,
-      { label: string; items: InsightItem[] }
+      { label: string; items: InsightEntry[] }
     > = {};
 
     for (const item of sortedInsights) {
@@ -99,31 +89,34 @@ export default function InsightPage() {
       ? monthGroups[selectedMonthKey].items
       : [];
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
 
-    const now = new Date();
-    const item: InsightItem = {
-      id: now.getTime(),
-      text: trimmed,
-      createdAt: now.toISOString(),
-    };
-
-    setInsights((prev) => [item, ...prev]);
     setInput("");
+    try {
+      const item = await addInsightEntry(trimmed);
+      setInsights((prev) => [item, ...prev]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setInsights((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id: string) => {
     if (editingId === id) {
       setEditingId(null);
       setEditingText("");
     }
+    setInsights((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await deleteInsightEntry(id);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const startEdit = (item: InsightItem) => {
+  const startEdit = (item: InsightEntry) => {
     setEditingId(item.id);
     setEditingText(item.text);
   };
@@ -133,7 +126,7 @@ export default function InsightPage() {
     setEditingText("");
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingId) return;
     const trimmed = editingText.trim();
     if (!trimmed) return;
@@ -144,6 +137,11 @@ export default function InsightPage() {
     );
     setEditingId(null);
     setEditingText("");
+    try {
+      await updateInsightEntry(editingId, trimmed);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -212,8 +210,12 @@ export default function InsightPage() {
         </form>
       </Card>
 
+      {insightLoading && (
+        <p className="text-sm text-neutral-500">인사이트 불러오는 중…</p>
+      )}
+
       {/* 최근 5개 */}
-      {recentInsights.length > 0 && (
+      {!insightLoading && recentInsights.length > 0 && (
         <Card className="min-w-0 space-y-3">
           <h2 className="text-lg font-semibold text-neutral-900">
             최근에 남긴 문장 (최신 5개)
@@ -303,7 +305,7 @@ export default function InsightPage() {
       )}
 
       {/* 월별 아카이브 */}
-      {monthEntries.length > 0 && (
+      {!insightLoading && monthEntries.length > 0 && (
         <Card className="min-w-0 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-neutral-900">

@@ -570,8 +570,8 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed right-20 top-[24vh] z-50 flex h-[55vh] w-[min(320px,90vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
-                  drawerAnimated ? "translate-x-0" : "translate-x-full"
+                  "fixed left-1/2 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out md:left-auto md:right-20 md:top-[24vh] md:h-[55vh] md:max-h-none",
+                  drawerAnimated ? "-translate-x-1/2 md:translate-x-0" : "-translate-x-[150%] md:translate-x-full"
                 )}
                 role="dialog"
                 aria-label="달력·검색"

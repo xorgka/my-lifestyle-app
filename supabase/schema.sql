@@ -117,6 +117,19 @@ create table if not exists insight_system_quotes (
 create index if not exists idx_insight_system_quotes_sort on insight_system_quotes (sort_order);
 
 -- ------------------------------------------------------------
+-- 6. 인사이트 (사용자가 남긴 문장 - 기기 간 동기화)
+-- ------------------------------------------------------------
+create table if not exists insight_entries (
+  id uuid primary key default gen_random_uuid(),
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_insight_entries_created_at on insight_entries (created_at desc);
+
+comment on table insight_entries is '인사이트 페이지에서 사용자가 저장한 문장. PC/모바일 동기화';
+
+-- ------------------------------------------------------------
 -- RLS (Row Level Security) - 현재는 anon 허용, 나중에 auth 붙이면 user_id로 제한
 -- ------------------------------------------------------------
 
@@ -128,6 +141,7 @@ alter table youtube_channels enable row level security;
 alter table routine_items enable row level security;
 alter table routine_completions enable row level security;
 alter table insight_system_quotes enable row level security;
+alter table insight_entries enable row level security;
 
 -- anon 키로 모든 작업 허용 (단일 사용자/비로그인 사용 가정)
 create policy "allow all budget_entries" on budget_entries for all using (true) with check (true);
@@ -138,6 +152,7 @@ create policy "allow all youtube_channels" on youtube_channels for all using (tr
 create policy "allow all routine_items" on routine_items for all using (true) with check (true);
 create policy "allow all routine_completions" on routine_completions for all using (true) with check (true);
 create policy "allow all insight_system_quotes" on insight_system_quotes for all using (true) with check (true);
+create policy "allow all insight_entries" on insight_entries for all using (true) with check (true);
 
 -- updated_at 자동 갱신 (선택)
 create or replace function set_updated_at()
