@@ -63,6 +63,60 @@ function renderSimpleMarkdown(text: string): string {
     .replace(/\n/g, "<br />");
 }
 
+/** 날짜 문자열(YYYY-MM-DD) 하루 전 */
+function prevDateStr(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 해당 날짜 직전까지의 연속 기록 일수 (그날 포함하지 않음) */
+function getJournalStreakAsOf(entries: { date: string }[], beforeDateStr: string): number {
+  const dateSet = new Set(entries.map((e) => e.date));
+  let d = new Date(prevDateStr(beforeDateStr) + "T12:00:00");
+  let count = 0;
+  for (;;) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const key = `${y}-${m}-${day}`;
+    if (!dateSet.has(key)) break;
+    count++;
+    d.setDate(d.getDate() - 1);
+  }
+  return count;
+}
+
+/** 빈 공간에 매일 번갈아 보여줄 문장 (null = 스트릭 메시지로 대체) */
+const JOURNAL_EMPTY_PROMPTS: (string | null)[] = [
+  "우리는 삶을 두 번 맛보기 위해 글을 쓴다.",
+  "점 하나라도 찍어볼까요?\n오늘의 기록을 시작해 보세요.",
+  null, // 스트릭 메시지
+  "오늘 가장 많이 웃었던 순간은 언제였나요?",
+  "오늘 나를 가장 힘들게 했던 일은 무엇인가요?",
+  "오늘의 나에게 고생했다고\n한마디 남겨주는 건 어때요?",
+  "오늘 하루, 마음속에만 담아두기엔\n아까운 순간이 있었나요?",
+  "오늘의 조각들을 이곳에 모아보세요.\n나중에 작은 선물이 될 거예요.",
+  "기억은 흐려지고 기록은 남는다.",
+  "글쓰기는 자기 자신을 만나는\n가장 정직한 방법이다.",
+  "글을 쓴다는 것은\n내 마음속의 소음을\n악보로 옮기는 일이다.",
+  "첫 문장을 써라.\n나머지는 그 문장이 알아서 할 것이다.",
+];
+
+function getEmptyStatePrompt(selectedDate: string, entries: { date: string }[]): string {
+  const num = parseInt(selectedDate.replace(/-/g, ""), 10);
+  const index = Math.abs(num) % JOURNAL_EMPTY_PROMPTS.length;
+  const slot = JOURNAL_EMPTY_PROMPTS[index];
+  if (slot === null) {
+    const streak = getJournalStreakAsOf(entries, selectedDate);
+    if (streak > 0) {
+      return `벌써 ${streak}일째 기록 중이시네요!\n오늘도 그 흐름을 이어가 볼까요?`;
+    }
+    return "오늘도 그 흐름을 이어가 볼까요?";
+  }
+  return slot;
+}
+
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -442,6 +496,12 @@ export default function JournalPage() {
               ★
             </button>
           </div>
+          {streak > 0 && (
+            <p className="mb-1 flex items-center gap-1.5 text-sm text-neutral-500 md:mb-2">
+              <span aria-hidden>🔥</span>
+              연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
+            </p>
+          )}
           {/* 초안 자동 저장 상태 */}
           <p className="mb-0.5 text-xs text-neutral-500 md:mb-1">
             {draftSaveStatus === "pending" && "2초 후 초안 자동 저장"}
@@ -498,7 +558,15 @@ export default function JournalPage() {
                         dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
                       />
                     ) : (
-                      <p className="text-neutral-400">내용이 없어요.</p>
+                      <div className="space-y-2 text-neutral-400">
+                        {getEmptyStatePrompt(selectedDate, entries)
+                          .split("\n")
+                          .map((line, i) => (
+                            <p key={i} className="leading-relaxed">
+                              {line}
+                            </p>
+                          ))}
+                      </div>
                     )}
                   </div>
                 )}
@@ -590,12 +658,6 @@ export default function JournalPage() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {streak > 0 && (
-                  <p className="flex items-center gap-1.5 text-sm text-neutral-500">
-                    <span aria-hidden>🔥</span>
-                    연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
-                  </p>
-                )}
                 <div className="space-y-2">
                   <div className="relative flex items-center">
                     <span className="pointer-events-none absolute left-0 flex h-full w-9 items-center justify-center text-neutral-400" aria-hidden>
