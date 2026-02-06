@@ -3,6 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { Sidebar } from "./Sidebar";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -55,6 +56,19 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <Sidebar />
         </div>
         <main className="min-w-0 flex-1 pt-12 md:pt-0">
+          {!isSupabaseConfigured && (
+            <div className="mb-4 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-5 md:py-4">
+              <p className="font-semibold">기기·브라우저 연동이 꺼져 있어요</p>
+              <p className="mt-1 text-amber-800">
+                지금은 이 브라우저에만 데이터가 저장됩니다. 크롬·웨일·스마트폰 등에서 같은 데이터를 보려면 Supabase를 설정해 주세요.
+              </p>
+              <p className="mt-2 text-xs text-amber-700">
+                1) Supabase 프로젝트 생성 → 2) 프로젝트 루트에 <code className="rounded bg-amber-100 px-1">.env.local</code> 파일 만들고{" "}
+                <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_URL</code>,{" "}
+                <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> 입력 (예시: .env.local.example 참고) → 3) Supabase SQL Editor에서 supabase/schema.sql 실행 → 4) 개발 서버 재시작
+              </p>
+            </div>
+          )}
           <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:p-8">
             {children}
           </div>

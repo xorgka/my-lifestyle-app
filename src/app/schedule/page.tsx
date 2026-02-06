@@ -28,6 +28,7 @@ import {
   getCalendarCells,
 } from "@/lib/dateUtil";
 import { getHolidaysOn } from "@/lib/scheduleHolidays";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type ViewMode = "today" | "week" | "month";
 
@@ -279,6 +280,12 @@ export default function SchedulePage() {
           <span className="hidden md:inline md:ml-1">스케줄 추가</span>
         </button>
       </div>
+
+      {!isSupabaseConfigured && (
+        <p className="rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          PC·스마트폰 연동을 위해 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정하고 Supabase에 schedule_entries 테이블을 만들어 주세요.
+        </p>
+      )}
 
       {loading && (
         <p className="text-sm text-neutral-500">스케줄 불러오는 중…</p>

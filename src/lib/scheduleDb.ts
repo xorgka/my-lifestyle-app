@@ -148,7 +148,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
       .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, created_at")
       .order("created_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
+    let list = (data ?? []).map((row) => ({
       id: row.id,
       title: row.title ?? "",
       scheduleType: (row.schedule_type as ScheduleType) ?? "once",
@@ -159,8 +159,44 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
       weeklyDay: row.weekly_day ?? null,
       createdAt: row.created_at ?? new Date().toISOString(),
     }));
+    // DB가 비어있고 로컬에 데이터가 있으면 로컬 → Supabase 마이그레이션 (기기 간 동기화)
+    if (list.length === 0) {
+      const local = loadFromStorage();
+      if (local.length > 0) {
+        for (const e of local) {
+          const { error: insertErr } = await supabase.from("schedule_entries").insert({
+            title: e.title,
+            schedule_type: e.scheduleType,
+            once_date: e.onceDate ?? null,
+            monthly_day: e.monthlyDay ?? null,
+            yearly_month: e.yearlyMonth ?? null,
+            yearly_day: e.yearlyDay ?? null,
+            weekly_day: e.weeklyDay ?? null,
+          });
+          if (insertErr) console.error("[schedule] migrate local→Supabase", e.id, insertErr);
+        }
+        const { data: refetch, error: refetchErr } = await supabase
+          .from("schedule_entries")
+          .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, created_at")
+          .order("created_at", { ascending: false });
+        if (!refetchErr && refetch) {
+          list = refetch.map((row) => ({
+            id: row.id,
+            title: row.title ?? "",
+            scheduleType: (row.schedule_type as ScheduleType) ?? "once",
+            onceDate: row.once_date ?? null,
+            monthlyDay: row.monthly_day ?? null,
+            yearlyMonth: row.yearly_month ?? null,
+            yearlyDay: row.yearly_day ?? null,
+            weeklyDay: row.weekly_day ?? null,
+            createdAt: row.created_at ?? new Date().toISOString(),
+          }));
+        }
+      }
+    }
+    return list;
   } catch (e) {
-    console.error("[schedule] loadScheduleEntries", e);
+    console.error("[schedule] loadScheduleEntries 실패. PC·스마트폰 동기화를 위해 Supabase URL/키 설정과 schedule_entries 테이블을 확인하세요.", e);
     return loadFromStorage();
   }
 }
