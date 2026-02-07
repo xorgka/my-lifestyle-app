@@ -541,14 +541,14 @@ export default function RoutinePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h2 className="flex min-w-0 flex-col md:flex-row md:items-baseline">
-              <span className="text-xl font-semibold text-neutral-900">오늘의 루틴</span>
-              <span className="mt-0.5 text-sm font-normal text-neutral-400 md:mt-0 md:ml-2">
-                {new Date(listViewDateKey + "T12:00:00").toLocaleDateString("ko-KR", {
-                  month: "long",
-                  day: "numeric",
-                  weekday: "short",
-                })}
+            <h2 className="min-w-0 text-xl font-semibold text-neutral-900">
+              오늘의 루틴
+              <span className="ml-2 text-xs font-normal text-neutral-400">
+                {(() => {
+                  const d = new Date(listViewDateKey + "T12:00:00");
+                  const w = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+                  return `${d.getMonth() + 1}/${d.getDate()}(${w})`;
+                })()}
               </span>
             </h2>
             <button
