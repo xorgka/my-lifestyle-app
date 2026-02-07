@@ -268,7 +268,7 @@ function InsightPageContent() {
         </div>
         {insightTab === "system" && (
           <div className="flex w-full items-center gap-2">
-            <div className="relative flex min-w-0 flex-[2] md:max-w-[12rem] md:flex-initial md:w-44">
+            <div className="relative flex min-w-0 flex-[2.2] md:max-w-[12rem] md:flex-initial md:w-44">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -295,7 +295,7 @@ function InsightPageContent() {
             <select
               value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
               onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="min-w-0 flex-[1] rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:flex-initial md:px-2.5"
+              className="min-w-0 flex-[0.8] rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:flex-initial md:px-2.5"
             >
               <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
