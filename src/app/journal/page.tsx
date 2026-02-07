@@ -583,7 +583,24 @@ export default function JournalPage() {
                     rows={16}
                   />
                 ) : (
-                  <div className="min-h-[420px] w-full rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 md:pl-12 md:pr-10">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setViewMode("write");
+                      setTimeout(() => textareaRef.current?.focus(), 0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setViewMode("write");
+                        setTimeout(() => textareaRef.current?.focus(), 0);
+                      }
+                    }}
+                    className="min-h-[420px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
+                    title="클릭하면 글쓰기 모드로 전환"
+                    aria-label="본문 영역. 클릭하면 편집 모드로 전환"
+                  >
                     {draft.trim() ? (
                       <div
                         dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
