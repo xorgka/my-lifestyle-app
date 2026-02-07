@@ -55,12 +55,18 @@ function saveJson(key: string, value: unknown): void {
   } catch {}
 }
 
+const MEMO_COLOR_IDS: MemoColorId[] = ["black", "wine", "purple", "orange", "warmgray"];
+function toMemoColorId(v: unknown): MemoColorId {
+  if (typeof v === "string" && MEMO_COLOR_IDS.includes(v as MemoColorId)) return v as MemoColorId;
+  return "black";
+}
+
 function rowToMemo(row: Record<string, unknown>): Memo {
   return {
     id: String(row.id),
     content: String(row.content ?? ""),
     createdAt: row.created_at ? new Date(row.created_at as string).toISOString() : new Date().toISOString(),
-    color: (row.color as MemoColorId) ?? "black",
+    color: toMemoColorId(row.color),
     pinned: Boolean(row.pinned),
     pinnedAt: row.pinned_at ? new Date(row.pinned_at as string).toISOString() : undefined,
     title: row.title != null ? String(row.title) : undefined,
