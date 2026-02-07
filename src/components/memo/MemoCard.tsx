@@ -1,0 +1,192 @@
+"use client";
+
+import type { ReactNode } from "react";
+import type { Memo, MemoColorId } from "@/lib/memoDb";
+import { MEMO_COLORS } from "@/lib/memoDb";
+
+type MemoCardProps = {
+  memo: Memo;
+  variant: "full" | "preview";
+  className?: string;
+  /** preview: 오른쪽 헤더에 표시 (예: 메모 페이지 링크) */
+  headerRight?: ReactNode;
+  /** full only */
+  updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned">>) => void;
+  deleteMemo?: (id: string) => void;
+  colorMenuId?: string | null;
+  setColorMenuId?: (id: string | null) => void;
+  editingTitleId?: string | null;
+  setEditingTitleId?: (id: string | null) => void;
+};
+
+export function MemoCard({
+  memo,
+  variant,
+  className = "",
+  headerRight,
+  updateMemo,
+  deleteMemo,
+  colorMenuId,
+  setColorMenuId,
+  editingTitleId,
+  setEditingTitleId,
+}: MemoCardProps) {
+  const colors = MEMO_COLORS[memo.color] ?? MEMO_COLORS.black;
+  const isColorOpen = colorMenuId === memo.id;
+  const isEditingTitle = editingTitleId === memo.id;
+
+  const rootStyle = {
+    backgroundColor: colors.bodyBg,
+    borderColor: variant === "full" ? colors.border : "rgba(0,0,0,0.11)",
+    boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+  };
+
+  return (
+    <div
+      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${className}`}
+      style={rootStyle}
+    >
+      {/* 헤더 */}
+      <div
+        className="relative flex flex-shrink-0 items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1"
+        style={{
+          backgroundColor: colors.headerBg,
+          borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
+          color: colors.headerFg ?? undefined,
+        }}
+        onContextMenu={
+          variant === "full" && setColorMenuId
+            ? (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setColorMenuId(isColorOpen ? null : memo.id);
+              }
+            : undefined
+        }
+        onDoubleClick={
+          variant === "full" && setEditingTitleId
+            ? (e) => {
+                if ((e.target as HTMLElement).closest("button")) return;
+                setEditingTitleId(memo.id);
+              }
+            : undefined
+        }
+      >
+        <span className="flex min-w-0 flex-1 items-center">
+          {variant === "full" && isEditingTitle && updateMemo ? (
+            <input
+              type="text"
+              value={memo.title ?? ""}
+              onChange={(e) => updateMemo(memo.id, { title: e.target.value })}
+              onBlur={() => setEditingTitleId?.(null)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") setEditingTitleId?.(null);
+              }}
+              placeholder="제목"
+              className="min-w-0 flex-1 rounded bg-transparent px-0 py-0 text-[17px] font-semibold outline-none placeholder:opacity-60"
+              style={{ color: colors.headerFg ?? "inherit" }}
+              autoFocus
+            />
+          ) : (
+            <span className="min-w-0 truncate text-[17px] font-semibold">
+              {memo.title || "\u00A0"}
+            </span>
+          )}
+        </span>
+        <div className="-space-x-1 flex shrink-0 items-center">
+          {variant === "full" && updateMemo && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateMemo(memo.id, { pinned: !memo.pinned });
+              }}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded [&_svg]:size-4 ${memo.pinned ? "opacity-100" : "opacity-25 hover:opacity-100"}`}
+              style={{ color: memo.pinned ? "#fff" : (colors.headerFg ?? "currentColor") }}
+              aria-label={memo.pinned ? "고정 해제" : "상단 고정"}
+              title={memo.pinned ? "고정 해제" : "상단 고정"}
+            >
+              <svg viewBox="0 0 24 24" fill={memo.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </button>
+          )}
+          {variant === "preview" && (
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded [&_svg]:size-4 ${memo.pinned ? "opacity-100" : "opacity-25"}`}
+              style={{ color: memo.pinned ? "#fff" : (colors.headerFg ?? "currentColor") }}
+              aria-hidden
+            >
+              <svg viewBox="0 0 24 24" fill={memo.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </span>
+          )}
+          {variant === "preview" && headerRight != null && headerRight}
+          {variant === "full" && isColorOpen && setColorMenuId && updateMemo && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                aria-hidden
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setColorMenuId(null);
+                }}
+              />
+              <div className="absolute right-0 top-full z-20 mt-1.5 flex gap-1.5 rounded-xl bg-white px-2 py-2 shadow-lg ring-1 ring-neutral-100">
+                {(Object.keys(MEMO_COLORS) as MemoColorId[]).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateMemo(memo.id, { color: c });
+                      setColorMenuId(null);
+                    }}
+                    className={`h-6 w-6 shrink-0 rounded-full transition hover:scale-110 ${memo.color === c ? "ring-2 ring-neutral-800 ring-offset-1" : ""}`}
+                    style={{ backgroundColor: MEMO_COLORS[c].headerBg }}
+                    title={MEMO_COLORS[c].label}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          {variant === "full" && deleteMemo && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteMemo(memo.id);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded text-2xl font-light opacity-25 hover:opacity-100"
+              style={{ color: colors.headerFg ?? "currentColor" }}
+              aria-label="삭제"
+              title="삭제"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 본문 */}
+      <div className="min-h-0 flex-1 overflow-hidden px-4 py-3 bg-white rounded-b-[10px]">
+        {variant === "full" && updateMemo ? (
+          <textarea
+            value={memo.content}
+            onChange={(e) => updateMemo(memo.id, { content: e.target.value })}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="메모를 입력하세요..."
+            className="h-full min-h-0 w-full resize-none rounded border-0 bg-white p-0 text-[19px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none"
+            style={{ minHeight: 120 }}
+          />
+        ) : (
+          <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden text-[19px] text-neutral-800 whitespace-pre-wrap break-words">
+            {memo.content.trim() || "내용 없음"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

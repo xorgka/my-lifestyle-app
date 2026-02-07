@@ -52,7 +52,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       )}
 
       <div className="mx-auto flex w-full max-w-7xl gap-7">
-        <div className="sticky top-10 hidden h-[calc(100vh-5rem)] max-h-[calc(100vh-5rem)] md:block md:w-64 md:self-start">
+        <div className="sticky top-10 hidden h-[calc(100vh-12rem)] max-h-[calc(100vh-12rem)] md:block md:w-64 md:self-start">
           <Sidebar />
         </div>
         <main className="min-w-0 flex-1 pt-12 md:pt-0">
@@ -69,7 +69,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </p>
             </div>
           )}
-          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:p-8">
+          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:min-h-[100vh] md:gap-6 md:rounded-3xl md:p-8">
             {children}
           </div>
         </main>

@@ -12,6 +12,7 @@ const menuItems = [
   { href: "/", label: "홈" },
   { href: "/schedule", label: "스케줄", badge: true },
   { href: "/routine", label: "루틴" },
+  { href: "/memo", label: "메모" },
   { href: "/journal", label: "일기장" },
   { href: "/insight", label: "인사이트" },
   { href: "/youtube", label: "유튜브" },
@@ -41,14 +42,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
-      <div className="mb-12 px-1">
-        <div className="text-[12px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+      <div className="mb-12 ml-1 px-1">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500 md:text-[11px]">
           MY LIFESTYLE
         </div>
-        <div className="mt-3 text-[1.7rem] font-semibold tracking-tight text-neutral-900">
-          올인원
-          <br />
-          대시보드
+        <div className="mt-0.5 text-lg font-semibold tracking-tight text-neutral-900 md:mt-1 md:text-[1.7rem]">
+          <span className="md:hidden">올인원 대시보드</span>
+          <span className="hidden md:block leading-snug">
+            올인원
+            <br />
+            대시보드
+          </span>
         </div>
       </div>
 

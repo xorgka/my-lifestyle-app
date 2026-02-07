@@ -82,9 +82,21 @@ export function WeatherCard() {
 
   if (loading) {
     return (
-      <Card className="weather-card-texture flex flex-col justify-between rounded-3xl bg-gradient-to-br from-white via-blue-50/95 to-sky-300/80 shadow-[0_2px_12px_rgba(14,116,144,0.08)]">
-        <div className="flex items-center justify-center py-12 text-neutral-500">
-          날씨를 불러오는 중…
+      <Card className="weather-card-texture flex h-full min-h-0 flex-col justify-between rounded-3xl bg-gradient-to-br from-white via-blue-50/95 to-sky-300/80 p-5 shadow-[0_2px_12px_rgba(14,116,144,0.08)] md:p-9">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-300/60" aria-hidden />
+            <div className="mt-3 flex items-baseline gap-3">
+              <span className="h-9 w-9 shrink-0 animate-pulse rounded bg-neutral-300/60" aria-hidden />
+              <div className="h-12 w-24 animate-pulse rounded bg-neutral-300/60" aria-hidden />
+            </div>
+            <div className="mt-3 h-5 w-full max-w-[200px] animate-pulse rounded bg-neutral-300/60" aria-hidden />
+          </div>
+        </div>
+        <div className="mt-7 flex flex-wrap gap-3">
+          {[1, 2, 3].map((i) => (
+            <span key={i} className="h-8 w-20 animate-pulse rounded-full bg-neutral-300/60" aria-hidden />
+          ))}
         </div>
       </Card>
     );
@@ -92,7 +104,7 @@ export function WeatherCard() {
 
   if (!weather) {
     return (
-      <Card className="weather-card-texture flex flex-col justify-between rounded-3xl bg-gradient-to-br from-white via-blue-50/95 to-sky-300/80 shadow-[0_2px_12px_rgba(14,116,144,0.08)]">
+      <Card className="weather-card-texture flex h-full min-h-0 flex-col justify-between rounded-3xl bg-gradient-to-br from-white via-blue-50/95 to-sky-300/80 p-5 shadow-[0_2px_12px_rgba(14,116,144,0.08)] md:p-9">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
@@ -117,7 +129,7 @@ export function WeatherCard() {
 
   return (
     <Card
-      className={`weather-card-texture flex flex-col justify-between rounded-3xl bg-gradient-to-br ${gradient} ${shadow}`}
+      className={`weather-card-texture flex h-full min-h-0 flex-col justify-between rounded-3xl bg-gradient-to-br p-5 md:p-9 ${gradient} ${shadow}`}
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0">
@@ -141,18 +153,6 @@ export function WeatherCard() {
             {descriptionBySentences(weather.theme.description)}
           </div>
         </div>
-
-        <div className="w-full shrink-0 rounded-[1.6rem] bg-white/85 px-5 py-4 text-left text-sm shadow-[0_14px_40px_rgba(0,0,0,0.06)] ring-1 ring-soft-border/80 sm:w-auto sm:px-6 sm:py-5 sm:text-right">
-          <div className="text-[12px] font-semibold text-neutral-600">
-            서울 · 오늘
-          </div>
-          <div className="mt-2 text-base font-semibold text-neutral-900">
-            체감 {weather.feelsLike}°C · 습도 {weather.humidity}%
-          </div>
-          <div className="mt-2 text-xs font-medium text-emerald-600 md:text-sm" lang="ko">
-            🌿 미세먼지 좋음 · 산책 추천
-          </div>
-        </div>
       </div>
 
       <div className="mt-7 flex flex-wrap gap-3 text-sm font-medium text-neutral-700">
@@ -161,6 +161,9 @@ export function WeatherCard() {
         </span>
         <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-soft-border/90">
           ☔ 강수 {Number(weather.precipitation.toFixed(1))} mm
+        </span>
+        <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-soft-border/90">
+          💧 습도 {weather.humidity}%
         </span>
       </div>
     </Card>

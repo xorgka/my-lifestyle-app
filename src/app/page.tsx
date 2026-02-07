@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { HomeMemoCard } from "@/components/home/HomeMemoCard";
 import { HomeWidgets } from "@/components/home/HomeWidgets";
 import { TodayAlertBar } from "@/components/home/TodayAlertBar";
 import { TodayInsightHero } from "@/components/home/TodayInsightHero";
@@ -15,11 +16,18 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-4">
         <TodayAlertBar />
-        <WeatherCard />
+        <div className="flex min-h-[240px] flex-col gap-4 md:min-h-[260px] md:flex-row md:gap-6">
+          <div className="min-w-0 flex-1">
+            <WeatherCard />
+          </div>
+          <div className="flex h-[260px] w-full shrink-0 flex-col overflow-hidden md:h-[300px] md:w-[480px]">
+            <HomeMemoCard />
+          </div>
+        </div>
       </div>
 
       {/* 오늘의 인사이트 카드 - 따뜻한 톤 + 은은한 텍스처 */}
-      <Card className="insight-texture relative flex min-w-0 flex-col justify-between rounded-3xl bg-gradient-to-br from-amber-50/70 via-[#faf8f5] to-stone-100/90 px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8">
+      <Card className="insight-texture relative flex min-w-0 flex-col justify-between rounded-3xl bg-gradient-to-br from-amber-50/70 via-[#faf8f5] to-stone-100/90 px-5 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8">
         <div className="relative min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
             TODAY&apos;S INSIGHT
