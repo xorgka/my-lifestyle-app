@@ -133,15 +133,39 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     }
   }
 
-  // --- 스케줄 (오늘/내일) ---
+  // --- 스케줄 (오늘/내일). 시간 있는 오늘 일정은 지난 건 제외 ---
   const scheduleItems = getScheduleItemsInRange(today, tomorrow, scheduleEntries);
+  const nowMs = now.getTime();
   for (const item of scheduleItems) {
+    if (item.date === today && item.time) {
+      const eventMs = new Date(item.date + "T" + item.time).getTime();
+      if (eventMs <= nowMs) continue; // 이미 지난 시간이면 알림 제외
+    }
     const parts = scheduleToParts(item, today);
     alerts.push({
       type: "schedule",
       ...parts,
       href: "/schedule",
     });
+  }
+
+  // --- 스케줄 다가오는 시간 (24시간 전, 3시간 전, 1시간 전, 30분 전) ---
+  for (const item of scheduleItems) {
+    if (!item.time) continue;
+    const eventMs = new Date(item.date + "T" + item.time).getTime();
+    if (eventMs <= nowMs) continue;
+    const diffMs = eventMs - nowMs;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const title = item.title?.trim() || "일정";
+    if (diffHours >= 23.5 && diffHours < 24.5) {
+      alerts.push({ type: "plain", text: `${title} 24시간 전`, href: "/schedule" });
+    } else if (diffHours >= 2.5 && diffHours < 3.5) {
+      alerts.push({ type: "plain", text: `${title} 3시간 전`, href: "/schedule" });
+    } else if (diffHours >= 0.75 && diffHours < 1.25) {
+      alerts.push({ type: "plain", text: `${title} 1시간 전`, href: "/schedule" });
+    } else if (diffHours >= 0.25 && diffHours < 0.5) {
+      alerts.push({ type: "plain", text: `${title} 30분 전`, href: "/schedule" });
+    }
   }
 
   // --- 루틴: 오늘 미완료 항목 ---

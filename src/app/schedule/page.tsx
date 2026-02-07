@@ -82,6 +82,11 @@ const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
   weekly: "매주",
 };
 
+/** 일정 제목 + 선택 시간 표시용 문자열 */
+function getScheduleItemDisplayTitle(item: ScheduleItem): string {
+  return item.time ? `${item.time} ${item.title}` : item.title;
+}
+
 /** 시스템 등록 일정만 카테고리 표시: 공휴일, 생일, 기타. 웹에서 추가한 사용자 일정은 카테고리 없음 */
 function getSystemCategoryLabel(item: ScheduleItem): string | null {
   if (item.type === "holiday") return "공휴일";
@@ -226,6 +231,7 @@ export default function SchedulePage() {
       yearlyMonth: item.scheduleType === "yearly" ? d.getMonth() + 1 : null,
       yearlyDay: item.scheduleType === "yearly" ? d.getDate() : null,
       weeklyDay: null,
+      time: null,
       createdAt: "",
     };
   };
@@ -324,6 +330,7 @@ export default function SchedulePage() {
                       className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200/70 bg-neutral-50 px-4 py-3"
                     >
                       <div className="min-w-0 flex-1">
+                        {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
                         <span className="font-medium text-neutral-800">{item.title}</span>
                         {getSystemCategoryLabel(item) && (
                           <span className={`ml-2 ${getSystemCategoryClass(item)}`}>
@@ -420,9 +427,10 @@ const d = new Date(dateStr + "T12:00:00");
                           }
                         }}
                         className="group flex flex-row items-center justify-between gap-2 rounded-lg border border-neutral-200/60 bg-white px-2.5 py-2 text-[14px] cursor-pointer transition hover:bg-neutral-900 hover:border-neutral-700"
-                        title={item.title}
+                        title={getScheduleItemDisplayTitle(item)}
                       >
-                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-800 group-hover:text-white" title={item.title}>
+                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-800 group-hover:text-white" title={getScheduleItemDisplayTitle(item)}>
+                          {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
                           {item.title}
                         </span>
                         <span className="flex-shrink-0 md:hidden">
@@ -457,7 +465,10 @@ const d = new Date(dateStr + "T12:00:00");
               className="mx-auto w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-semibold text-neutral-900">{weekItemModal.title}</h3>
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {weekItemModal.time && <span className="mr-1.5 text-neutral-500">{weekItemModal.time}</span>}
+                {weekItemModal.title}
+              </h3>
               <p className="mt-2 text-sm text-neutral-500">
                 {formatDisplayDate(weekItemModal.dateStr)}
               </p>
@@ -547,6 +558,7 @@ const d = new Date(dateStr + "T12:00:00");
                     }}
                     className={`cursor-pointer rounded-xl border px-4 py-3 text-sm transition ${getSystemCategoryCardClass(item)}`}
                   >
+                    {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
                     {item.title}
                     {getSystemCategoryLabel(item) && (
                       <span className={`ml-2 ${getSystemCategoryClass(item, { dayModal: true })}`}>
@@ -700,8 +712,9 @@ const d = new Date(dateStr + "T12:00:00");
                           }
                         }}
                         className={`cursor-pointer truncate rounded border px-2 py-1 text-sm transition ${getSystemCategoryCardClass(item, { calendar: true })}`}
-                        title={item.title}
+                        title={getScheduleItemDisplayTitle(item)}
                       >
+                        {item.time && <span className="mr-1 text-neutral-500">{item.time}</span>}
                         {item.title}
                       </li>
                     ))}
@@ -762,6 +775,7 @@ type FormPayload = {
   yearlyMonth: number | null;
   yearlyDay: number | null;
   weeklyDay: number | null;
+  time: string | null;
 };
 
 function ScheduleFormModal({
@@ -788,6 +802,7 @@ function ScheduleFormModal({
   const [yearlyMonth, setYearlyMonth] = useState(initial?.yearlyMonth ?? 1);
   const [yearlyDay, setYearlyDay] = useState(initial?.yearlyDay ?? 1);
   const [weeklyDay, setWeeklyDay] = useState(initial?.weeklyDay ?? 1);
+  const [time, setTime] = useState(initial?.time ?? "");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -803,6 +818,7 @@ function ScheduleFormModal({
         yearlyMonth: scheduleType === "yearly" ? yearlyMonth : null,
         yearlyDay: scheduleType === "yearly" ? yearlyDay : null,
         weeklyDay: scheduleType === "weekly" ? weeklyDay : null,
+        time: time.trim() || null,
       });
       onClose();
     } finally {
@@ -937,6 +953,17 @@ function ScheduleFormModal({
               </div>
             </div>
           )}
+          <div>
+            <label className="block text-sm font-medium text-neutral-600">
+              시간 <span className="text-neutral-400">(선택)</span>
+            </label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-4 py-2.5 text-neutral-900 focus:border-neutral-400 focus:outline-none"
+            />
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             <div className="flex gap-2">
               {initial && onDelete && (

@@ -17,6 +17,8 @@ export type ScheduleEntry = {
   yearlyMonth: number | null;
   yearlyDay: number | null;
   weeklyDay: number | null; // 0=일..6=토
+  /** 선택: 시간 (HH:mm). 없으면 null */
+  time: string | null;
   createdAt: string;
 };
 
@@ -31,6 +33,8 @@ export type ScheduleItem = {
   scheduleType?: ScheduleType;
   /** builtin일 때 표시용: 생일 vs 기타 */
   builtinKind?: "birthday" | "other";
+  /** 선택: 시간 (HH:mm) */
+  time?: string | null;
 };
 
 /** 기본 등록 생일 (매년 반복) */
@@ -125,6 +129,7 @@ function loadFromStorage(): ScheduleEntry[] {
       yearlyMonth: r.yearlyMonth != null ? Number(r.yearlyMonth) : null,
       yearlyDay: r.yearlyDay != null ? Number(r.yearlyDay) : null,
       weeklyDay: r.weeklyDay != null ? Number(r.weeklyDay) : null,
+      time: r.time != null && r.time !== "" ? String(r.time) : null,
       createdAt: String(r.createdAt ?? ""),
     }));
   } catch {
@@ -145,7 +150,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
     await syncBuiltinDeletedFromSupabase();
     const { data, error } = await supabase
       .from("schedule_entries")
-      .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, created_at")
+      .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at")
       .order("created_at", { ascending: false });
     if (error) throw error;
     let list = (data ?? []).map((row) => ({
@@ -157,6 +162,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
       yearlyMonth: row.yearly_month ?? null,
       yearlyDay: row.yearly_day ?? null,
       weeklyDay: row.weekly_day ?? null,
+      time: row.time != null && row.time !== "" ? String(row.time) : null,
       createdAt: row.created_at ?? new Date().toISOString(),
     }));
     // DB가 비어있고 로컬에 데이터가 있으면 로컬 → Supabase 마이그레이션 (기기 간 동기화)
@@ -172,12 +178,13 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
             yearly_month: e.yearlyMonth ?? null,
             yearly_day: e.yearlyDay ?? null,
             weekly_day: e.weeklyDay ?? null,
+            time: e.time ?? null,
           });
           if (insertErr) console.error("[schedule] migrate local→Supabase", e.id, insertErr);
         }
         const { data: refetch, error: refetchErr } = await supabase
           .from("schedule_entries")
-          .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, created_at")
+          .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at")
           .order("created_at", { ascending: false });
         if (!refetchErr && refetch) {
           list = refetch.map((row) => ({
@@ -189,6 +196,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
             yearlyMonth: row.yearly_month ?? null,
             yearlyDay: row.yearly_day ?? null,
             weeklyDay: row.weekly_day ?? null,
+            time: row.time != null && row.time !== "" ? String(row.time) : null,
             createdAt: row.created_at ?? new Date().toISOString(),
           }));
         }
@@ -236,6 +244,7 @@ function expandEntriesInRange(entries: ScheduleEntry[], start: string, end: stri
           type: "user",
           entryId: e.id,
           scheduleType: e.scheduleType,
+          time: e.time ?? undefined,
         });
       }
     }
@@ -354,12 +363,13 @@ export async function addScheduleEntry(entry: Omit<ScheduleEntry, "id" | "create
       yearly_month: entry.yearlyMonth ?? null,
       yearly_day: entry.yearlyDay ?? null,
       weekly_day: entry.weeklyDay ?? null,
+      time: entry.time ?? null,
     })
-    .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, created_at")
+    .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at")
     .single();
   if (error) {
     console.error("[schedule] addScheduleEntry", error);
-    const fallback: ScheduleEntry = { ...entry, id: `local-${Date.now()}`, createdAt };
+    const fallback: ScheduleEntry = { ...entry, id: `local-${Date.now()}`, createdAt, time: entry.time ?? null };
     const list = loadFromStorage();
     list.unshift(fallback);
     saveToStorage(list);
@@ -376,6 +386,7 @@ export async function addScheduleEntry(entry: Omit<ScheduleEntry, "id" | "create
     yearlyMonth: data.yearly_month ?? null,
     yearlyDay: data.yearly_day ?? null,
     weeklyDay: data.weekly_day ?? null,
+    time: data.time != null && data.time !== "" ? String(data.time) : null,
     createdAt: data.created_at ?? createdAt,
   };
 }
@@ -402,6 +413,7 @@ export async function updateScheduleEntry(
   if (patch.yearlyMonth != null) row.yearly_month = patch.yearlyMonth;
   if (patch.yearlyDay != null) row.yearly_day = patch.yearlyDay;
   if (patch.weeklyDay != null) row.weekly_day = patch.weeklyDay;
+  if (patch.time !== undefined) row.time = patch.time;
   const { error } = await supabase.from("schedule_entries").update(row).eq("id", id);
   if (error) console.error("[schedule] updateScheduleEntry", error);
   else notifyScheduleChanged();
