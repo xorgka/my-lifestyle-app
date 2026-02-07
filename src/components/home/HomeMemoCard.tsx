@@ -45,7 +45,7 @@ export function HomeMemoCard() {
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       {pinnedMemos.length === 0 ? (
         <div
-          className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border shadow-[0_4px_14px_rgba(0,0,0,0.08)]"
+          className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border shadow-[0_6px_20px_rgba(0,0,0,0.12)]"
           style={{
             backgroundColor: MEMO_COLORS.black.bodyBg,
             borderColor: "rgba(0,0,0,0.11)",

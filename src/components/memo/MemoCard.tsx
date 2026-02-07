@@ -38,7 +38,7 @@ export function MemoCard({
   const rootStyle = {
     backgroundColor: colors.bodyBg,
     borderColor: variant === "full" ? colors.border : "rgba(0,0,0,0.11)",
-    boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+    boxShadow: variant === "preview" ? "0 6px 20px rgba(0,0,0,0.12)" : "0 4px 14px rgba(0,0,0,0.08)",
   };
 
   return (
