@@ -11,7 +11,14 @@ export function HomeMemoCard() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    setMemos(loadMemos().filter((m) => m.pinned));
+    const pinned = loadMemos()
+      .filter((m) => m.pinned)
+      .sort((a, b) => {
+        const aAt = a.pinnedAt ?? a.createdAt;
+        const bAt = b.pinnedAt ?? b.createdAt;
+        return new Date(bAt).getTime() - new Date(aAt).getTime();
+      });
+    setMemos(pinned);
   }, []);
 
   const pinnedMemos = memos;

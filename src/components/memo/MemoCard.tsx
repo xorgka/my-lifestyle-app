@@ -11,7 +11,7 @@ type MemoCardProps = {
   /** preview: 오른쪽 헤더에 표시 (예: 메모 페이지 링크) */
   headerRight?: ReactNode;
   /** full only */
-  updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned">>) => void;
+  updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt">>) => void;
   deleteMemo?: (id: string) => void;
   colorMenuId?: string | null;
   setColorMenuId?: (id: string | null) => void;
@@ -101,7 +101,10 @@ export function MemoCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                updateMemo(memo.id, { pinned: !memo.pinned });
+                updateMemo(memo.id, {
+                pinned: !memo.pinned,
+                pinnedAt: memo.pinned ? undefined : new Date().toISOString(),
+              });
               }}
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded [&_svg]:size-4 ${memo.pinned ? "opacity-100" : "opacity-25 hover:opacity-100"}`}
               style={{ color: memo.pinned ? "#fff" : (colors.headerFg ?? "currentColor") }}

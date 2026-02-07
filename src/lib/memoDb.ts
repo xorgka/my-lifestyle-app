@@ -16,6 +16,8 @@ export type Memo = {
   createdAt: string; // ISO
   color: MemoColorId;
   pinned?: boolean;
+  /** 고정(별) 누른 시각(ISO). 홈 노출 순서에 사용 */
+  pinnedAt?: string;
   title?: string;
   /** 휴지통 이동 시각(ISO). 있으면 휴지통에 있음 */
   deletedAt?: string;

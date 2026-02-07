@@ -89,7 +89,7 @@ export default function MemoPage() {
 
   const updateMemo = (
     id: string,
-    updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "x" | "y" | "width" | "height">>
+    updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height">>
   ) => {
     persist(
       memos.map((m) => (m.id === id ? { ...m, ...updates } : m))
