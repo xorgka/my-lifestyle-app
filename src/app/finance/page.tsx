@@ -714,10 +714,13 @@ export default function FinancePage() {
       return;
     }
     if (persist) {
-      const nextKeywords: CategoryKeywords = {
-        ...keywords,
-        [cat]: [...keywords[cat], w],
-      };
+      // 한 키워드는 한 카테고리에만 속하도록: 다른 카테고리에서는 제거 (고정비↔세금 이동 등)
+      const categoryIds = Object.keys(keywords) as CategoryId[];
+      const nextKeywords: CategoryKeywords = { ...keywords };
+      for (const c of categoryIds) {
+        if (c === cat) nextKeywords[c] = [...(nextKeywords[c] ?? []), w];
+        else nextKeywords[c] = (nextKeywords[c] ?? []).filter((x) => x !== w);
+      }
       setKeywords(nextKeywords);
       saveKeywords(nextKeywords).catch(console.error);
     } else {
