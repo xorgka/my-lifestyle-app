@@ -31,7 +31,7 @@ export type DisplayCategoryId = CategoryId | "미분류";
 export const CATEGORY_LABELS: Record<DisplayCategoryId, string> = {
   고정비: "고정비",
   사업경비: "사업경비",
-  세금: "세금",
+  세금: "세금·공과금",
   생활비: "생활비",
   기타: "기타",
   미분류: "미분류",
