@@ -524,7 +524,7 @@ export default function RoutinePage() {
       {/* 오늘의 루틴 목록 */}
       <Card className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 md:gap-2">
             <button
               type="button"
               onClick={() => {
@@ -534,16 +534,16 @@ export default function RoutinePage() {
                   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
                 );
               }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900 md:h-9 md:w-9"
               aria-label="이전 날"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="h-4 w-4 md:h-5 md:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h2 className="min-w-0 text-xl font-semibold text-neutral-900">
-              오늘의 루틴
-              <span className="ml-2 text-xs font-normal text-neutral-400">
+            <h2 className="min-w-[7.5rem] shrink-0 text-xl font-semibold text-neutral-900">
+              <span className="whitespace-nowrap">오늘의 루틴</span>
+              <span className="ml-1.5 text-[13px] font-normal text-neutral-400 md:ml-2 md:text-sm">
                 {(() => {
                   const d = new Date(listViewDateKey + "T12:00:00");
                   const w = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
@@ -560,10 +560,10 @@ export default function RoutinePage() {
                   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
                 );
               }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900 md:h-9 md:w-9"
               aria-label="다음 날"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="h-4 w-4 md:h-5 md:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
