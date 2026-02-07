@@ -13,7 +13,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-5 md:px-10 md:py-10 sm:px-4 sm:pt-4 sm:pb-7">
+    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-4 md:px-10 md:pt-10 md:pb-4 sm:px-4 sm:pt-4 sm:pb-5">
       {/* 모바일: 상단 바 (홈 + 메뉴) */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 md:hidden">
         <Link
@@ -69,7 +69,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </p>
             </div>
           )}
-          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:min-h-[100vh] md:gap-6 md:rounded-3xl md:p-8">
+          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:px-8 md:pt-8 md:pb-4">
             {children}
           </div>
         </main>
