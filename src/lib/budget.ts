@@ -398,6 +398,54 @@ export function getTaxExpenseByMonth(
   return byMonth;
 }
 
+/** 월별·세금경비 항목별 세부 내역 (항목명 + 금액). 수입 모달에서 월별 펼치기용 */
+export function getTaxExpenseDetailsByMonth(
+  year: number,
+  entries: BudgetEntry[],
+  entryDetails: BudgetEntryDetail[],
+  keywords: CategoryKeywords,
+  monthExtras: MonthExtraKeywords
+): Record<number, Record<string, { item: string; amount: number }[]>> {
+  const yearPrefix = String(year);
+  const inYear = entries.filter((e) => e.date.startsWith(yearPrefix));
+  const byMonth: Record<number, Record<string, { item: string; amount: number }[]>> = {};
+  const catIds = ["부가세", "종합소득세", "국민연금", "건강보험", "사업경비", "기타"] as const;
+  for (let m = 1; m <= 12; m++) {
+    byMonth[m] = {};
+    catIds.forEach((c) => {
+      byMonth[m][c] = [];
+    });
+  }
+  const pushToMonth = (month: number, item: string, amount: number, kw: CategoryKeywords) => {
+    const cat = getCategoryForEntry(item, kw);
+    const lower = item.trim().toLowerCase();
+    const R = byMonth[month];
+    let target: string | null = null;
+    if (lower.includes("부가세")) target = "부가세";
+    else if (lower.includes("종합소득세")) target = "종합소득세";
+    else if (lower.includes("국민연금")) target = "국민연금";
+    else if (lower.includes("건강보험")) target = "건강보험";
+    else if (lower.includes("사업경비") || cat === "사업경비") target = "사업경비";
+    else if (lower.includes("자동차세") || lower.includes("면허세")) target = "기타";
+    if (target) R[target].push({ item: item.trim() || "(항목 없음)", amount });
+  };
+  for (const e of inYear) {
+    const month = parseInt(e.date.slice(5, 7), 10);
+    if (month < 1 || month > 12) continue;
+    const yyyyMm = e.date.slice(0, 7);
+    const kw = getKeywordsForMonth(keywords, monthExtras, yyyyMm);
+    const details = entryDetails.filter((d) => d.parentId === e.id);
+    if (details.length > 0) {
+      for (const d of details) {
+        pushToMonth(month, d.item.trim(), d.amount, kw);
+      }
+    } else {
+      pushToMonth(month, e.item, e.amount, kw);
+    }
+  }
+  return byMonth;
+}
+
 /** 월 총 지출에서 제외할 금액인지 (적금, IRP, ISA, 주택청약) */
 export function isExcludedFromMonthTotal(item: string): boolean {
   return matchesKeyword(item, EXCLUDE_FROM_MONTH_TOTAL);

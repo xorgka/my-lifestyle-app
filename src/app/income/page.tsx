@@ -10,6 +10,7 @@ import {
   type BudgetEntryDetail,
   DEFAULT_KEYWORDS,
   getTaxExpenseByMonth,
+  getTaxExpenseDetailsByMonth,
   loadEntries,
   loadEntryDetails,
   loadKeywords,
@@ -93,6 +94,8 @@ export default function IncomePage() {
   const [taxCategoryModal, setTaxCategoryModal] = useState<
     (typeof TAX_EXPENSE_CATEGORIES)[number] | null
   >(null);
+  /** 모달에서 펼친 월 (세부 내역 표시) */
+  const [expandedTaxMonths, setExpandedTaxMonths] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     let entries = await loadIncomeEntries();
@@ -144,6 +147,10 @@ export default function IncomePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!taxCategoryModal) setExpandedTaxMonths(new Set());
+  }, [taxCategoryModal]);
 
   const incomeEntriesForYear = useMemo(
     () => incomeEntries.filter((e) => e.year === incomeYear),
@@ -218,6 +225,46 @@ export default function IncomePage() {
       detailsInYear = budgetEntryDetails.filter((d) => entryIds.has(d.parentId));
     }
     return getTaxExpenseByMonth(
+      incomeYear,
+      entriesInYear,
+      detailsInYear,
+      budgetKeywords,
+      budgetMonthExtras
+    );
+  }, [
+    incomeYear,
+    budgetEntries,
+    budgetEntryDetails,
+    budgetKeywords,
+    budgetMonthExtras,
+  ]);
+
+  /** 해당 연도 월별·세금경비 항목별 세부 내역 (모달 펼치기용) */
+  const taxExpenseDetailsByMonth = useMemo(() => {
+    let entriesInYear: BudgetEntry[];
+    let detailsInYear: BudgetEntryDetail[];
+    if (incomeYear === 2021) {
+      entriesInYear = SEED_BUDGET_2021_TAX;
+      detailsInYear = [];
+    } else if (incomeYear === 2022) {
+      entriesInYear = SEED_BUDGET_2022_TAX;
+      detailsInYear = [];
+    } else if (incomeYear === 2023) {
+      entriesInYear = SEED_BUDGET_2023_TAX;
+      detailsInYear = [];
+    } else if (incomeYear === 2024) {
+      entriesInYear = SEED_BUDGET_2024_TAX;
+      detailsInYear = [];
+    } else if (incomeYear === 2025) {
+      entriesInYear = SEED_BUDGET_2025_TAX;
+      detailsInYear = [];
+    } else {
+      const yearPrefix = String(incomeYear);
+      entriesInYear = budgetEntries.filter((e) => e.date.startsWith(yearPrefix));
+      const entryIds = new Set(entriesInYear.map((e) => e.id));
+      detailsInYear = budgetEntryDetails.filter((d) => entryIds.has(d.parentId));
+    }
+    return getTaxExpenseDetailsByMonth(
       incomeYear,
       entriesInYear,
       detailsInYear,
@@ -886,59 +933,118 @@ export default function IncomePage() {
         </Card>
       </div>
 
-      {/* 세금·경비 항목 월별 내역 모달 (인라인 렌더, 포탈 없이 z-[9999]로 최상단) */}
-      {taxCategoryModal ? (
-        <div
-          className="fixed inset-0 z-[9999] flex min-h-screen min-w-full items-center justify-center bg-black/55 p-4"
-          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
-          onClick={() => setTaxCategoryModal(null)}
-          onKeyDown={(e) => e.key === "Escape" && setTaxCategoryModal(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="tax-modal-title"
-        >
+      {/* 세금·경비 항목 월별 내역 모달 (body 포탈 → 화면 전체 어둡게, 정중앙) */}
+      {taxCategoryModal &&
+        typeof document !== "undefined" &&
+        document.body &&
+        createPortal(
           <div
-            className="max-h-[90vh] w-full max-w-md shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100dvh",
+              minHeight: "100vh",
+              backgroundColor: "rgba(0,0,0,0.6)",
+            }}
+            onClick={() => setTaxCategoryModal(null)}
+            onKeyDown={(e) => e.key === "Escape" && setTaxCategoryModal(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tax-modal-title"
           >
-            <h3 id="tax-modal-title" className="text-lg font-semibold text-neutral-900">
-              {taxCategoryModal} · {incomeYear}년 월별
-            </h3>
-            <p className="mt-1 text-sm text-neutral-500">
-              월별 금액을 확인할 수 있어요.
-            </p>
-            <ul className="mt-4 max-h-[50vh] space-y-1.5 overflow-y-auto">
-              {MONTHS.map((m) => {
-                const amt = taxExpenseByMonth[m]?.[taxCategoryModal] ?? 0;
-                return (
-                  <li
-                    key={m}
-                    className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 text-sm"
-                  >
-                    <span className="text-neutral-700">{m}월</span>
-                    <span className="font-medium text-red-600">
-                      {formatNum(amt)}원
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="mt-4 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-              <span className="font-semibold text-neutral-800">합계</span>
-              <span className="text-lg font-bold text-red-600">
-                {formatNum(budgetAmountByTaxCategory[taxCategoryModal] ?? 0)}원
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setTaxCategoryModal(null)}
-              className="mt-4 w-full rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+            <div
+              className="max-h-[85vh] w-full max-w-md shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
             >
-              닫기
-            </button>
-          </div>
-        </div>
-      ) : null}
+              <h3 id="tax-modal-title" className="text-lg font-semibold text-neutral-900">
+                {taxCategoryModal} · {incomeYear}년 월별
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                월별 금액을 확인할 수 있어요.
+              </p>
+              <ul className="mt-4 max-h-[50vh] space-y-1.5 overflow-y-auto">
+                {MONTHS.map((m) => {
+                  const amt = taxExpenseByMonth[m]?.[taxCategoryModal] ?? 0;
+                  const details = taxExpenseDetailsByMonth[m]?.[taxCategoryModal] ?? [];
+                  const isExpanded = expandedTaxMonths.has(m);
+                  const hasDetails = details.length > 0;
+                  return (
+                    <li
+                      key={m}
+                      className="rounded-lg border border-neutral-100 bg-neutral-50/50 text-sm"
+                    >
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          {hasDetails ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedTaxMonths((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(m)) next.delete(m);
+                                  else next.add(m);
+                                  return next;
+                                })
+                              }
+                              className="flex shrink-0 items-center justify-center rounded p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
+                              aria-expanded={isExpanded}
+                              aria-label={isExpanded ? `${m}월 접기` : `${m}월 펼치기`}
+                            >
+                              <svg
+                                className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          ) : null}
+                          <span className="text-neutral-700">{m}월</span>
+                        </div>
+                        <span className="font-medium text-red-600">
+                          {formatNum(amt)}원
+                        </span>
+                      </div>
+                      {isExpanded && hasDetails ? (
+                        <ul className="border-t border-neutral-100 bg-white/80 px-3 py-2 pl-8">
+                          {details.map((d, i) => (
+                            <li
+                              key={`${m}-${i}-${d.item}`}
+                              className="flex items-center justify-between py-1.5 text-neutral-600"
+                            >
+                              <span className="min-w-0 truncate pr-2">{d.item}</span>
+                              <span className="shrink-0 font-medium text-red-600">
+                                {formatNum(d.amount)}원
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
+                <span className="font-semibold text-neutral-800">합계</span>
+                <span className="text-lg font-bold text-red-600">
+                  {formatNum(budgetAmountByTaxCategory[taxCategoryModal] ?? 0)}원
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTaxCategoryModal(null)}
+                className="mt-4 w-full rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+              >
+                닫기
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* 내보내기 모달 (body에 포탈 → 화면 전체 어둡게) */}
       {showExportModal &&
