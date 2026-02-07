@@ -267,9 +267,10 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     const days = datesDone.size;
     if (days > 0) {
       const label = keyword === "헬스" ? "헬스장" : keyword;
+      const verb = keyword === "헬스" ? "갔어요" : "했어요";
       alerts.push({
         type: "plain",
-        text: `이번달 ${label}은 ${days}일 했어요. 🔥`,
+        text: `이번달 ${label}은 ${days}일 ${verb}. 🔥`,
         href: "/routine",
       });
     }
