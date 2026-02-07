@@ -886,59 +886,59 @@ export default function IncomePage() {
         </Card>
       </div>
 
-      {/* 세금·경비 항목 월별 내역 모달 */}
-      {taxCategoryModal &&
-        typeof document !== "undefined" &&
-        document.body &&
-        createPortal(
+      {/* 세금·경비 항목 월별 내역 모달 (인라인 렌더, 포탈 없이 z-[9999]로 최상단) */}
+      {taxCategoryModal ? (
+        <div
+          className="fixed inset-0 z-[9999] flex min-h-screen min-w-full items-center justify-center bg-black/55 p-4"
+          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
+          onClick={() => setTaxCategoryModal(null)}
+          onKeyDown={(e) => e.key === "Escape" && setTaxCategoryModal(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tax-modal-title"
+        >
           <div
-            className="fixed inset-0 z-[200] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/55 p-4"
-            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-            onClick={() => setTaxCategoryModal(null)}
+            className="max-h-[90vh] w-full max-w-md shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-neutral-900">
-                {taxCategoryModal} · {incomeYear}년 월별
-              </h3>
-              <p className="mt-1 text-sm text-neutral-500">
-                월별 금액을 확인할 수 있어요.
-              </p>
-              <ul className="mt-4 max-h-[50vh] space-y-1.5 overflow-y-auto">
-                {MONTHS.map((m) => {
-                  const amt = taxExpenseByMonth[m]?.[taxCategoryModal] ?? 0;
-                  return (
-                    <li
-                      key={m}
-                      className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 text-sm"
-                    >
-                      <span className="text-neutral-700">{m}월</span>
-                      <span className="font-medium text-red-600">
-                        {formatNum(amt)}원
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="mt-4 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-                <span className="font-semibold text-neutral-800">합계</span>
-                <span className="text-lg font-bold text-red-600">
-                  {formatNum(budgetAmountByTaxCategory[taxCategoryModal] ?? 0)}원
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTaxCategoryModal(null)}
-                className="mt-4 w-full rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-              >
-                닫기
-              </button>
+            <h3 id="tax-modal-title" className="text-lg font-semibold text-neutral-900">
+              {taxCategoryModal} · {incomeYear}년 월별
+            </h3>
+            <p className="mt-1 text-sm text-neutral-500">
+              월별 금액을 확인할 수 있어요.
+            </p>
+            <ul className="mt-4 max-h-[50vh] space-y-1.5 overflow-y-auto">
+              {MONTHS.map((m) => {
+                const amt = taxExpenseByMonth[m]?.[taxCategoryModal] ?? 0;
+                return (
+                  <li
+                    key={m}
+                    className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 text-sm"
+                  >
+                    <span className="text-neutral-700">{m}월</span>
+                    <span className="font-medium text-red-600">
+                      {formatNum(amt)}원
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-4 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
+              <span className="font-semibold text-neutral-800">합계</span>
+              <span className="text-lg font-bold text-red-600">
+                {formatNum(budgetAmountByTaxCategory[taxCategoryModal] ?? 0)}원
+              </span>
             </div>
-          </div>,
-          document.body
-        )}
+            <button
+              type="button"
+              onClick={() => setTaxCategoryModal(null)}
+              className="mt-4 w-full rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* 내보내기 모달 (body에 포탈 → 화면 전체 어둡게) */}
       {showExportModal &&

@@ -340,6 +340,12 @@ export function getCategoryForEntry(
   item: string,
   keywordsForMonth: CategoryKeywords
 ): CategoryId {
+  const lower = item.trim().toLowerCase();
+  // 건강보험·국민연금은 세금/고정비 둘 다에 있어도 세금 우선 (사용자가 세금으로 옮긴 경우 대비)
+  if (lower.includes("건강보험") || lower.includes("국민연금")) {
+    if (matchesKeyword(item, keywordsForMonth["세금"])) return "세금";
+    if (matchesKeyword(item, keywordsForMonth["고정비"])) return "고정비";
+  }
   const order: CategoryId[] = ["고정비", "사업경비", "세금", "생활비", "기타"];
   for (const cat of order) {
     if (cat !== "기타" && matchesKeyword(item, keywordsForMonth[cat])) return cat;
