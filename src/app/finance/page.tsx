@@ -863,7 +863,9 @@ export default function FinancePage() {
       const 지출표시값 =
         FIXED_TOTAL_EXPENSE[yNum] ??
         (yNum >= 2026
-          ? entries.filter((e) => e.date.startsWith(String(yNum))).reduce((s, e) => s + e.amount, 0)
+          ? entries
+              .filter((e) => e.date.startsWith(String(yNum)))
+              .reduce((s, e) => s + (isExcludedFromMonthTotal(e.item) ? 0 : e.amount), 0)
           : null);
       const 지출데이터있음 = 지출표시값 != null;
       const 지출 = 지출표시값 ?? 0;
@@ -2632,7 +2634,9 @@ placeholder="항목"
           <table className="w-full min-w-[480px] text-left text-sm">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50/80">
-                <th className="px-4 py-3 font-semibold text-neutral-700">연도</th>
+                <th className="sticky left-0 z-10 min-w-[4.5rem] bg-neutral-50 px-4 py-3 font-semibold text-neutral-700 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.06)]">
+                  연도
+                </th>
                 <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 매출</th>
                 <th className="px-4 py-3 font-semibold text-neutral-700 text-right">순수익</th>
                 <th className="px-4 py-3 font-semibold text-neutral-700 text-right">총 지출</th>
@@ -2647,9 +2651,11 @@ placeholder="항목"
                 return (
                   <tr
                     key={row.year}
-                    className="border-b border-neutral-100 transition hover:bg-neutral-50 hover:shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)]"
+                    className="group border-b border-neutral-100 bg-white transition hover:bg-neutral-50 hover:shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)]"
                   >
-                    <td className="px-4 py-3 font-medium text-neutral-800">{row.year}년</td>
+                    <td className="sticky left-0 z-10 min-w-[4.5rem] bg-white px-4 py-3 font-medium text-neutral-800 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
+                      {row.year}년
+                    </td>
                     <td className="px-4 py-3 text-right text-neutral-700">
                       <AmountToggle amount={row.매출} />
                     </td>
