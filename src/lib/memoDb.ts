@@ -10,7 +10,9 @@ const MEMO_KEY = "my-lifestyle-memos";
 export type MemoColorId =
   | "black"
   | "wine"
-  | "purple";
+  | "purple"
+  | "orange"
+  | "warmgray";
 
 export type Memo = {
   id: string;
@@ -223,5 +225,19 @@ export const MEMO_COLORS: Record<
     border: "#6b21a8",
     label: "퍼플",
     headerFg: "#f5f3ff",
+  },
+  orange: {
+    headerBg: "#c2410c",
+    bodyBg: "#fff7ed",
+    border: "#ea580c",
+    label: "주황",
+    headerFg: "#ffffff",
+  },
+  warmgray: {
+    headerBg: "#57534e",
+    bodyBg: "#fafaf9",
+    border: "#78716c",
+    label: "웜 그레이",
+    headerFg: "#ffffff",
   },
 };

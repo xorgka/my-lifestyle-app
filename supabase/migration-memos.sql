@@ -7,7 +7,7 @@ create table if not exists memos (
   id text primary key,
   content text not null default '',
   created_at timestamptz not null default now(),
-  color text not null default 'black' check (color in ('black', 'wine', 'purple')),
+  color text not null default 'black' check (color in ('black', 'wine', 'purple', 'orange', 'warmgray')),
   pinned boolean not null default false,
   pinned_at timestamptz,
   title text,
