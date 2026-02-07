@@ -855,30 +855,24 @@ export default function IncomePage() {
             {TAX_EXPENSE_CATEGORIES.map((cat) => {
               const fromBudget = budgetAmountByTaxCategory[cat] ?? 0;
               return (
-                <li
-                  key={cat}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setTaxCategoryModal(cat)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setTaxCategoryModal(cat);
-                    }
-                  }}
-                  className="group flex cursor-pointer items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3 transition-colors hover:bg-neutral-50"
-                >
-                  <span className="relative inline-block font-medium text-neutral-800">
-                    {cat}
-                    {cat === "기타" && (
-                      <span className="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-sm text-white shadow-md group-hover:block" role="tooltip">
-                        포함 : 자동차세, 면허세
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-medium text-red-600">
-                    {formatNum(fromBudget)}원
-                  </span>
+                <li key={cat} className="list-none">
+                  <button
+                    type="button"
+                    onClick={() => setTaxCategoryModal(cat)}
+                    className="group flex w-full cursor-pointer items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3 text-left transition-colors hover:bg-neutral-50"
+                  >
+                    <span className="relative inline-block font-medium text-neutral-800">
+                      {cat}
+                      {cat === "기타" && (
+                        <span className="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-sm text-white shadow-md group-hover:block" role="tooltip">
+                          포함 : 자동차세, 면허세
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-medium text-red-600">
+                      {formatNum(fromBudget)}원
+                    </span>
+                  </button>
                 </li>
               );
             })}
@@ -895,9 +889,10 @@ export default function IncomePage() {
       {/* 세금·경비 항목 월별 내역 모달 */}
       {taxCategoryModal &&
         typeof document !== "undefined" &&
+        document.body &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/55 p-4"
+            className="fixed inset-0 z-[200] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/55 p-4"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={() => setTaxCategoryModal(null)}
           >

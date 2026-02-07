@@ -252,13 +252,38 @@ export async function insertEntry(entry: BudgetEntry): Promise<BudgetEntry> {
   return entry;
 }
 
+const CATEGORY_ORDER: CategoryId[] = ["고정비", "사업경비", "세금", "생활비", "기타"];
+
+/** 같은 키워드가 여러 카테고리에 있으면 순서상 마지막 카테고리에만 남김 (예: 건강보험 고정비+세금 → 세금만) */
+function dedupeKeywords(out: CategoryKeywords): void {
+  const wordToCategories = new Map<string, CategoryId[]>();
+  for (const cat of CATEGORY_ORDER) {
+    for (const w of out[cat] ?? []) {
+      if (!wordToCategories.has(w)) wordToCategories.set(w, []);
+      wordToCategories.get(w)!.push(cat);
+    }
+  }
+  for (const [word, cats] of wordToCategories) {
+    if (cats.length <= 1) continue;
+    const keepOnlyIn = cats[cats.length - 1];
+    for (const c of CATEGORY_ORDER) {
+      if (c !== keepOnlyIn) out[c] = (out[c] ?? []).filter((x) => x !== word);
+    }
+  }
+}
+
 export async function loadKeywords(): Promise<CategoryKeywords> {
-  if (supabase) return loadKeywordsFromDb();
+  if (supabase) {
+    const out = await loadKeywordsFromDb();
+    dedupeKeywords(out);
+    return out;
+  }
   const data = loadJson<CategoryKeywords>(BUDGET_KEYWORDS_KEY, DEFAULT_KEYWORDS);
   const out = { ...DEFAULT_KEYWORDS };
   (Object.keys(out) as CategoryId[]).forEach((cat) => {
     if (Array.isArray(data[cat])) out[cat] = [...data[cat]];
   });
+  dedupeKeywords(out);
   return out;
 }
 
