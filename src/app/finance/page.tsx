@@ -1491,19 +1491,8 @@ placeholder="항목"
               </select>
             </div>
             <div className="text-base font-semibold text-neutral-800">{viewYearByMonthGlance.year}년 1~12월 지출</div>
-            <div className="mt-2 grid grid-cols-6 gap-2">
-              {[1, 2, 3, 4, 5, 6].map((m) => {
-                const total = viewYearByMonthGlance.byMonth[m] ?? 0;
-                return (
-                  <div key={m} className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center">
-                    <div className="text-xs text-neutral-500">{m}월</div>
-                    <div className="mt-0.5 text-sm font-semibold text-neutral-800">{formatAmountShort(total)}</div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 grid grid-cols-6 gap-2">
-              {[7, 8, 9, 10, 11, 12].map((m) => {
+            <div className="mt-2 grid grid-cols-4 gap-2 md:grid-cols-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
                 const total = viewYearByMonthGlance.byMonth[m] ?? 0;
                 return (
                   <div key={m} className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center">
