@@ -660,12 +660,13 @@ const d = new Date(dateStr + "T12:00:00");
             ))}
             {getCalendarCells(calendarYear, calendarMonth).map((cell, idx) => {
               const isHoliday = getHolidaysOn(cell.dateStr).length > 0;
+              const isToday = cell.isCurrentMonth && cell.dateStr === todayStr();
               return (
                 <div
                   key={idx}
                   className={`flex min-h-[72px] flex-col overflow-hidden p-1.5 md:min-h-[80px] md:overflow-y-auto md:p-2 ${
                     cell.isCurrentMonth ? "bg-white" : "bg-neutral-50"
-                  }`}
+                  } ${isToday ? "ring-2 ring-neutral-800 ring-inset" : ""}`}
                 >
                   <span
                     className={`text-xs font-medium md:text-sm ${

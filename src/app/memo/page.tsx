@@ -51,6 +51,7 @@ export default function MemoPage() {
   const dragStartRef = useRef<{ startX: number; startY: number; memoX: number; memoY: number; x: number; y: number } | null>(null);
   const dragPendingRef = useRef<{ id: string; startX: number; startY: number; memoX: number; memoY: number } | null>(null);
   const resizeStartRef = useRef<{ startX: number; startY: number; w: number; h: number; x: number; y: number } | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const DRAG_THRESHOLD = 6;
 
   const load = useCallback(async () => {
@@ -83,12 +84,20 @@ export default function MemoPage() {
 
   const addMemo = () => {
     const newMemo = createMemo();
-    const gap = 20;
-    const maxX = Math.max(0, ...memos.map((m) => (m.x ?? 20) + (m.width ?? MEMO_DEFAULT_WIDTH)));
-    newMemo.x = maxX + gap;
-    newMemo.y = 20;
     newMemo.width = MEMO_DEFAULT_WIDTH;
     newMemo.height = MEMO_DEFAULT_HEIGHT;
+    if (isDesktop && typeof window !== "undefined" && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const viewportCenterX = window.innerWidth / 2 - rect.left - MEMO_DEFAULT_WIDTH / 2;
+      const viewportCenterY = window.innerHeight / 2 - rect.top - MEMO_DEFAULT_HEIGHT / 2;
+      newMemo.x = Math.max(0, Math.round(viewportCenterX));
+      newMemo.y = Math.max(0, Math.round(viewportCenterY));
+    } else {
+      const gap = 20;
+      const maxX = Math.max(0, ...memos.map((m) => (m.x ?? 20) + (m.width ?? MEMO_DEFAULT_WIDTH)));
+      newMemo.x = maxX + gap;
+      newMemo.y = 20;
+    }
     void persist([newMemo, ...memos]);
   };
 
@@ -369,6 +378,7 @@ export default function MemoPage() {
       )}
 
       <div
+        ref={canvasRef}
         className="flex w-full flex-col gap-4 md:relative md:min-h-[calc(100vh-12rem)]"
         style={isDesktop ? { minHeight: 600 } : undefined}
       >
