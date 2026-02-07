@@ -355,6 +355,8 @@ export default function JournalPage() {
     return localDateStr(d);
   });
   const [exportRangeTo, setExportRangeTo] = useState(todayStr());
+  /** 내보내기 형식: MD(마크다운) | TXT(일반 텍스트) */
+  const [exportFormat, setExportFormat] = useState<"md" | "txt">("md");
   const searchQueryNorm = searchQuery.trim().toLowerCase();
   const searchResults = searchQueryNorm
     ? entries
@@ -388,14 +390,19 @@ export default function JournalPage() {
   const runExport = () => {
     const [from, to] = getExportFromTo();
     const list = entries.filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
-    const text = list
-      .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
-      .join("---\n\n");
-    const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+    const isTxt = exportFormat === "txt";
+    const text = isTxt
+      ? list
+          .map((e) => `날짜: ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
+          .join("---\n\n")
+      : list
+          .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
+          .join("---\n\n");
+    const blob = new Blob([text], { type: isTxt ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `일기_${from}_${to}.md`;
+    a.download = `일기_${from}_${to}.${isTxt ? "txt" : "md"}`;
     a.click();
     URL.revokeObjectURL(url);
     setShowExport(false);
@@ -690,8 +697,9 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed right-0 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-transform duration-200 ease-out md:right-20 md:top-[24vh] md:h-[55vh] md:max-h-none md:rounded-2xl",
-                  drawerAnimated ? "translate-x-0" : "translate-x-full"
+                  "fixed right-0 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-[transform,opacity] duration-200 ease-out",
+                  "md:left-8 md:right-auto md:top-[20vh] md:h-[60vh] md:max-h-[70vh] md:w-[min(420px,38vw)] md:rounded-2xl",
+                  drawerAnimated ? "translate-x-0 md:opacity-100 md:scale-100" : "translate-x-full md:translate-x-0 md:opacity-0 md:scale-95"
                 )}
                 role="dialog"
                 aria-label="달력·검색"
@@ -891,6 +899,19 @@ export default function JournalPage() {
                         {exportRangeType === "all" && (
                           <p className="text-xs text-neutral-600">저장된 전체 데이터를 내보냅니다.</p>
                         )}
+                        <div>
+                          <span className="block text-xs font-medium text-neutral-500">내보내기 형식</span>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="radio" name="journalExportFormat" checked={exportFormat === "md"} onChange={() => setExportFormat("md")} className="text-neutral-700" />
+                              <span className="text-xs">MD (마크다운)</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="radio" name="journalExportFormat" checked={exportFormat === "txt"} onChange={() => setExportFormat("txt")} className="text-neutral-700" />
+                              <span className="text-xs">TXT (일반 텍스트)</span>
+                            </label>
+                          </div>
+                        </div>
                         <p className="text-sm text-neutral-600"><strong>{exportCount}</strong>편 내보내기</p>
                       </div>
                       <div className="mt-3 flex justify-end">
