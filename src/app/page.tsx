@@ -20,7 +20,7 @@ export default function HomePage() {
           <div className="min-w-0 flex-1">
             <WeatherCard />
           </div>
-          <div className="flex h-[260px] w-full shrink-0 flex-col overflow-hidden md:h-[300px] md:w-[480px]">
+          <div className="flex h-[260px] w-full shrink-0 flex-col p-2 md:h-[300px] md:w-[480px] md:p-3">
             <HomeMemoCard />
           </div>
         </div>

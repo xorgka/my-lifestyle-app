@@ -42,7 +42,7 @@ export function HomeMemoCard() {
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-visible">
       {pinnedMemos.length === 0 ? (
         <div
           className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border shadow-[0_6px_20px_rgba(0,0,0,0.12)]"
@@ -73,14 +73,14 @@ export function HomeMemoCard() {
             type="button"
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
             disabled={!canPrev}
-            className="shrink-0 self-center rounded-full p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+            className="shrink-0 self-center rounded-full p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
             aria-label="이전 메모"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-visible">
             {currentMemo && (
               <MemoCard
                 memo={currentMemo}
@@ -94,10 +94,10 @@ export function HomeMemoCard() {
             type="button"
             onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
             disabled={!canNext}
-            className="shrink-0 self-center rounded-full p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+            className="shrink-0 self-center rounded-full p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
             aria-label="다음 메모"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>

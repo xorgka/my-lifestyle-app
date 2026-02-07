@@ -38,12 +38,16 @@ export function MemoCard({
   const rootStyle = {
     backgroundColor: colors.bodyBg,
     borderColor: variant === "full" ? colors.border : "rgba(0,0,0,0.11)",
-    boxShadow: variant === "preview" ? "0 6px 20px rgba(0,0,0,0.12)" : "0 4px 14px rgba(0,0,0,0.08)",
+    ...(variant !== "preview" ? { boxShadow: "0 4px 14px rgba(0,0,0,0.08)" } : {}),
   };
 
   return (
     <div
-      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${className}`}
+      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${className} ${
+        variant === "preview"
+          ? "shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
+          : ""
+      }`}
       style={rootStyle}
     >
       {/* 헤더 (여기만 잡으면 카드 드래그) */}
