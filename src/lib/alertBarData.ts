@@ -311,5 +311,15 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     });
   }
 
+  // --- 당신의 속도대로 (날짜 시드로 가끔 표시) ---
+  const paceSeed = (parseInt(today.replace(/-/g, ""), 10) + 5) % 4;
+  if (paceSeed === 0) {
+    alerts.push({
+      type: "plain",
+      text: "당신의 속도대로 천천히.",
+      href: "/",
+    });
+  }
+
   return alerts;
 }
