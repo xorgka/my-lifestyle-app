@@ -137,25 +137,3 @@ body {
   border-radius: 9999px;
 }
 
-/* 인사이트 문장 관리: 모바일에서 연도/월 필터 박스 너비 고정 (한 줄 배치) */
-@media (max-width: 767px) {
-  .insight-filter-year-wrap {
-    width: 5rem !important;
-    max-width: 5rem !important;
-  }
-  .insight-filter-year-wrap select {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-  .insight-filter-month-wrap {
-    width: 3.5rem !important;
-    max-width: 3.5rem !important;
-  }
-  .insight-filter-month-wrap select {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-}
-

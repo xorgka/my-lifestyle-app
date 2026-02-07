@@ -268,7 +268,7 @@ function InsightPageContent() {
         </div>
         {insightTab === "system" && (
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex min-w-0 w-40 sm:w-44">
+            <div className="relative flex min-w-0 w-28 flex-1 md:max-w-[12rem] md:flex-initial md:w-44">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -282,32 +282,26 @@ function InsightPageContent() {
                 className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-8 pr-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
               />
             </div>
-            <div className="insight-filter-year-wrap w-[5rem] min-w-0 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-white md:w-auto md:overflow-visible">
-              <select
-                value={systemFilterYear === "all" ? "all" : systemFilterYear}
-                onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="block w-full min-w-0 max-w-full appearance-none rounded-xl border-0 bg-transparent py-2 pl-2 pr-7 text-sm text-neutral-800 focus:outline-none md:min-w-[6rem] md:rounded-xl md:border md:border-neutral-200 md:bg-white md:px-2.5 md:pr-2.5"
-                style={{ width: "100%", maxWidth: "100%" }}
-              >
-                <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
-                {systemFilterYears.map((y) => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
-            </div>
-            <div className="insight-filter-month-wrap w-[3.5rem] min-w-0 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-white md:w-auto md:overflow-visible">
-              <select
-                value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
-                onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="block w-full min-w-0 max-w-full appearance-none rounded-xl border-0 bg-transparent py-2 pl-2 pr-7 text-sm text-neutral-800 focus:outline-none md:min-w-[4rem] md:rounded-xl md:border md:border-neutral-200 md:bg-white md:px-2.5 md:pr-2.5"
-                style={{ width: "100%", maxWidth: "100%" }}
-              >
-                <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                  <option key={m} value={m}>{m}월</option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={systemFilterYear === "all" ? "all" : systemFilterYear}
+              onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="min-w-0 shrink-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:px-2.5"
+            >
+              <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
+              {systemFilterYears.map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+            <select
+              value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
+              onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="min-w-0 shrink-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:px-2.5"
+            >
+              <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <option key={m} value={m}>{m}월</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
