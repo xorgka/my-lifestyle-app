@@ -772,9 +772,11 @@ export default function FinancePage() {
     return { base, extra, all: [...base, ...extra] };
   };
 
+  /** 내보내기 연도: 2026년부터 올해까지 (올해가 2026이면 [2026], 2027이면 [2026, 2027] …) */
   const years = useMemo(() => {
     const y = new Date().getFullYear();
-    return Array.from({ length: 6 }, (_, i) => y - 2 + i);
+    if (y < 2026) return [2026];
+    return Array.from({ length: y - 2026 + 1 }, (_, i) => 2026 + i);
   }, []);
   const customYears = [2026, 2027];
   const months = useMemo(

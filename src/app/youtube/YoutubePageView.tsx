@@ -388,7 +388,10 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         onChange={(e) => setExportYear(Number(e.target.value))}
                         className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
                       >
-                        {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
+                        {Array.from(
+                          { length: Math.max(0, currentYear - 2026 + 1) },
+                          (_, i) => 2026 + i
+                        ).map((y) => (
                           <option key={y} value={y}>{y}년</option>
                         ))}
                       </select>

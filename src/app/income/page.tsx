@@ -436,6 +436,13 @@ export default function IncomePage() {
     updateIncomeEntry(editingId, { item, amount, month: editMonth });
   };
 
+  /** 내보내기 연도: 2026년부터 올해까지 */
+  const exportYears = useMemo(() => {
+    const y = new Date().getFullYear();
+    if (y < 2026) return [2026];
+    return Array.from({ length: y - 2026 + 1 }, (_, i) => 2026 + i);
+  }, []);
+
   const getIncomeEntriesForExport = useCallback(() => {
     if (exportRange === "year") {
       return incomeEntries.filter((e) => e.year === exportYear);
@@ -585,7 +592,7 @@ export default function IncomePage() {
             className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
               incomeYear === currentYear
                 ? "bg-neutral-800 text-white"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                : "bg-neutral-100/40 text-neutral-400/80 hover:bg-neutral-100/60"
             }`}
           >
             {currentYear}년
@@ -610,8 +617,8 @@ export default function IncomePage() {
                   onClick={() => setIncomeYear(y)}
                   className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
                     isSelected
-                      ? "bg-neutral-600 text-white/95"
-                      : "bg-neutral-100/70 text-neutral-500/80 hover:bg-neutral-200/80"
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100/40 text-neutral-400/80 hover:bg-neutral-100/60"
                   }`}
                 >
                   {y}년
@@ -623,7 +630,6 @@ export default function IncomePage() {
       </div>
       <div className="hidden gap-2 sm:flex sm:flex-wrap sm:justify-start">
         {YEARS.map((y) => {
-          const isPastYear = y < currentYear;
           const isSelected = incomeYear === y;
           return (
             <button
@@ -632,12 +638,8 @@ export default function IncomePage() {
               onClick={() => setIncomeYear(y)}
               className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
                 isSelected
-                  ? isPastYear
-                    ? "bg-neutral-600 text-white/95"
-                    : "bg-neutral-800 text-white"
-                  : isPastYear
-                    ? "bg-neutral-100/70 text-neutral-500/80 hover:bg-neutral-200/80"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-neutral-800 text-white"
+                  : "bg-neutral-100/40 text-neutral-400/80 hover:bg-neutral-100/60"
               }`}
             >
               {yearLabel(y)}
@@ -1077,7 +1079,7 @@ export default function IncomePage() {
                   onChange={(e) => setExportYear(Number(e.target.value))}
                   className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
                 >
-{YEARS.map((y) => (
+{exportYears.map((y) => (
                   <option key={y} value={y}>{yearLabel(y)}</option>
                 ))}
                 </select>
