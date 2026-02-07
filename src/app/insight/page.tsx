@@ -282,11 +282,12 @@ function InsightPageContent() {
                 className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-8 pr-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
               />
             </div>
-            <div className="w-[5rem] shrink-0 md:w-auto md:min-w-0">
+            <div className="insight-filter-year-wrap w-[5rem] min-w-0 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-white md:w-auto md:overflow-visible">
               <select
                 value={systemFilterYear === "all" ? "all" : systemFilterYear}
                 onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="w-full min-w-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:min-w-[6rem] md:px-2.5"
+                className="block w-full min-w-0 max-w-full appearance-none rounded-xl border-0 bg-transparent py-2 pl-2 pr-7 text-sm text-neutral-800 focus:outline-none md:min-w-[6rem] md:rounded-xl md:border md:border-neutral-200 md:bg-white md:px-2.5 md:pr-2.5"
+                style={{ width: "100%", maxWidth: "100%" }}
               >
                 <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
                 {systemFilterYears.map((y) => (
@@ -294,11 +295,12 @@ function InsightPageContent() {
                 ))}
               </select>
             </div>
-            <div className="w-[3.5rem] shrink-0 md:w-auto md:min-w-0">
+            <div className="insight-filter-month-wrap w-[3.5rem] min-w-0 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-white md:w-auto md:overflow-visible">
               <select
                 value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
                 onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="w-full min-w-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:min-w-[4rem] md:px-2.5"
+                className="block w-full min-w-0 max-w-full appearance-none rounded-xl border-0 bg-transparent py-2 pl-2 pr-7 text-sm text-neutral-800 focus:outline-none md:min-w-[4rem] md:rounded-xl md:border md:border-neutral-200 md:bg-white md:px-2.5 md:pr-2.5"
+                style={{ width: "100%", maxWidth: "100%" }}
               >
                 <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
