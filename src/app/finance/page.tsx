@@ -260,11 +260,31 @@ export default function FinancePage() {
     });
   }, [entries, entryDetails, searchQuery]);
 
-  /** 검색 결과에 연도 필터 적용 */
-  const filteredSearchEntries = useMemo(() => {
-    if (searchYearFilter === "all") return displayEntries;
-    return displayEntries.filter((e) => e.date.startsWith(searchYearFilter));
-  }, [displayEntries, searchYearFilter]);
+  /** 검색 결과를 행 단위로 변환: 본문 매칭이면 1행(전체 금액), 세부 매칭이면 매칭된 세부만 각각 1행(세부 금액) */
+  const searchResultRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const rows: { date: string; item: string; amount: number; rowId: string }[] = [];
+    for (const e of displayEntries) {
+      const mainMatches = e.item.toLowerCase().includes(q);
+      const details = entryDetails.filter((d) => d.parentId === e.id);
+      const matchingDetails = details.filter((d) => d.item.toLowerCase().includes(q));
+      if (mainMatches) {
+        rows.push({ date: e.date, item: e.item, amount: e.amount, rowId: `${e.id}-main` });
+      } else {
+        for (const d of matchingDetails) {
+          rows.push({ date: e.date, item: d.item, amount: d.amount, rowId: `${e.id}-${d.id}` });
+        }
+      }
+    }
+    return rows;
+  }, [displayEntries, entryDetails, searchQuery]);
+
+  /** 검색 결과 행에 연도 필터 적용 */
+  const filteredSearchRows = useMemo(() => {
+    if (searchYearFilter === "all") return searchResultRows;
+    return searchResultRows.filter((r) => r.date.startsWith(searchYearFilter));
+  }, [searchResultRows, searchYearFilter]);
 
   const entriesForSelectedDay = useMemo(
     () => displayEntries.filter((e) => e.date === selectedDate),
@@ -995,7 +1015,7 @@ export default function FinancePage() {
         </div>
         {searchQuery.trim() && (
           <span className="order-3 text-sm text-neutral-500 sm:order-2">
-            검색 결과 <strong className="text-neutral-700">{displayEntries.length}</strong>건
+            검색 결과 <strong className="text-neutral-700">{searchResultRows.length}</strong>건
           </span>
         )}
       </div>
@@ -1008,7 +1028,7 @@ export default function FinancePage() {
           <p className="mt-1 text-sm text-neutral-600">
             항목명에 맞는 지출 내역이에요. 아래 기간별 보기에도 동일하게 반영돼요.
           </p>
-          {displayEntries.length === 0 ? (
+          {searchResultRows.length === 0 ? (
             <p className="mt-4 py-6 text-center text-sm text-neutral-500">
               검색어에 맞는 지출이 없어요.
             </p>
@@ -1037,18 +1057,18 @@ export default function FinancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSearchEntries
+                    {filteredSearchRows
                       .sort((a, b) => b.date.localeCompare(a.date))
-                      .map((e) => {
-                        const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
-                        const cat = getCategoryForEntry(e.item, kw);
+                      .map((r) => {
+                        const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(r.date));
+                        const cat = getCategoryForEntry(r.item, kw);
                         return (
-                          <tr key={e.id} className="border-t border-neutral-100">
-                            <td className="px-3 py-2 text-neutral-700">{formatDateLabel(e.date)}</td>
-                            <td className="px-3 py-2 text-neutral-800">{e.item}</td>
+                          <tr key={r.rowId} className="border-t border-neutral-100">
+                            <td className="px-3 py-2 text-neutral-700">{formatDateLabel(r.date)}</td>
+                            <td className="px-3 py-2 text-neutral-800">{r.item}</td>
                             <td className="px-3 py-2 text-neutral-600">{CATEGORY_LABELS[cat]}</td>
                             <td className="px-3 py-2 text-right font-medium text-neutral-900">
-                              {formatNum(e.amount)}원
+                              {formatNum(r.amount)}원
                             </td>
                           </tr>
                         );
@@ -1057,7 +1077,7 @@ export default function FinancePage() {
                 </table>
               </div>
               <p className="mt-3 text-right text-sm font-semibold text-neutral-800">
-                검색 결과 합계: <strong>{formatNum(filteredSearchEntries.reduce((s, e) => s + e.amount, 0))}</strong>원
+                검색 결과 합계: <strong>{formatNum(filteredSearchRows.reduce((s, r) => s + r.amount, 0))}</strong>원
                 {searchYearFilter !== "all" && (
                   <span className="ml-1.5 font-normal text-neutral-500">({searchYearFilter}년 기준)</span>
                 )}
@@ -1816,7 +1836,7 @@ placeholder="항목"
                 </div>
                 {searchQuery.trim() && (
                   <p className="text-sm text-neutral-500">
-                    검색 결과 <strong className="text-neutral-700">{displayEntries.length}</strong>건
+                    검색 결과 <strong className="text-neutral-700">{searchResultRows.length}</strong>건
                   </p>
                 )}
                 <div className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
