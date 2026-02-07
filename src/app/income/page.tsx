@@ -970,7 +970,7 @@ export default function IncomePage() {
                   const amt = taxExpenseByMonth[m]?.[taxCategoryModal] ?? 0;
                   const details = taxExpenseDetailsByMonth[m]?.[taxCategoryModal] ?? [];
                   const isExpanded = expandedTaxMonths.has(m);
-                  const hasDetails = details.length > 0;
+                  const hasAmount = amt > 0;
                   return (
                     <li
                       key={m}
@@ -982,7 +982,7 @@ export default function IncomePage() {
                           <span className="font-medium text-red-600">
                             {formatNum(amt)}원
                           </span>
-                          {hasDetails ? (
+                          {hasAmount ? (
                             <button
                               type="button"
                               onClick={() =>
@@ -1009,19 +1009,25 @@ export default function IncomePage() {
                           ) : null}
                         </div>
                       </div>
-                      {isExpanded && hasDetails ? (
+                      {isExpanded && hasAmount ? (
                         <ul className="border-t border-neutral-100 bg-white/80 px-3 py-2 pl-8">
-                          {details.map((d, i) => (
-                            <li
-                              key={`${m}-${i}-${d.item}`}
-                              className="flex items-center justify-between py-1.5 text-neutral-600"
-                            >
-                              <span className="min-w-0 truncate pr-2">{d.item}</span>
-                              <span className="shrink-0 font-medium text-red-600">
-                                {formatNum(d.amount)}원
-                              </span>
+                          {details.length > 0 ? (
+                            details.map((d, i) => (
+                              <li
+                                key={`${m}-${i}-${d.item}`}
+                                className="flex items-center justify-between py-1.5 text-neutral-600"
+                              >
+                                <span className="min-w-0 truncate pr-2">{d.item}</span>
+                                <span className="shrink-0 font-medium text-red-600">
+                                  {formatNum(d.amount)}원
+                                </span>
+                              </li>
+                            ))
+                          ) : (
+                            <li className="py-1.5 text-neutral-500">
+                              해당 월 합계: {formatNum(amt)}원
                             </li>
-                          ))}
+                          )}
                         </ul>
                       ) : null}
                     </li>
