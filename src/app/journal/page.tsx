@@ -193,7 +193,7 @@ export default function JournalPage() {
     return () => clearTimeout(t);
   }, [draft, draftImportant, selectedDate]);
 
-  const save = () => {
+  const save = async () => {
     const next: JournalEntry[] = entries.filter((e) => e.date !== selectedDate);
     const trimmed = draft.trim();
     if (trimmed.length > 0) {
@@ -208,8 +208,8 @@ export default function JournalPage() {
       next.sort((a, b) => b.date.localeCompare(a.date));
     }
     setEntries(next);
-    saveJournalEntries(next).catch(console.error);
     saveDraft(selectedDate, null);
+    await saveJournalEntries(next).catch(console.error);
     setLastSaved(trimmed.length > 0 ? new Date().toISOString() : null);
     setSaveToast(trimmed.length > 0);
     setTimeout(() => setSaveToast(false), 2000);
@@ -697,9 +697,9 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed right-0 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-[transform,opacity] duration-200 ease-out",
-                  "md:left-8 md:right-auto md:top-[20vh] md:h-[60vh] md:max-h-[70vh] md:w-[min(420px,38vw)] md:rounded-2xl",
-                  drawerAnimated ? "translate-x-0 md:opacity-100 md:scale-100" : "translate-x-full md:translate-x-0 md:opacity-0 md:scale-95"
+                  "fixed right-0 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-transform duration-200 ease-out",
+                  "md:right-32 md:top-[24vh] md:h-[55vh] md:max-h-none md:w-[min(380px,90vw)] md:rounded-2xl",
+                  drawerAnimated ? "translate-x-0" : "translate-x-full"
                 )}
                 role="dialog"
                 aria-label="달력·검색"
