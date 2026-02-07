@@ -803,14 +803,25 @@ export default function FinancePage() {
   const runExportExcel = () => {
     const toExport = getEntriesForExport();
     const sorted = [...toExport].sort((a, b) => a.date.localeCompare(b.date));
-    const rows: (string | number)[][] = [
-      ["날짜", "항목", "구분", "금액"],
-      ...sorted.map((e) => {
-        const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+    const dataRows: (string | number)[][] = [];
+    for (const e of sorted) {
+      const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+      const details = entryDetails.filter((d) => d.parentId === e.id);
+      if (details.length > 0) {
+        for (const d of details) {
+          const cat = getCategoryForEntry(d.item.trim(), kw);
+          dataRows.push([e.date, d.item.trim(), CATEGORY_LABELS[cat], d.amount]);
+        }
+      } else {
         const cat = getCategoryForEntry(e.item, kw);
-        return [e.date, e.item, CATEGORY_LABELS[cat], e.amount];
-      }),
-    ];
+        dataRows.push([e.date, e.item, CATEGORY_LABELS[cat], e.amount]);
+      }
+    }
+    dataRows.sort((a, b) => {
+      const dateCmp = String(a[0]).localeCompare(String(b[0]));
+      return dateCmp !== 0 ? dateCmp : String(a[1]).localeCompare(String(b[1]));
+    });
+    const rows: (string | number)[][] = [["날짜", "항목", "구분", "금액"], ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "가계부");

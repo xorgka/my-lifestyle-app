@@ -46,8 +46,8 @@ function formatNum(n: number): string {
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021];
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-function yearLabel(y: number, current: number): string {
-  return y === current ? "올해" : `${y}년`;
+function yearLabel(y: number): string {
+  return `${y}년`;
 }
 
 export default function IncomePage() {
@@ -588,7 +588,7 @@ export default function IncomePage() {
                 : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
             }`}
           >
-            올해
+            {currentYear}년
           </button>
           <button
             type="button"
@@ -640,7 +640,7 @@ export default function IncomePage() {
                     : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               }`}
             >
-              {yearLabel(y, currentYear)}
+              {yearLabel(y)}
             </button>
           );
         })}
@@ -1078,7 +1078,7 @@ export default function IncomePage() {
                   className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
                 >
 {YEARS.map((y) => (
-                  <option key={y} value={y}>{yearLabel(y, currentYear)}</option>
+                  <option key={y} value={y}>{yearLabel(y)}</option>
                 ))}
                 </select>
               </div>
