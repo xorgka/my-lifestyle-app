@@ -214,6 +214,7 @@ export default function JournalPage() {
     setSaveToast(trimmed.length > 0);
     setTimeout(() => setSaveToast(false), 2000);
     setTimeout(() => setLastSaved(null), 2000);
+    setViewMode("preview");
   };
 
   const remove = () => {

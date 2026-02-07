@@ -71,6 +71,8 @@ export default function IncomePage() {
   /** 수정 중인 항목 */
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  /** 검색 결과 연도 필터: 전체 | 2026 | 2027 */
+  const [searchYearFilter, setSearchYearFilter] = useState<"all" | "2026" | "2027">("all");
   const now = new Date();
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportYear, setExportYear] = useState(now.getFullYear());
@@ -157,7 +159,7 @@ export default function IncomePage() {
     [incomeEntries, incomeYear]
   );
 
-  /** 검색어가 있으면 구분·항목 기준으로 필터 (해당 연도만) */
+  /** 검색어가 있으면 구분·항목 기준으로 필터 (해당 연도만). 연도 선택·월별 등에 사용 */
   const filteredEntriesForYear = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return incomeEntriesForYear;
@@ -167,6 +169,23 @@ export default function IncomePage() {
         e.item.toLowerCase().includes(q)
     );
   }, [incomeEntriesForYear, searchQuery]);
+
+  /** 검색 결과 (전체 연도). 검색 카드·합계·연도 필터용 */
+  const searchResultEntries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return incomeEntries.filter(
+      (e) =>
+        e.category.toLowerCase().includes(q) ||
+        e.item.toLowerCase().includes(q)
+    );
+  }, [incomeEntries, searchQuery]);
+
+  /** 검색 결과에 연도 필터 적용 */
+  const filteredSearchEntries = useMemo(() => {
+    if (searchYearFilter === "all") return searchResultEntries;
+    return searchResultEntries.filter((e) => e.year === Number(searchYearFilter));
+  }, [searchResultEntries, searchYearFilter]);
 
   const incomeEntriesForMonth = useMemo(
     () => filteredEntriesForYear.filter((e) => e.month === incomeMonth),
@@ -577,7 +596,7 @@ export default function IncomePage() {
           </div>
           {searchQuery.trim() && (
             <span className="text-sm text-neutral-500">
-              검색 결과 <strong className="text-neutral-700">{filteredEntriesForYear.length}</strong>건
+              검색 결과 <strong className="text-neutral-700">{filteredSearchEntries.length}</strong>건
             </span>
           )}
         </div>
@@ -654,39 +673,59 @@ export default function IncomePage() {
             검색 결과 – &quot;{searchQuery.trim()}&quot;
           </h3>
           <p className="mt-1 text-sm text-neutral-600">
-            {incomeYear}년 수입 중 구분·항목에 맞는 내역이에요.
+            구분·항목에 맞는 수입 내역이에요.
           </p>
-          {filteredEntriesForYear.length === 0 ? (
+          {searchResultEntries.length === 0 ? (
             <p className="mt-4 py-6 text-center text-sm text-neutral-500">
               검색어에 맞는 수입이 없어요.
             </p>
           ) : (
-            <div className="mt-4 max-h-64 overflow-auto rounded-lg border border-neutral-200 bg-white">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-neutral-100">
-                  <tr className="text-left text-neutral-500">
-                    <th className="px-3 py-2 font-medium">연도</th>
-                    <th className="px-3 py-2 font-medium">월</th>
-                    <th className="px-3 py-2 font-medium">구분</th>
-                    <th className="px-3 py-2 font-medium">항목</th>
-                    <th className="px-3 py-2 text-right font-medium">금액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEntriesForYear.map((e) => (
-                    <tr key={e.id} className="border-t border-neutral-100">
-                      <td className="px-3 py-2 text-neutral-700">{e.year}</td>
-                      <td className="px-3 py-2 text-neutral-700">{e.month}월</td>
-                      <td className="px-3 py-2 text-neutral-700">{e.category}</td>
-                      <td className="px-3 py-2 text-neutral-800">{e.item}</td>
-                      <td className="px-3 py-2 text-right font-medium text-neutral-900">
-                        {formatNum(e.amount)}원
-                      </td>
+            <>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-neutral-500">연도:</span>
+                <select
+                  value={searchYearFilter}
+                  onChange={(e) => setSearchYearFilter(e.target.value as "all" | "2026" | "2027")}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800"
+                >
+                  <option value="all">전체</option>
+                  <option value="2026">2026년</option>
+                  <option value="2027">2027년</option>
+                </select>
+              </div>
+              <div className="mt-4 max-h-64 overflow-auto rounded-lg border border-neutral-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-neutral-100">
+                    <tr className="text-left text-neutral-500">
+                      <th className="px-3 py-2 font-medium">연도</th>
+                      <th className="px-3 py-2 font-medium">월</th>
+                      <th className="px-3 py-2 font-medium">구분</th>
+                      <th className="px-3 py-2 font-medium">항목</th>
+                      <th className="px-3 py-2 text-right font-medium">금액</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredSearchEntries.map((e) => (
+                      <tr key={e.id} className="border-t border-neutral-100">
+                        <td className="px-3 py-2 text-neutral-700">{e.year}</td>
+                        <td className="px-3 py-2 text-neutral-700">{e.month}월</td>
+                        <td className="px-3 py-2 text-neutral-700">{e.category}</td>
+                        <td className="px-3 py-2 text-neutral-800">{e.item}</td>
+                        <td className="px-3 py-2 text-right font-medium text-neutral-900">
+                          {formatNum(e.amount)}원
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-right text-sm font-semibold text-neutral-800">
+                검색 결과 합계: <strong>{formatNum(filteredSearchEntries.reduce((s, e) => s + e.amount, 0))}</strong>원
+                {searchYearFilter !== "all" && (
+                  <span className="ml-1.5 font-normal text-neutral-500">({searchYearFilter}년 기준)</span>
+                )}
+              </p>
+            </>
           )}
         </Card>
       )}
@@ -1398,7 +1437,7 @@ export default function IncomePage() {
                 </div>
                 {searchQuery.trim() && (
                   <p className="text-sm text-neutral-500">
-                    검색 결과 <strong className="text-neutral-700">{filteredEntriesForYear.length}</strong>건
+                    검색 결과 <strong className="text-neutral-700">{filteredSearchEntries.length}</strong>건
                   </p>
                 )}
                 <div className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
