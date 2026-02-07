@@ -31,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <meta name="app-deploy-version" content="deploy-2025-02-06-v2" />
         <meta httpEquiv="Content-Language" content="ko" />
         <meta name="robots" content="noindex, nofollow" />
         <link rel="icon" href={faviconUrl} />
