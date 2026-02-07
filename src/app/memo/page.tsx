@@ -386,6 +386,7 @@ export default function MemoPage() {
                 if ((e.target as HTMLElement).closest("button")) return;
                 if ((e.target as HTMLElement).closest("input")) return;
                 if ((e.target as HTMLElement).closest("[data-resize-handle]")) return;
+                e.preventDefault();
                 dragPendingRef.current = {
                   id: memo.id,
                   startX: e.clientX,
