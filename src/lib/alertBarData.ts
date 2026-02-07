@@ -338,9 +338,29 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
           href: "/routine",
         });
       } else {
+        // 신기록 여부: 현재 구간보다 이전 데이터만 보고 최대 연속 일수 계산
+        const firstDayOfCurrent = addDays(today, -streak);
+        const pastGymDates = (Object.keys(routineCompletions) as string[])
+          .filter((dateStr) => dateStr < firstDayOfCurrent && didOnDate(dateStr))
+          .sort();
+        let maxPastStreak = 0;
+        let run = 0;
+        let prev = "";
+        for (const d of pastGymDates) {
+          if (prev === "" || addDays(prev, 1) === d) {
+            run += 1;
+          } else {
+            run = 1;
+          }
+          if (run > maxPastStreak) maxPastStreak = run;
+          prev = d;
+        }
+        const isNewRecord = streak > maxPastStreak;
         alerts.push({
           type: "plain",
-          text: `${streak}일째 ${label}에 나가고 있어요!`,
+          text: isNewRecord
+            ? `${streak}일 연속 ${label}! 신기록이에요!`
+            : `${streak}일째 ${label}에 나가고 있어요!`,
           href: "/routine",
         });
       }
