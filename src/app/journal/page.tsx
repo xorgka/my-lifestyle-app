@@ -195,20 +195,23 @@ export default function JournalPage() {
 
   const save = () => {
     const next: JournalEntry[] = entries.filter((e) => e.date !== selectedDate);
-    const now = new Date().toISOString();
-    next.push({
-      date: selectedDate,
-      content: draft.trim(),
-      createdAt: entryForDate?.createdAt ?? now,
-      updatedAt: now,
-      important: draftImportant,
-    });
-    next.sort((a, b) => b.date.localeCompare(a.date));
+    const trimmed = draft.trim();
+    if (trimmed.length > 0) {
+      const now = new Date().toISOString();
+      next.push({
+        date: selectedDate,
+        content: trimmed,
+        createdAt: entryForDate?.createdAt ?? now,
+        updatedAt: now,
+        important: draftImportant,
+      });
+      next.sort((a, b) => b.date.localeCompare(a.date));
+    }
     setEntries(next);
     saveJournalEntries(next).catch(console.error);
     saveDraft(selectedDate, null);
-    setLastSaved(now);
-    setSaveToast(true);
+    setLastSaved(trimmed.length > 0 ? new Date().toISOString() : null);
+    setSaveToast(trimmed.length > 0);
     setTimeout(() => setSaveToast(false), 2000);
     setTimeout(() => setLastSaved(null), 2000);
   };
@@ -317,15 +320,15 @@ export default function JournalPage() {
   }, [selectedDate, draft]);
 
   const today = todayStr();
-  const entryDates = new Set(entries.map((e) => e.date));
-  const hasTodayContent = entryDates.has(today) || (selectedDate === today && (draft.trim().length > 0 || draftImportant));
+  const entryDatesWithContent = new Set(entries.filter((e) => e.content.trim().length > 0).map((e) => e.date));
+  const hasTodayContent = entryDatesWithContent.has(today) || (selectedDate === today && draft.trim().length > 0);
   const streak = (() => {
     let count = 0;
     let d = new Date();
     while (true) {
       const key = localDateStr(d);
       if (key > today) break;
-      const hasEntry = key === today ? hasTodayContent : entryDates.has(key);
+      const hasEntry = key === today ? hasTodayContent : entryDatesWithContent.has(key);
       if (hasEntry) count++;
       else if (key !== today) break;
       d.setDate(d.getDate() - 1);
@@ -397,7 +400,7 @@ export default function JournalPage() {
     setShowExport(false);
   };
 
-  const datesWithEntries = entryDates;
+  const datesWithEntries = entryDatesWithContent;
   const lastDay = new Date(year, month, 0).getDate();
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // 0=일
   const weekLabels = ["일", "월", "화", "수", "목", "금", "토"];
@@ -779,7 +782,7 @@ export default function JournalPage() {
                         if (day === null) return <div key={i} className="aspect-square" />;
                         const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                         const entry = entriesByDate[dateStr];
-                        const hasEntry = !!entry;
+                        const hasEntry = !!(entry && entry.content.trim().length > 0);
                         const hasDraftForThisDate = dateStr === selectedDate && draft.trim().length > 0;
                         const showTooltip = hasEntry || hasDraftForThisDate;
                         const tooltipText = hasEntry ? firstLinePreview(entry!.content, 80) : firstLinePreview(draft, 80);

@@ -126,6 +126,8 @@ export default function FinancePage() {
   const [showCardExpenseDetailModal, setShowCardExpenseDetailModal] = useState(false);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  /** 검색 결과 연도 필터: 전체 | 2026 | 2027 */
+  const [searchYearFilter, setSearchYearFilter] = useState<"all" | "2026" | "2027">("all");
   const [showExportModal, setShowExportModal] = useState(false);
   /** 모바일: 검색·키워드 관리·내보내기 메뉴 열림 */
   const [showFinanceSettingsMenu, setShowFinanceSettingsMenu] = useState(false);
@@ -257,6 +259,12 @@ export default function FinancePage() {
       return hasMatchingDetail;
     });
   }, [entries, entryDetails, searchQuery]);
+
+  /** 검색 결과에 연도 필터 적용 */
+  const filteredSearchEntries = useMemo(() => {
+    if (searchYearFilter === "all") return displayEntries;
+    return displayEntries.filter((e) => e.date.startsWith(searchYearFilter));
+  }, [displayEntries, searchYearFilter]);
 
   const entriesForSelectedDay = useMemo(
     () => displayEntries.filter((e) => e.date === selectedDate),
@@ -1005,36 +1013,56 @@ export default function FinancePage() {
               검색어에 맞는 지출이 없어요.
             </p>
           ) : (
-            <div className="mt-4 max-h-64 overflow-auto rounded-lg border border-neutral-200 bg-white">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-neutral-100">
-                  <tr className="text-left text-neutral-500">
-                    <th className="px-3 py-2 font-medium">날짜</th>
-                    <th className="px-3 py-2 font-medium">항목</th>
-                    <th className="px-3 py-2 font-medium">구분</th>
-                    <th className="px-3 py-2 text-right font-medium">금액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayEntries
-                    .sort((a, b) => b.date.localeCompare(a.date))
-                    .map((e) => {
-                      const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
-                      const cat = getCategoryForEntry(e.item, kw);
-                      return (
-                        <tr key={e.id} className="border-t border-neutral-100">
-                          <td className="px-3 py-2 text-neutral-700">{formatDateLabel(e.date)}</td>
-                          <td className="px-3 py-2 text-neutral-800">{e.item}</td>
-                          <td className="px-3 py-2 text-neutral-600">{CATEGORY_LABELS[cat]}</td>
-                          <td className="px-3 py-2 text-right font-medium text-neutral-900">
-                            {formatNum(e.amount)}원
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-neutral-500">연도:</span>
+                <select
+                  value={searchYearFilter}
+                  onChange={(e) => setSearchYearFilter(e.target.value as "all" | "2026" | "2027")}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800"
+                >
+                  <option value="all">전체</option>
+                  <option value="2026">2026년</option>
+                  <option value="2027">2027년</option>
+                </select>
+              </div>
+              <div className="mt-4 max-h-64 overflow-auto rounded-lg border border-neutral-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-neutral-100">
+                    <tr className="text-left text-neutral-500">
+                      <th className="px-3 py-2 font-medium">날짜</th>
+                      <th className="px-3 py-2 font-medium">항목</th>
+                      <th className="px-3 py-2 font-medium">구분</th>
+                      <th className="px-3 py-2 text-right font-medium">금액</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSearchEntries
+                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .map((e) => {
+                        const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+                        const cat = getCategoryForEntry(e.item, kw);
+                        return (
+                          <tr key={e.id} className="border-t border-neutral-100">
+                            <td className="px-3 py-2 text-neutral-700">{formatDateLabel(e.date)}</td>
+                            <td className="px-3 py-2 text-neutral-800">{e.item}</td>
+                            <td className="px-3 py-2 text-neutral-600">{CATEGORY_LABELS[cat]}</td>
+                            <td className="px-3 py-2 text-right font-medium text-neutral-900">
+                              {formatNum(e.amount)}원
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-right text-sm font-semibold text-neutral-800">
+                검색 결과 합계: <strong>{formatNum(filteredSearchEntries.reduce((s, e) => s + e.amount, 0))}</strong>원
+                {searchYearFilter !== "all" && (
+                  <span className="ml-1.5 font-normal text-neutral-500">({searchYearFilter}년 기준)</span>
+                )}
+              </p>
+            </>
           )}
         </Card>
       )}

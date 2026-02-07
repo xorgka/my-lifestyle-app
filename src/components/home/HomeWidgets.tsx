@@ -37,7 +37,7 @@ export function HomeWidgets() {
     loadJournalEntries().then((entries) => {
       if (cancelled) return;
       const today = todayStr();
-      setJournalWritten(entries.some((e) => e.date === today));
+      setJournalWritten(entries.some((e) => e.date === today && e.content.trim().length > 0));
     }).catch(() => {
       if (!cancelled) setJournalWritten(false);
     });
