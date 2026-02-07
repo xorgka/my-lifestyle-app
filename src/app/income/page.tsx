@@ -976,8 +976,12 @@ export default function IncomePage() {
                       key={m}
                       className="rounded-lg border border-neutral-100 bg-neutral-50/50 text-sm"
                     >
-                      <div className="flex items-center justify-between px-3 py-2">
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="text-neutral-700">{m}월</span>
+                        <div className="flex min-w-0 shrink-0 items-center gap-1">
+                          <span className="font-medium text-red-600">
+                            {formatNum(amt)}원
+                          </span>
                           {hasDetails ? (
                             <button
                               type="button"
@@ -1003,11 +1007,7 @@ export default function IncomePage() {
                               </svg>
                             </button>
                           ) : null}
-                          <span className="text-neutral-700">{m}월</span>
                         </div>
-                        <span className="font-medium text-red-600">
-                          {formatNum(amt)}원
-                        </span>
                       </div>
                       {isExpanded && hasDetails ? (
                         <ul className="border-t border-neutral-100 bg-white/80 px-3 py-2 pl-8">
