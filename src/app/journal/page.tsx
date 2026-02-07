@@ -446,7 +446,7 @@ export default function JournalPage() {
           </p>
         </header>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <p className="flex items-center gap-1.5 text-sm text-neutral-500/60">
+          <p className="flex items-center gap-1.5 text-sm text-neutral-500/30 md:text-neutral-500/60">
             {streak > 0 ? (
               <>
                 <span aria-hidden>🔥</span>
