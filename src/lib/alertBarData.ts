@@ -297,9 +297,57 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     });
   }
 
-  // --- 근육 멘트 (어제 헬스장 루틴 안 했으면 다음날 랜덤으로 한 번) ---
+  // --- 헬스장 루틴: 오늘 기준 어제부터 연속 미달성/달성 문구 ---
   const yesterday = addDays(today, -1);
   const gymItems = routineItems.filter((it) => it.title.includes("헬스"));
+  const gymIds = new Set(gymItems.map((it) => it.id));
+  const label = "헬스장";
+  if (gymItems.length > 0) {
+    const didOnDate = (dateStr: string) =>
+      (routineCompletions[dateStr] ?? []).some((id) => gymIds.has(id));
+    const didYesterday = didOnDate(yesterday);
+    if (!didYesterday) {
+      // 연속 미달성: 어제부터 거슬러 올라가며 안 한 일수
+      let missDays = 0;
+      for (let d = 1; d <= 365; d++) {
+        const dateStr = addDays(today, -d);
+        if (didOnDate(dateStr)) break;
+        missDays = d;
+      }
+      if (missDays === 1) {
+        alerts.push({ type: "plain", text: "어제 헬스장에 가지 않았어요!", href: "/routine" });
+      } else {
+        alerts.push({
+          type: "plain",
+          text: `${missDays}일째 ${label}에 가지 않고 있어요!`,
+          href: "/routine",
+        });
+      }
+    } else {
+      // 연속 달성: 어제부터 거슬러 올라가며 한 일수
+      let streak = 0;
+      for (let d = 1; d <= 365; d++) {
+        const dateStr = addDays(today, -d);
+        if (!didOnDate(dateStr)) break;
+        streak = d;
+      }
+      if (streak === 1) {
+        alerts.push({
+          type: "plain",
+          text: "어제 헬스장 갔어요! 오늘도 도전?",
+          href: "/routine",
+        });
+      } else {
+        alerts.push({
+          type: "plain",
+          text: `${streak}일째 ${label}에 나가고 있어요!`,
+          href: "/routine",
+        });
+      }
+    }
+  }
+
+  // --- 근육 멘트 (어제 헬스장 루틴 안 했으면 다음날 랜덤으로 한 번) ---
   const completedYesterday = new Set(routineCompletions[yesterday] ?? []);
   const didGymYesterday = gymItems.some((it) => completedYesterday.has(it.id));
   const muscleSeed = (parseInt(today.replace(/-/g, ""), 10) + 3) % 2;
