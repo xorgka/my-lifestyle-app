@@ -285,7 +285,7 @@ function InsightPageContent() {
             <select
               value={systemFilterYear === "all" ? "all" : systemFilterYear}
               onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="rounded-xl border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-800"
+              className="min-w-0 max-w-[5rem] shrink-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:max-w-none md:px-2.5"
             >
               <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
               {systemFilterYears.map((y) => (
@@ -295,7 +295,7 @@ function InsightPageContent() {
             <select
               value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
               onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="rounded-xl border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-800"
+              className="min-w-0 max-w-[4rem] shrink-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:max-w-none md:px-2.5"
             >
               <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
