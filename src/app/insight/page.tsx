@@ -282,26 +282,30 @@ function InsightPageContent() {
                 className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-8 pr-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
               />
             </div>
-            <select
-              value={systemFilterYear === "all" ? "all" : systemFilterYear}
-              onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="min-w-0 max-w-[5rem] shrink-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:max-w-none md:px-2.5"
-            >
-              <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
-              {systemFilterYears.map((y) => (
-                <option key={y} value={y}>{y}년</option>
-              ))}
-            </select>
-            <select
-              value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
-              onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="min-w-0 max-w-[4rem] shrink-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:max-w-none md:px-2.5"
-            >
-              <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <option key={m} value={m}>{m}월</option>
-              ))}
-            </select>
+            <div className="w-[5rem] shrink-0 md:w-auto md:min-w-0">
+              <select
+                value={systemFilterYear === "all" ? "all" : systemFilterYear}
+                onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+                className="w-full min-w-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:min-w-[6rem] md:px-2.5"
+              >
+                <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
+                {systemFilterYears.map((y) => (
+                  <option key={y} value={y}>{y}년</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-[3.5rem] shrink-0 md:w-auto md:min-w-0">
+              <select
+                value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
+                onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
+                className="w-full min-w-0 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:min-w-[4rem] md:px-2.5"
+              >
+                <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                  <option key={m} value={m}>{m}월</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
       </div>
