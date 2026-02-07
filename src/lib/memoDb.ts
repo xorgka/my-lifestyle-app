@@ -1,7 +1,9 @@
 /**
- * 메모: 포스트잇 형태, localStorage 저장
- * 색상은 인라인 스타일(hex)로 적용해 모든 테마가 동일하게 보이도록 함.
+ * 메모: 포스트잇 형태.
+ * Supabase 연결 시 DB 사용(기기/모바일 동기화), 없으면 localStorage
  */
+
+import { supabase } from "./supabase";
 
 const MEMO_KEY = "my-lifestyle-memos";
 
@@ -51,52 +53,120 @@ function saveJson(key: string, value: unknown): void {
   } catch {}
 }
 
-function loadAllMemos(): Memo[] {
+function rowToMemo(row: Record<string, unknown>): Memo {
+  return {
+    id: String(row.id),
+    content: String(row.content ?? ""),
+    createdAt: row.created_at ? new Date(row.created_at as string).toISOString() : new Date().toISOString(),
+    color: (row.color as MemoColorId) ?? "black",
+    pinned: Boolean(row.pinned),
+    pinnedAt: row.pinned_at ? new Date(row.pinned_at as string).toISOString() : undefined,
+    title: row.title != null ? String(row.title) : undefined,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at as string).toISOString() : undefined,
+    x: row.x != null ? Number(row.x) : undefined,
+    y: row.y != null ? Number(row.y) : undefined,
+    width: row.width != null ? Number(row.width) : undefined,
+    height: row.height != null ? Number(row.height) : undefined,
+  };
+}
+
+function memoToRow(m: Memo): Record<string, unknown> {
+  return {
+    id: m.id,
+    content: m.content,
+    created_at: m.createdAt,
+    color: m.color,
+    pinned: m.pinned ?? false,
+    pinned_at: m.pinnedAt ?? null,
+    title: m.title ?? null,
+    deleted_at: m.deletedAt ?? null,
+    x: m.x ?? null,
+    y: m.y ?? null,
+    width: m.width ?? null,
+    height: m.height ?? null,
+  };
+}
+
+function loadAllFromStorage(): Memo[] {
   const data = loadJson<Memo[]>(MEMO_KEY, []);
   return Array.isArray(data) ? data : [];
 }
 
-export function loadMemos(): Memo[] {
-  return loadAllMemos().filter((m) => !m.deletedAt);
+/** 전체 메모 로드 (Supabase 또는 localStorage). 휴지통 포함 */
+export async function loadAllMemos(): Promise<Memo[]> {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("memos")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("[memoDb] loadAllMemos", error);
+      return loadAllFromStorage();
+    }
+    return (data ?? []).map((row) => rowToMemo(row));
+  }
+  return loadAllFromStorage();
+}
+
+/** 일반 메모만 (휴지통 제외) */
+export async function loadMemos(): Promise<Memo[]> {
+  const all = await loadAllMemos();
+  return all.filter((m) => !m.deletedAt);
 }
 
 /** 휴지통에 있는 메모만 */
-export function loadTrashMemos(): Memo[] {
-  return loadAllMemos().filter((m) => !!m.deletedAt);
+export async function loadTrashMemos(): Promise<Memo[]> {
+  const all = await loadAllMemos();
+  return all.filter((m) => !!m.deletedAt);
 }
 
-export function saveMemos(memos: Memo[]): void {
+/** 메모 전체 저장 (Supabase 또는 localStorage). Supabase 시 기존 중 목록에 없는 행은 삭제 */
+export async function saveMemos(memos: Memo[]): Promise<void> {
+  if (supabase) {
+    const ourIds = new Set(memos.map((m) => m.id));
+    const { data: existing } = await supabase.from("memos").select("id");
+    const toDelete = (existing ?? []).map((r) => r.id).filter((id) => !ourIds.has(id));
+    if (toDelete.length > 0) {
+      await supabase.from("memos").delete().in("id", toDelete);
+    }
+    const rows = memos.map((m) => memoToRow(m));
+    const { error } = await supabase.from("memos").upsert(rows, { onConflict: "id" });
+    if (error) {
+      console.error("[memoDb] saveMemos", error);
+    }
+    return;
+  }
   saveJson(MEMO_KEY, memos);
 }
 
 /** 메모 목록만 갱신(휴지통 항목은 유지). 위치 등 기본값 보정 시 사용 */
-export function saveMemosOnlyUpdate(updatedMemos: Memo[]): void {
-  const all = loadAllMemos();
+export async function saveMemosOnlyUpdate(updatedMemos: Memo[]): Promise<void> {
+  const all = await loadAllMemos();
   const updatedIds = new Set(updatedMemos.map((m) => m.id));
   const rest = all.filter((m) => !updatedIds.has(m.id));
-  saveJson(MEMO_KEY, [...updatedMemos, ...rest]);
+  await saveMemos([...updatedMemos, ...rest]);
 }
 
 /** 메모를 휴지통으로 이동 */
-export function moveMemoToTrash(id: string): void {
-  const all = loadAllMemos();
+export async function moveMemoToTrash(id: string): Promise<void> {
+  const all = await loadAllMemos();
   const next = all.map((m) =>
     m.id === id ? { ...m, deletedAt: new Date().toISOString() } : m
   );
-  saveMemos(next);
+  await saveMemos(next);
 }
 
 /** 휴지통에서 복원 */
-export function restoreMemo(id: string): void {
-  const all = loadAllMemos();
+export async function restoreMemo(id: string): Promise<void> {
+  const all = await loadAllMemos();
   const next = all.map((m) => (m.id === id ? { ...m, deletedAt: undefined } : m));
-  saveMemos(next);
+  await saveMemos(next);
 }
 
 /** 휴지통에서 완전 삭제 */
-export function permanentDeleteMemo(id: string): void {
-  const all = loadAllMemos();
-  saveMemos(all.filter((m) => m.id !== id));
+export async function permanentDeleteMemo(id: string): Promise<void> {
+  const all = await loadAllMemos();
+  await saveMemos(all.filter((m) => m.id !== id));
 }
 
 export function createMemo(color: MemoColorId = "black"): Memo {

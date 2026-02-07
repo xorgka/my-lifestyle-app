@@ -40,6 +40,7 @@ export default function MemoPage() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [trashMemos, setTrashMemos] = useState<Memo[]>([]);
+  const [trashCount, setTrashCount] = useState(0);
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     const update = () => setIsDesktop(m.matches);
@@ -52,8 +53,8 @@ export default function MemoPage() {
   const resizeStartRef = useRef<{ startX: number; startY: number; w: number; h: number; x: number; y: number } | null>(null);
   const DRAG_THRESHOLD = 6;
 
-  const load = useCallback(() => {
-    const raw = loadMemos();
+  const load = useCallback(async () => {
+    const raw = await loadMemos();
     const gap = 20;
     const normalized = raw.map((m, i) => ({
       ...m,
@@ -64,16 +65,20 @@ export default function MemoPage() {
     }));
     setMemos(normalized);
     const needsSave = raw.some((m, i) => m.x == null || m.y == null || m.width == null || m.height == null);
-    if (needsSave) saveMemosOnlyUpdate(normalized);
+    if (needsSave) await saveMemosOnlyUpdate(normalized);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const persist = useCallback((next: Memo[]) => {
+  useEffect(() => {
+    loadTrashMemos().then((list) => setTrashCount(list.length));
+  }, [trashOpen, memos.length]);
+
+  const persist = useCallback(async (next: Memo[]) => {
     setMemos(next);
-    saveMemos(next);
+    await saveMemos(next);
   }, []);
 
   const addMemo = () => {
@@ -84,23 +89,24 @@ export default function MemoPage() {
     newMemo.y = 20;
     newMemo.width = MEMO_DEFAULT_WIDTH;
     newMemo.height = MEMO_DEFAULT_HEIGHT;
-    persist([newMemo, ...memos]);
+    void persist([newMemo, ...memos]);
   };
 
   const updateMemo = (
     id: string,
     updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height">>
   ) => {
-    persist(
+    void persist(
       memos.map((m) => (m.id === id ? { ...m, ...updates } : m))
     );
   };
 
-  const deleteMemo = (id: string) => {
+  const deleteMemo = async (id: string) => {
     const memo = memos.find((m) => m.id === id);
     if (memo?.pinned && !window.confirm("고정된 메모를 휴지통으로 보낼까요?")) return;
-    moveMemoToTrash(id);
-    load();
+    await moveMemoToTrash(id);
+    await load();
+    setTrashCount((c) => c + 1);
     setSelectedIds((s) => {
       const next = new Set(s);
       next.delete(id);
@@ -108,10 +114,11 @@ export default function MemoPage() {
     });
   };
 
-  const bulkDelete = () => {
+  const bulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    selectedIds.forEach((id) => moveMemoToTrash(id));
-    load();
+    await Promise.all([...selectedIds].map((id) => moveMemoToTrash(id)));
+    await load();
+    setTrashCount((c) => c + selectedIds.size);
     setSelectedIds(new Set());
     setSelectionMode(false);
   };
@@ -197,7 +204,7 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === draggingId ? { ...m, x, y } : m
           );
-          saveMemos(next);
+          void saveMemos(next);
           return next;
         });
         dragStartRef.current = null;
@@ -208,7 +215,7 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === resizingId ? { ...m, width, height } : m
           );
-          saveMemos(next);
+          void saveMemos(next);
           return next;
         });
         resizeStartRef.current = null;
@@ -244,14 +251,19 @@ export default function MemoPage() {
           )}
           <button
             type="button"
-            onClick={() => {
-              setTrashOpen((o) => !o);
-              if (!trashOpen) setTrashMemos(loadTrashMemos());
+            onClick={async () => {
+              const next = !trashOpen;
+              setTrashOpen(next);
+              if (next) {
+                const list = await loadTrashMemos();
+                setTrashMemos(list);
+                setTrashCount(list.length);
+              }
             }}
             className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
             title="휴지통"
           >
-            휴지통{loadTrashMemos().length > 0 ? ` (${loadTrashMemos().length})` : ""}
+            휴지통{trashCount > 0 ? ` (${trashCount})` : ""}
           </button>
           {memos.length > 0 && selectionMode && (
             <>
@@ -323,10 +335,12 @@ export default function MemoPage() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        restoreMemo(m.id);
-                        load();
-                        setTrashMemos(loadTrashMemos());
+                      onClick={async () => {
+                        await restoreMemo(m.id);
+                        await load();
+                        const list = await loadTrashMemos();
+                        setTrashMemos(list);
+                        setTrashCount(list.length);
                       }}
                       className="rounded-lg bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200"
                     >
@@ -334,10 +348,12 @@ export default function MemoPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (window.confirm("이 메모를 완전히 삭제할까요? 복원할 수 없어요.")) {
-                          permanentDeleteMemo(m.id);
-                          setTrashMemos(loadTrashMemos());
+                          await permanentDeleteMemo(m.id);
+                          const list = await loadTrashMemos();
+                          setTrashMemos(list);
+                          setTrashCount(list.length);
                         }
                       }}
                       className="rounded-lg bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
