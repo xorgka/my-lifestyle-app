@@ -48,6 +48,15 @@ function InsightPageContent() {
   const [systemIsAdding, setSystemIsAdding] = useState(false);
   const [systemEditQuote, setSystemEditQuote] = useState("");
   const [systemEditAuthor, setSystemEditAuthor] = useState("");
+  const [isNarrowView, setIsNarrowView] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsNarrowView(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const refetchInsights = () => {
     setInsightLoading(true);
@@ -278,7 +287,7 @@ function InsightPageContent() {
               onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
               className="rounded-xl border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-800"
             >
-              <option value="all">연도 전체</option>
+              <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
               {systemFilterYears.map((y) => (
                 <option key={y} value={y}>{y}년</option>
               ))}
@@ -288,7 +297,7 @@ function InsightPageContent() {
               onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
               className="rounded-xl border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-800"
             >
-              <option value="all">월 전체</option>
+              <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
                 <option key={m} value={m}>{m}월</option>
               ))}
