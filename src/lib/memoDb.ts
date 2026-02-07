@@ -103,7 +103,16 @@ export async function loadAllMemos(): Promise<Memo[]> {
       console.error("[memoDb] loadAllMemos", error);
       return loadAllFromStorage();
     }
-    return (data ?? []).map((row) => rowToMemo(row));
+    const fromDb = (data ?? []).map((row) => rowToMemo(row));
+    // 한 번만: Supabase는 비어 있는데 이 기기 localStorage에 메모가 있으면 올리기
+    if (fromDb.length === 0) {
+      const fromStorage = loadAllFromStorage();
+      if (fromStorage.length > 0) {
+        await saveMemos(fromStorage);
+        return fromStorage;
+      }
+    }
+    return fromDb;
   }
   return loadAllFromStorage();
 }
