@@ -382,6 +382,7 @@ export default function MemoPage() {
               }
               onPointerDown={(e) => {
                 if (!isDesktop || selectionMode) return;
+                if (!(e.target as HTMLElement).closest("[data-memo-drag-handle]")) return;
                 if ((e.target as HTMLElement).closest("button")) return;
                 if ((e.target as HTMLElement).closest("input")) return;
                 if ((e.target as HTMLElement).closest("[data-resize-handle]")) return;
@@ -394,8 +395,8 @@ export default function MemoPage() {
                 };
               }}
               className={`flex min-h-[280px] w-full cursor-default flex-col overflow-hidden rounded-xl shadow-lg transition-shadow md:absolute md:min-h-0 md:w-auto ${
-                isDesktop ? "cursor-grab active:cursor-grabbing" : ""
-              } ${selectionMode ? "cursor-pointer" : ""} ${isSelected ? "ring-2 ring-neutral-800 ring-offset-2" : ""} ${
+                selectionMode ? "cursor-pointer" : ""
+              } ${isSelected ? "ring-2 ring-neutral-800 ring-offset-2" : ""} ${
                 isDragging || isResizing ? "z-50 select-none" : "z-10"
               }`}
               style={{

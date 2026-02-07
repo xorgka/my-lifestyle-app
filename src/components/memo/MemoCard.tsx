@@ -46,9 +46,10 @@ export function MemoCard({
       className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${className}`}
       style={rootStyle}
     >
-      {/* 헤더 */}
+      {/* 헤더 (여기만 잡으면 카드 드래그) */}
       <div
-        className="relative flex flex-shrink-0 items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1"
+        data-memo-drag-handle
+        className={`relative flex flex-shrink-0 items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""}`}
         style={{
           backgroundColor: colors.headerBg,
           borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
