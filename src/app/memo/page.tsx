@@ -242,7 +242,7 @@ export default function MemoPage() {
   }, [draggingId, resizingId]);
 
   return (
-    <div className="min-h-[100vh] min-w-0 space-y-3">
+    <div className="min-h-[120vh] min-w-0 space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SectionTitle
           title="메모"
