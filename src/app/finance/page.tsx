@@ -245,12 +245,18 @@ export default function FinancePage() {
     yearMonthForView
   );
 
-  /** 검색어가 있으면 항목명 기준으로 필터 (표시용) */
+  /** 검색어가 있으면 항목명 기준으로 필터 (표시용). 본문 항목 + 카드 세부내역 항목 모두 검색 */
   const displayEntries = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return entries;
-    return entries.filter((e) => e.item.toLowerCase().includes(q));
-  }, [entries, searchQuery]);
+    return entries.filter((e) => {
+      if (e.item.toLowerCase().includes(q)) return true;
+      const hasMatchingDetail = entryDetails.some(
+        (d) => d.parentId === e.id && d.item.toLowerCase().includes(q)
+      );
+      return hasMatchingDetail;
+    });
+  }, [entries, entryDetails, searchQuery]);
 
   const entriesForSelectedDay = useMemo(
     () => displayEntries.filter((e) => e.date === selectedDate),
