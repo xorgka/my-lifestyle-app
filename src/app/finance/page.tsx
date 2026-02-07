@@ -1571,14 +1571,14 @@ placeholder="항목"
               </div>
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
-              {(Object.keys(viewMonthByCategory) as DisplayCategoryId[])
-                .filter((cat) => cat !== "미분류")
-                .map((cat) => (
+              {(
+                ["고정비", "생활비", "기타", "세금", "사업경비"] as const
+              ).map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setCategoryDetailModal(cat)}
-                  className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm inline-flex items-center gap-3"
+                  className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm"
                 >
                   <span className="font-semibold">{CATEGORY_LABELS[cat]}</span>
                   <span className="font-medium">
@@ -1589,11 +1589,11 @@ placeholder="항목"
               <button
                 type="button"
                 onClick={() => setShowCardExpenseDetailModal(true)}
-                className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm inline-flex items-center gap-3"
+                className="inline-flex items-center gap-3 rounded-full border border-violet-200 bg-violet-50/90 px-4 py-2 text-violet-900 transition hover:border-violet-300 hover:bg-violet-100 hover:shadow-sm"
               >
                 <span className="font-semibold">카드출금</span>
-<span className="font-medium">
-                    {formatAmountShort(viewMonthCardExpenseSummary.total)}
+                <span className="font-medium">
+                  {formatAmountShort(viewMonthCardExpenseSummary.total)}
                 </span>
               </button>
             </div>

@@ -925,7 +925,7 @@ export default function IncomePage() {
             })}
           </ul>
           <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
-            <span className="font-semibold text-neutral-800">세금 및 경비</span>
+            <span className="font-semibold text-neutral-800">합계</span>
             <span className="text-xl font-bold text-red-600">
               {formatNum(taxExpenseTotalForYear)}원
             </span>
