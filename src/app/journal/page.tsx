@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
-import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import { localDateStr } from "@/lib/dateUtil";
 import {
@@ -130,7 +129,6 @@ export default function JournalPage() {
   const [journalLoading, setJournalLoading] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showAllSearchResults, setShowAllSearchResults] = useState(false);
-  const [showOnlyImportant, setShowOnlyImportant] = useState(false);
   const [viewMode, setViewMode] = useState<"write" | "preview">("preview");
   /** 달력 셀 호버 시 첫 문장 툴팁 (바로 표시, 크게) */
   const [cellTooltip, setCellTooltip] = useState<{ dateStr: string; text: string; x: number; y: number } | null>(null);
@@ -318,19 +316,28 @@ export default function JournalPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedDate, draft]);
 
+  const today = todayStr();
   const entryDates = new Set(entries.map((e) => e.date));
+  const hasTodayContent = entryDates.has(today) || (selectedDate === today && (draft.trim().length > 0 || draftImportant));
   const streak = (() => {
     let count = 0;
     let d = new Date();
-    const today = todayStr();
     while (true) {
       const key = localDateStr(d);
       if (key > today) break;
-      if (entryDates.has(key)) count++;
+      const hasEntry = key === today ? hasTodayContent : entryDates.has(key);
+      if (hasEntry) count++;
       else if (key !== today) break;
       d.setDate(d.getDate() - 1);
     }
     return count;
+  })();
+
+  const lastRecordDateStr = (() => {
+    if (entries.length === 0) return null;
+    const latest = entries.reduce((max, e) => (e.date > max ? e.date : max), entries[0].date);
+    const [y, m, day] = latest.split("-").map(Number);
+    return `${m}월 ${day}일`;
   })();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -418,24 +425,43 @@ export default function JournalPage() {
       )}
 
       <div className="-mb-4">
-        <SectionTitle
-          title="일기장"
-          subtitle="하루를 돌아보고, 차분하게 감정을 정리해요."
-          className="!mb-3"
-        />
+        <header className="mb-8 pt-4 pl-4 md:mb-10 md:pt-6 md:pl-6 !mb-3">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="min-w-0 flex-1 text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
+              일기장
+            </h1>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 sm:hidden"
+              aria-label="달력·검색 열기"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
+          <p className="mt-3 text-sm text-neutral-500 md:text-lg">
+            하루를 돌아보고, 차분하게 감정을 정리해요.
+          </p>
+        </header>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          {streak > 0 ? (
-            <p className="flex items-center gap-1.5 text-sm text-neutral-500">
-              <span aria-hidden>🔥</span>
-              연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
-            </p>
-          ) : (
-            <span />
-          )}
+          <p className="flex items-center gap-1.5 text-sm text-neutral-500/60">
+            {streak > 0 ? (
+              <>
+                <span aria-hidden>🔥</span>
+                연속 <span className="font-semibold text-neutral-700">{streak}</span>일 작성 중
+              </>
+            ) : (
+              <>
+                마지막 기록: {lastRecordDateStr ?? "—"}
+              </>
+            )}
+          </p>
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
+            className="hidden shrink-0 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300 sm:flex"
             aria-label="달력·검색 열기"
           >
             <svg className="h-5 w-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -643,8 +669,8 @@ export default function JournalPage() {
               />
               <aside
                 className={clsx(
-                  "fixed left-1/2 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-transform duration-200 ease-out md:left-auto md:right-20 md:top-[24vh] md:h-[55vh] md:max-h-none",
-                  drawerAnimated ? "-translate-x-1/2 md:translate-x-0" : "-translate-x-[150%] md:translate-x-full"
+                  "fixed right-0 top-[12vh] z-50 flex h-[70vh] max-h-[75vh] w-[min(320px,92vw)] flex-col overflow-hidden rounded-l-2xl bg-white shadow-2xl transition-transform duration-200 ease-out md:right-20 md:top-[24vh] md:h-[55vh] md:max-h-none md:rounded-2xl",
+                  drawerAnimated ? "translate-x-0" : "translate-x-full"
                 )}
                 role="dialog"
                 aria-label="달력·검색"
@@ -662,7 +688,7 @@ export default function JournalPage() {
                   </svg>
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 <div className="space-y-2">
                   <div className="relative flex items-center">
                     <span className="pointer-events-none absolute left-0 flex h-full w-9 items-center justify-center text-neutral-400" aria-hidden>
@@ -704,7 +730,7 @@ export default function JournalPage() {
                     </div>
                   )}
                 </div>
-                <Card className="h-fit !p-5 !pb-2">
+                <Card className="h-fit !p-5 !pb-1">
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     <select
                       value={year}
@@ -742,7 +768,6 @@ export default function JournalPage() {
                         const tooltipText = hasEntry ? firstLinePreview(entry!.content, 80) : firstLinePreview(draft, 80);
                         const isImportant = entry?.important ?? false;
                         const isSelected = dateStr === selectedDate;
-                        const dimmed = showOnlyImportant && (!hasEntry || !isImportant);
                         return (
                           <button
                             key={i}
@@ -756,7 +781,6 @@ export default function JournalPage() {
                             onMouseLeave={() => setCellTooltip(null)}
                             className={clsx(
                               "relative aspect-square rounded-md text-sm transition sm:text-base",
-                              dimmed && "opacity-40",
                               isSelected ? "bg-neutral-800 font-semibold text-white" : isImportant ? "bg-orange-200 font-medium text-orange-900 hover:bg-orange-300" : hasEntry ? "bg-neutral-200 font-medium text-neutral-800 hover:bg-neutral-300" : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
                             )}
                           >
@@ -765,17 +789,6 @@ export default function JournalPage() {
                         );
                       })}
                     </div>
-                  </div>
-                  <div className="mt-3 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setShowOnlyImportant((v) => !v)}
-                      className={clsx("rounded-full p-2 text-2xl transition", showOnlyImportant ? "text-orange-500" : "text-neutral-300 hover:text-orange-400")}
-                      title="중요한 날만 강조"
-                      aria-label={showOnlyImportant ? "강조 해제" : "중요한 날만 강조"}
-                    >
-                      ★
-                    </button>
                   </div>
                   {cellTooltip && typeof document !== "undefined" && createPortal(
                     <div className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full rounded-lg bg-neutral-800 px-4 py-2.5 text-base text-white shadow-lg" style={{ left: cellTooltip.x, top: cellTooltip.y - 8, maxWidth: "min(320px, 90vw)" }}>

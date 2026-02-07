@@ -1085,16 +1085,26 @@ export default function FinancePage() {
           <button
             type="submit"
             disabled={isAdding}
-            className="rounded-xl bg-neutral-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-60"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 px-0 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-60 md:w-auto md:min-w-[4.5rem] md:px-4"
           >
-            {isAdding ? "저장 중…" : "추가"}
+            {isAdding ? (
+              <>
+                <span className="md:hidden">…</span>
+                <span className="hidden md:inline">저장 중…</span>
+              </>
+            ) : (
+              <>
+                <span className="md:hidden">+</span>
+                <span className="hidden md:inline">추가</span>
+              </>
+            )}
           </button>
           <button
             type="button"
             onClick={() => setCardSectionOpen((o) => !o)}
-            className="rounded-xl border-2 border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-500 hover:bg-neutral-50"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border-2 border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-500 hover:bg-neutral-50 md:px-4"
           >
-            카드지출 {cardSectionOpen ? "▲" : "▼"}
+            <span className="md:hidden">카드</span><span className="hidden md:inline">카드지출</span> {cardSectionOpen ? "▲" : "▼"}
           </button>
         </form>
 

@@ -89,6 +89,16 @@ export default function RoutinePage() {
   const [listViewDateKey, setListViewDateKey] = useState(() => getTodayKey());
   /** 오늘의 루틴 카드: 편집/항목추가 메뉴 열림 */
   const [listMenuOpen, setListMenuOpen] = useState(false);
+  /** 모바일 뷰 여부 (연도 선택 라벨을 "연도"만 표시) */
+  const [isNarrowView, setIsNarrowView] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsNarrowView(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const todayKey = getTodayKey();
   const completedToday = useMemo(
@@ -921,11 +931,11 @@ export default function RoutinePage() {
         {statsTab === "월별" && (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex w-full flex-1 items-center justify-between gap-2 min-w-0 md:w-auto md:flex-initial md:justify-start">
                 <button
                   type="button"
                   onClick={() => setMonthlyRangeMode("6months")}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition md:flex-none md:px-3 ${
                     monthlyRangeMode === "6months"
                       ? "bg-neutral-900 text-white"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
@@ -936,7 +946,7 @@ export default function RoutinePage() {
                 <button
                   type="button"
                   onClick={() => setMonthlyRangeMode("1year")}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition md:flex-none md:px-3 ${
                     monthlyRangeMode === "1year"
                       ? "bg-neutral-900 text-white"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
@@ -952,9 +962,9 @@ export default function RoutinePage() {
                     setMonthlyRangeYear(Number(v));
                     setMonthlyRangeMode("year");
                   }}
-                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700"
+                  className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-700 md:w-auto md:flex-none md:px-3"
                 >
-                  <option value="">연도 선택</option>
+                  <option value="">{isNarrowView ? "연도" : "연도 선택"}</option>
                   {yearOptions.length === 0 && (
                     <option value={new Date().getFullYear()}>{new Date().getFullYear()}년</option>
                   )}
@@ -963,15 +973,15 @@ export default function RoutinePage() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-neutral-500">중요 항목:</span>
+              <div className="flex w-full items-center gap-2 justify-end shrink-0 md:w-auto md:justify-start">
+                <span className="text-sm text-neutral-500 shrink-0">중요 항목:</span>
                 <select
                   value={selectedMonthlyImportantItemId ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
                     setSelectedMonthlyImportantItemId(v === "" ? null : Number(v));
                   }}
-                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 min-w-[10rem]"
+                  className="min-w-0 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 md:min-w-[10rem]"
                 >
                   <option value="">전체 (달성률 %)</option>
                   {importantItems.map((i) => (
@@ -1055,8 +1065,8 @@ export default function RoutinePage() {
                   </svg>
                 </button>
               </div>
-              <div className="flex w-full items-center justify-end gap-2 sm:justify-between">
-                <span className="text-sm text-neutral-500">중요 항목:</span>
+              <div className="flex w-full items-center justify-end gap-2 md:justify-between">
+                <span className="text-sm text-neutral-500 shrink-0">중요 항목:</span>
                 <select
                   value={selectedImportantItemId ?? ""}
                   onChange={(e) => {
