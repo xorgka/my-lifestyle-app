@@ -206,6 +206,9 @@ export default function JournalPage() {
         important: draftImportant,
       });
       next.sort((a, b) => b.date.localeCompare(a.date));
+    } else {
+      // 해당 날짜를 비웠을 때 DB/스토리지에서도 삭제 (Supabase는 upsert만 하므로 삭제 호출 필요)
+      await deleteJournalEntry(selectedDate).catch(console.error);
     }
     setEntries(next);
     saveDraft(selectedDate, null);
@@ -348,7 +351,7 @@ export default function JournalPage() {
   const [showExport, setShowExport] = useState(false);
   const now = new Date();
   const [exportYear, setExportYear] = useState(currentYear);
-  const [exportRangeType, setExportRangeType] = useState<"month" | "year" | "range" | "all">("range");
+  const [exportRangeType, setExportRangeType] = useState<"month" | "year" | "range" | "all">("month");
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
   const [exportRangeFrom, setExportRangeFrom] = useState(() => {
     const d = new Date(currentYear - 1, now.getMonth(), now.getDate());

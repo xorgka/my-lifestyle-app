@@ -126,8 +126,8 @@ export default function FinancePage() {
   const [showCardExpenseDetailModal, setShowCardExpenseDetailModal] = useState(false);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  /** 검색 결과 연도 필터: 전체 | 2026 | 2027 */
-  const [searchYearFilter, setSearchYearFilter] = useState<"all" | "2026" | "2027">("all");
+  /** 검색 결과 연도 필터: 전체 | 2021~2027 */
+  const [searchYearFilter, setSearchYearFilter] = useState<"all" | string>("all");
   const [showExportModal, setShowExportModal] = useState(false);
   /** 모바일: 검색·키워드 관리·내보내기 메뉴 열림 */
   const [showFinanceSettingsMenu, setShowFinanceSettingsMenu] = useState(false);
@@ -1038,12 +1038,13 @@ export default function FinancePage() {
                 <span className="text-sm text-neutral-500">연도:</span>
                 <select
                   value={searchYearFilter}
-                  onChange={(e) => setSearchYearFilter(e.target.value as "all" | "2026" | "2027")}
+                  onChange={(e) => setSearchYearFilter(e.target.value)}
                   className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800"
                 >
                   <option value="all">전체</option>
-                  <option value="2026">2026년</option>
-                  <option value="2027">2027년</option>
+                  {[2021, 2022, 2023, 2024, 2025, 2026, 2027].map((y) => (
+                    <option key={y} value={String(y)}>{y}년</option>
+                  ))}
                 </select>
               </div>
               <div className="mt-4 max-h-64 overflow-auto rounded-lg border border-neutral-200 bg-white">

@@ -142,7 +142,7 @@ export function MemoCard({
                   setColorMenuId(null);
                 }}
               />
-              <div className="absolute right-0 top-full z-20 mt-1.5 flex gap-1.5 rounded-xl bg-white px-2 py-2 shadow-lg ring-1 ring-neutral-100">
+              <div className="absolute left-0 top-full z-20 mt-1.5 flex gap-1.5 rounded-xl bg-white px-2 py-2 shadow-lg ring-1 ring-neutral-100">
                 {(Object.keys(MEMO_COLORS) as MemoColorId[]).map((c) => (
                   <button
                     key={c}
