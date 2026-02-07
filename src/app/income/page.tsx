@@ -9,8 +9,7 @@ import {
   type BudgetEntry,
   type BudgetEntryDetail,
   DEFAULT_KEYWORDS,
-  getCategoryForEntry,
-  getKeywordsForMonth,
+  getTaxExpenseByMonth,
   loadEntries,
   loadEntryDetails,
   loadKeywords,
@@ -90,6 +89,10 @@ export default function IncomePage() {
   const [showPastYearsMobile, setShowPastYearsMobile] = useState(false);
   /** 모바일: 구분관리·내보내기·검색 메뉴 열림 */
   const [showIncomeSettingsMenu, setShowIncomeSettingsMenu] = useState(false);
+  /** 세금·경비 항목 클릭 시 월별 내역 모달 (예: 사업경비) */
+  const [taxCategoryModal, setTaxCategoryModal] = useState<
+    (typeof TAX_EXPENSE_CATEGORIES)[number] | null
+  >(null);
 
   const load = useCallback(async () => {
     let entries = await loadIncomeEntries();
@@ -189,52 +192,57 @@ export default function IncomePage() {
     [budgetEntries, incomeYear, incomeMonth]
   );
 
-  /** 해당 연도 세금·경비 항목별 합계. 21~25년은 시드만 사용(가계부 데이터 제외), 2026~ 가계부 연동. 카드지출 세부 내역도 반영 */
-  const budgetAmountByTaxCategory = useMemo(() => {
-    const yearPrefix = String(incomeYear);
-    let entriesInYear: typeof budgetEntries;
+  /** 해당 연도 세금·경비 월별 집계 (가계부와 동일 로직). 21~25년 시드, 2026~ 가계부 연동 */
+  const taxExpenseByMonth = useMemo(() => {
+    let entriesInYear: BudgetEntry[];
+    let detailsInYear: BudgetEntryDetail[];
     if (incomeYear === 2021) {
       entriesInYear = SEED_BUDGET_2021_TAX;
+      detailsInYear = [];
     } else if (incomeYear === 2022) {
       entriesInYear = SEED_BUDGET_2022_TAX;
+      detailsInYear = [];
     } else if (incomeYear === 2023) {
       entriesInYear = SEED_BUDGET_2023_TAX;
+      detailsInYear = [];
     } else if (incomeYear === 2024) {
       entriesInYear = SEED_BUDGET_2024_TAX;
+      detailsInYear = [];
     } else if (incomeYear === 2025) {
       entriesInYear = SEED_BUDGET_2025_TAX;
+      detailsInYear = [];
     } else {
+      const yearPrefix = String(incomeYear);
       entriesInYear = budgetEntries.filter((e) => e.date.startsWith(yearPrefix));
+      const entryIds = new Set(entriesInYear.map((e) => e.id));
+      detailsInYear = budgetEntryDetails.filter((d) => entryIds.has(d.parentId));
     }
+    return getTaxExpenseByMonth(
+      incomeYear,
+      entriesInYear,
+      detailsInYear,
+      budgetKeywords,
+      budgetMonthExtras
+    );
+  }, [
+    incomeYear,
+    budgetEntries,
+    budgetEntryDetails,
+    budgetKeywords,
+    budgetMonthExtras,
+  ]);
+
+  /** 해당 연도 세금·경비 항목별 합계 (월별 합산) */
+  const budgetAmountByTaxCategory = useMemo(() => {
     const result: Record<string, number> = {};
     TAX_EXPENSE_CATEGORIES.forEach((cat) => {
       result[cat] = 0;
-    });
-    const addToResult = (item: string, amount: number, kw: Record<string, string[]>) => {
-      const cat = getCategoryForEntry(item, kw);
-      const lower = item.trim().toLowerCase();
-      if (lower.includes("부가세")) result["부가세"] += amount;
-      else if (lower.includes("종합소득세")) result["종합소득세"] += amount;
-      else if (lower.includes("국민연금")) result["국민연금"] += amount;
-      else if (lower.includes("건강보험")) result["건강보험"] += amount;
-      else if (lower.includes("사업경비") || cat === "사업경비") result["사업경비"] += amount;
-      else if (lower.includes("자동차세") || lower.includes("면허세")) result["기타"] += amount;
-    };
-    for (const e of entriesInYear) {
-      const yyyyMm = e.date.slice(0, 7);
-      const kw = getKeywordsForMonth(budgetKeywords, budgetMonthExtras, yyyyMm);
-      const details = budgetEntryDetails.filter((d) => d.parentId === e.id);
-      if (details.length > 0) {
-        for (const d of details) {
-          const detailKw = getKeywordsForMonth(budgetKeywords, budgetMonthExtras, yyyyMm);
-          addToResult(d.item.trim(), d.amount, detailKw);
-        }
-      } else {
-        addToResult(e.item, e.amount, kw);
+      for (let m = 1; m <= 12; m++) {
+        result[cat] += taxExpenseByMonth[m]?.[cat] ?? 0;
       }
-    }
+    });
     return result;
-  }, [budgetEntries, budgetEntryDetails, incomeYear, budgetKeywords, budgetMonthExtras]);
+  }, [taxExpenseByMonth]);
 
   /** 세금 및 경비 항목 총합 (해당 연도) */
   const taxExpenseTotalForYear = useMemo(
@@ -849,7 +857,16 @@ export default function IncomePage() {
               return (
                 <li
                   key={cat}
-                  className="group flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setTaxCategoryModal(cat)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setTaxCategoryModal(cat);
+                    }
+                  }}
+                  className="group flex cursor-pointer items-center justify-between rounded-lg border border-neutral-200 bg-white px-4 py-3 transition-colors hover:bg-neutral-50"
                 >
                   <span className="relative inline-block font-medium text-neutral-800">
                     {cat}
@@ -874,6 +891,59 @@ export default function IncomePage() {
           </div>
         </Card>
       </div>
+
+      {/* 세금·경비 항목 월별 내역 모달 */}
+      {taxCategoryModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/55 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={() => setTaxCategoryModal(null)}
+          >
+            <div
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {taxCategoryModal} · {incomeYear}년 월별
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                월별 금액을 확인할 수 있어요.
+              </p>
+              <ul className="mt-4 max-h-[50vh] space-y-1.5 overflow-y-auto">
+                {MONTHS.map((m) => {
+                  const amt = taxExpenseByMonth[m]?.[taxCategoryModal] ?? 0;
+                  return (
+                    <li
+                      key={m}
+                      className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2 text-sm"
+                    >
+                      <span className="text-neutral-700">{m}월</span>
+                      <span className="font-medium text-red-600">
+                        {formatNum(amt)}원
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4 flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
+                <span className="font-semibold text-neutral-800">합계</span>
+                <span className="text-lg font-bold text-red-600">
+                  {formatNum(budgetAmountByTaxCategory[taxCategoryModal] ?? 0)}원
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTaxCategoryModal(null)}
+                className="mt-4 w-full rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+              >
+                닫기
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* 내보내기 모달 (body에 포탈 → 화면 전체 어둡게) */}
       {showExportModal &&

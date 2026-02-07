@@ -322,6 +322,51 @@ export function getCategoryForEntry(
   return "기타"; // 기본: 어떤 키워드에도 안 걸리면 기타
 }
 
+/**
+ * 해당 연도 세금·경비를 월별로 집계. 수입 페이지 연간 합계 + 월별 모달에 공통 사용.
+ * @returns byMonth[1..12][항목명] = 금액
+ */
+export function getTaxExpenseByMonth(
+  year: number,
+  entries: BudgetEntry[],
+  entryDetails: BudgetEntryDetail[],
+  keywords: CategoryKeywords,
+  monthExtras: MonthExtraKeywords
+): Record<number, Record<string, number>> {
+  const yearPrefix = String(year);
+  const inYear = entries.filter((e) => e.date.startsWith(yearPrefix));
+  const byMonth: Record<number, Record<string, number>> = {};
+  for (let m = 1; m <= 12; m++) {
+    byMonth[m] = { 부가세: 0, 종합소득세: 0, 국민연금: 0, 건강보험: 0, 사업경비: 0, 기타: 0 };
+  }
+  const addToMonth = (month: number, item: string, amount: number, kw: CategoryKeywords) => {
+    const cat = getCategoryForEntry(item, kw);
+    const lower = item.trim().toLowerCase();
+    const R = byMonth[month];
+    if (lower.includes("부가세")) R["부가세"] += amount;
+    else if (lower.includes("종합소득세")) R["종합소득세"] += amount;
+    else if (lower.includes("국민연금")) R["국민연금"] += amount;
+    else if (lower.includes("건강보험")) R["건강보험"] += amount;
+    else if (lower.includes("사업경비") || cat === "사업경비") R["사업경비"] += amount;
+    else if (lower.includes("자동차세") || lower.includes("면허세")) R["기타"] += amount;
+  };
+  for (const e of inYear) {
+    const month = parseInt(e.date.slice(5, 7), 10);
+    if (month < 1 || month > 12) continue;
+    const yyyyMm = e.date.slice(0, 7);
+    const kw = getKeywordsForMonth(keywords, monthExtras, yyyyMm);
+    const details = entryDetails.filter((d) => d.parentId === e.id);
+    if (details.length > 0) {
+      for (const d of details) {
+        addToMonth(month, d.item.trim(), d.amount, kw);
+      }
+    } else {
+      addToMonth(month, e.item, e.amount, kw);
+    }
+  }
+  return byMonth;
+}
+
 /** 월 총 지출에서 제외할 금액인지 (적금, IRP, ISA, 주택청약) */
 export function isExcludedFromMonthTotal(item: string): boolean {
   return matchesKeyword(item, EXCLUDE_FROM_MONTH_TOTAL);
