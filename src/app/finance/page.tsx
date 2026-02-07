@@ -1491,7 +1491,7 @@ placeholder="항목"
               </select>
             </div>
             <div className="text-base font-semibold text-neutral-800">{viewYearByMonthGlance.year}년 1~12월 지출</div>
-            <div className="mt-2 grid grid-cols-4 gap-2 md:grid-cols-6">
+            <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
                 const total = viewYearByMonthGlance.byMonth[m] ?? 0;
                 return (
@@ -1510,10 +1510,10 @@ placeholder="항목"
               return (
                 <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-neutral-200 pt-4 text-sm">
                   <span className="text-neutral-600">
-                    한해 총 지출: <strong className="text-neutral-900">{formatNum(yearTotal)}원</strong>
+                    한해 총 지출: <AmountToggle amount={yearTotal} className="font-semibold" />
                   </span>
                   <span className="text-neutral-600">
-                    월 평균 지출: <strong className="text-neutral-900">{formatNum(Math.round(yearTotal / 12))}원</strong>
+                    월 평균 지출: <AmountToggle amount={Math.round(yearTotal / 12)} className="font-semibold" />
                   </span>
                 </div>
               );
