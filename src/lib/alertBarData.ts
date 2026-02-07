@@ -316,11 +316,15 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
         missDays = d;
       }
       if (missDays === 1) {
-        alerts.push({ type: "plain", text: "어제 헬스장에 가지 않았어요!", href: "/routine" });
+        alerts.push({
+          type: "plain",
+          text: "어제 헬스장에 가지 않았어요! ⚠️",
+          href: "/routine",
+        });
       } else {
         alerts.push({
           type: "plain",
-          text: `${missDays}일째 ${label}에 가지 않고 있어요!`,
+          text: `${missDays}일째 ${label}에 가지 않고 있어요! ⚠️`,
           href: "/routine",
         });
       }
@@ -335,7 +339,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
       if (streak === 1) {
         alerts.push({
           type: "plain",
-          text: "어제 헬스장 갔어요! 오늘도 도전?",
+          text: "어제 헬스장 갔어요! 오늘도 도전? 💪",
           href: "/routine",
         });
       } else {
@@ -360,8 +364,8 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
         alerts.push({
           type: "plain",
           text: isNewRecord
-            ? `${streak}일 연속 ${label}! 신기록이에요!`
-            : `${streak}일째 ${label}에 나가고 있어요!`,
+            ? `${streak}일 연속 ${label}! 신기록이에요! 🎉`
+            : `${streak}일째 ${label}에 나가고 있어요! 💪`,
           href: "/routine",
         });
       }
