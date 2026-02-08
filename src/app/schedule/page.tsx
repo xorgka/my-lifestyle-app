@@ -33,7 +33,7 @@ import {
 import { getHolidaysOn } from "@/lib/scheduleHolidays";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
-type ViewMode = "today" | "week" | "month";
+type ViewMode = "today" | "week" | "month" | "search";
 
 function formatDisplayDate(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -59,6 +59,7 @@ function getRange(
   const now = new Date();
   const today = todayStr();
   if (view === "today") return { start: today, end: addDays(today, 1) };
+  if (view === "search") return { start: addDays(today, -365), end: addDays(today, 730) };
   if (view === "week") {
     const start = weekStartDateStr ?? startOfWeek(now);
     return { start, end: addDays(start, 6) };
@@ -152,6 +153,8 @@ export default function SchedulePage() {
   const [builtinDeletedVersion, setBuiltinDeletedVersion] = useState(0);
   const [completions, setCompletions] = useState<Set<string>>(() => loadScheduleCompletions());
   const [swipedRowKey, setSwipedRowKey] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [weekTooltip, setWeekTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const touchStartRef = useRef<{ x: number; rowKey: string } | null>(null);
 
   const range = useMemo(
@@ -163,14 +166,21 @@ export default function SchedulePage() {
     [range, entries, builtinDeletedVersion]
   );
 
+  const searchNorm = searchQuery.trim().toLowerCase();
+  const searchFilteredItems = useMemo(() => {
+    if (!searchNorm) return [] as ScheduleItem[];
+    return items.filter((item) => item.title.toLowerCase().includes(searchNorm));
+  }, [items, searchNorm]);
+
   const itemsByDate = useMemo(() => {
     const map: Record<string, ScheduleItem[]> = {};
-    for (const item of items) {
+    const source = viewMode === "search" ? searchFilteredItems : items;
+    for (const item of source) {
       if (!map[item.date]) map[item.date] = [];
       map[item.date].push(item);
     }
     return map;
-  }, [items]);
+  }, [viewMode, viewMode === "search" ? searchFilteredItems : items, items, searchFilteredItems]);
 
   const refresh = useCallback(() => {
     loadScheduleEntries().then(setEntries);
@@ -244,11 +254,27 @@ export default function SchedulePage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <SectionTitle
-        title="스케줄"
-        subtitle="공휴일과 반복 일정을 한곳에서 확인하세요."
-        className="!mb-4 md:!mb-6"
-      />
+      <div className="relative pr-12 md:pr-0">
+        <SectionTitle
+          title="스케줄"
+          subtitle="공휴일과 반복 일정을 한곳에서 확인하세요."
+          className="!mb-4 md:!mb-6"
+        />
+        <button
+          type="button"
+          onClick={() => setViewMode("search")}
+          className={`absolute right-0 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 md:hidden ${
+            viewMode === "search" ? "bg-neutral-200 text-neutral-700" : ""
+          }`}
+          title="검색"
+          aria-label="검색"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+        </button>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {(
@@ -283,8 +309,23 @@ export default function SchedulePage() {
         ))}
         <button
           type="button"
+          onClick={() => setViewMode("search")}
+          className={`ml-auto hidden h-10 w-10 items-center justify-center rounded-2xl md:flex md:h-auto md:w-auto md:px-4 md:py-2 ${
+            viewMode === "search" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+          }`}
+          title="검색"
+          aria-label="검색"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:mr-1">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <span className="hidden md:inline">검색</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setAddOpen(true)}
-          className="ml-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500 text-2xl font-semibold text-white shadow-sm hover:bg-amber-600 md:h-auto md:w-auto md:px-4 md:py-2 md:text-sm"
+          className="ml-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500 text-2xl font-semibold text-white shadow-sm hover:bg-amber-600 md:ml-0 md:h-auto md:w-auto md:px-4 md:py-2 md:text-sm"
           title="스케줄 추가"
           aria-label="스케줄 추가"
         >
@@ -292,6 +333,20 @@ export default function SchedulePage() {
           <span className="hidden md:inline md:ml-1">스케줄 추가</span>
         </button>
       </div>
+
+      {viewMode === "search" && (
+        <div className="mt-1">
+          <input
+            type="search"
+            placeholder="제목으로 검색"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-4 pr-10 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+            aria-label="스케줄 제목 검색"
+            autoFocus
+          />
+        </div>
+      )}
 
       {!isSupabaseConfigured && (
         <p className="rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
@@ -301,6 +356,75 @@ export default function SchedulePage() {
 
       {loading && (
         <p className="text-sm text-neutral-500">스케줄 불러오는 중…</p>
+      )}
+
+      {!loading && viewMode === "search" && !searchNorm && (
+        <Card className="min-w-0">
+          <p className="text-neutral-500">검색어를 입력하면 모든 스케줄에서 찾아요.</p>
+        </Card>
+      )}
+
+      {!loading && viewMode === "search" && searchNorm && searchFilteredItems.length === 0 && (
+        <Card className="min-w-0">
+          <p className="text-neutral-500">&quot;{searchQuery.trim()}&quot; 검색 결과가 없어요.</p>
+        </Card>
+      )}
+
+      {!loading && viewMode === "search" && searchNorm && searchFilteredItems.length > 0 && (
+        <div className="min-w-0 space-y-4">
+          {Object.keys(itemsByDate)
+            .sort()
+            .map((dateStr) => {
+              const dayItems = itemsByDate[dateStr] ?? [];
+              if (dayItems.length === 0) return null;
+              return (
+                <Card key={dateStr} className="min-w-0 shadow-[0_10px_30px_rgba(0,0,0,0.07)]">
+                  <h3 className="mb-3 text-base font-semibold text-neutral-800">
+                    {formatDateOnly(dateStr)}
+                  </h3>
+                  <ul className="space-y-2">
+                    {dayItems.map((item, idx) => (
+                      <li
+                        key={item.type === "user" ? item.entryId! : `${dateStr}-${item.title}-${idx}`}
+                        className="flex items-center gap-2 rounded-xl border border-neutral-200/70 bg-neutral-50 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1 text-base md:text-lg">
+                          {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
+                          <span className="font-medium text-neutral-800">{item.title}</span>
+                          {getSystemCategoryLabel(item) && (
+                            <span className={`ml-2 ${getSystemCategoryClass(item)}`}>
+                              {getSystemCategoryLabel(item)}
+                            </span>
+                          )}
+                        </div>
+                        {((item.type === "user" && item.entryId) || (item.type === "builtin" && item.builtinId)) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.type === "user" && item.entryId) {
+                                const e = entries.find((x) => x.id === item.entryId);
+                                if (e) setEditingEntry(e);
+                              } else if (item.type === "builtin" && item.builtinId) {
+                                setEditingEntry(builtinItemToEntry(item));
+                              }
+                            }}
+                            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200"
+                            aria-label="수정"
+                            title="수정"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                              <path d="m15 5 4 4" />
+                            </svg>
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              );
+            })}
+        </div>
       )}
 
       {!loading && viewMode === "today" && items.length === 0 && (
@@ -321,7 +445,7 @@ export default function SchedulePage() {
             return (
               <Card
                 key={dateStr}
-                className={`min-w-0 ${isTomorrow ? "opacity-45" : "shadow-[0_10px_30px_rgba(0,0,0,0.07)]"}`}
+                className={`min-w-0 transition-opacity transition-shadow duration-200 ${isTomorrow ? "opacity-45 hover:opacity-100 hover:shadow-[0_10px_30px_rgba(0,0,0,0.07)]" : "shadow-[0_10px_30px_rgba(0,0,0,0.07)]"}`}
               >
                 <h3 className="mb-3 flex items-baseline gap-2 text-base font-semibold text-neutral-800">
                   <span>{dateStr === range.start ? "오늘" : "내일"}</span>
@@ -379,10 +503,10 @@ export default function SchedulePage() {
                               e.stopPropagation();
                               toggleComplete();
                             }}
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-neutral-400 text-white transition hover:border-neutral-500 md:mr-2"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-neutral-300 text-white transition hover:border-neutral-400 md:mr-2"
                             aria-label={isCompleted ? "완료 해제" : "완료"}
                             title={isCompleted ? "완료 해제" : "완료"}
-                            style={isCompleted ? { backgroundColor: "#22c55e", borderColor: "#22c55e" } : undefined}
+                            style={isCompleted ? { backgroundColor: "#000", borderColor: "#000" } : undefined}
                           >
                             {isCompleted && (
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -486,7 +610,7 @@ export default function SchedulePage() {
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-2 md:min-w-[min(100%,700px)] md:grid-cols-7">
             {getWeekDateStringsFromMonday(weekStartDateStr).map((dateStr) => {
-const d = new Date(dateStr + "T12:00:00");
+              const d = new Date(dateStr + "T12:00:00");
               const dayOfWeek = d.getDay();
               const label = `${d.getMonth() + 1}/${d.getDate()} ${WEEKDAY_NAMES[dayOfWeek]}`;
               const list = itemsByDate[dateStr] ?? [];
@@ -521,10 +645,18 @@ const d = new Date(dateStr + "T12:00:00");
                             setWeekItemModal({ ...item, dateStr });
                           }
                         }}
-                        className="group flex flex-row items-center justify-between gap-2 rounded-lg border border-neutral-200/60 bg-white px-2.5 py-2 text-[14px] cursor-pointer transition hover:bg-neutral-900 hover:border-neutral-700"
-                        title={getScheduleItemDisplayTitle(item)}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setWeekTooltip({
+                            text: getScheduleItemDisplayTitle(item),
+                            x: rect.right + 8,
+                            y: rect.top + rect.height / 2,
+                          });
+                        }}
+                        onMouseLeave={() => setWeekTooltip(null)}
+                        className="group flex flex-row items-center justify-between gap-2 rounded-lg border border-neutral-200/60 bg-white px-2.5 py-2 text-[14px] cursor-pointer transition hover:bg-neutral-100 hover:border-neutral-300"
                       >
-                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-800 group-hover:text-white" title={getScheduleItemDisplayTitle(item)}>
+                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">
                           {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
                           {item.title}
                         </span>
@@ -544,6 +676,19 @@ const d = new Date(dateStr + "T12:00:00");
           </div>
         </Card>
       )}
+
+      {weekTooltip &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[200] -translate-y-1/2 whitespace-nowrap rounded-xl bg-neutral-800 px-4 py-3 text-base font-medium text-white shadow-xl"
+            style={{ left: weekTooltip.x, top: weekTooltip.y }}
+            role="tooltip"
+          >
+            {weekTooltip.text}
+          </div>,
+          document.body
+        )}
 
       {weekItemModal &&
         typeof document !== "undefined" &&
