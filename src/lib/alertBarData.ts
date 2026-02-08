@@ -6,6 +6,8 @@ import { todayStr, addDays } from "./dateUtil";
 import {
   loadScheduleEntries,
   getScheduleItemsInRange,
+  loadScheduleCompletions,
+  getScheduleCompletionKey,
   type ScheduleItem,
 } from "./scheduleDb";
 import { loadRoutineItems, loadRoutineCompletions } from "./routineDb";
@@ -133,10 +135,13 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     }
   }
 
-  // --- 스케줄 (오늘/내일). 시간 있는 오늘 일정은 지난 건 제외 ---
+  // --- 스케줄 (오늘/내일). 시간 있는 오늘 일정은 지난 건 제외. 완료 체크한 항목 제외 ---
   const scheduleItems = getScheduleItemsInRange(today, tomorrow, scheduleEntries);
+  const scheduleCompletions = loadScheduleCompletions();
   const nowMs = now.getTime();
   for (const item of scheduleItems) {
+    const completionKey = getScheduleCompletionKey(item, item.date);
+    if (completionKey !== null && scheduleCompletions.has(completionKey)) continue; // 완료한 항목은 알림 제외
     if (item.date === today && item.time) {
       const eventMs = new Date(item.date + "T" + item.time).getTime();
       if (eventMs <= nowMs) continue; // 이미 지난 시간이면 알림 제외
@@ -149,9 +154,11 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     });
   }
 
-  // --- 스케줄 다가오는 시간 (24시간 전, 3시간 전, 1시간 전, 30분 전) ---
+  // --- 스케줄 다가오는 시간 (24시간 전, 3시간 전, 1시간 전, 30분 전). 완료한 항목 제외 ---
   for (const item of scheduleItems) {
     if (!item.time) continue;
+    const completionKeyForItem = getScheduleCompletionKey(item, item.date);
+    if (completionKeyForItem !== null && scheduleCompletions.has(completionKeyForItem)) continue;
     const eventMs = new Date(item.date + "T" + item.time).getTime();
     if (eventMs <= nowMs) continue;
     const diffMs = eventMs - nowMs;
