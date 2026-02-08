@@ -2413,11 +2413,11 @@ placeholder="항목"
                               return next;
                             })
                           }
-                          className="flex w-full items-center justify-between p-4 text-left hover:bg-neutral-100/80 transition-colors text-[13px]"
+                          className="flex w-full items-center justify-between p-4 text-left hover:bg-neutral-100/80 transition-colors text-[13px] md:text-base"
                         >
                           <span className="font-semibold text-neutral-900">{itemName} ({entries.length})</span>
                           <span className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-neutral-900">
+                            <span className="text-sm font-semibold text-neutral-900 md:text-lg">
                               {formatNum(total)}원
                             </span>
                             <span
@@ -2429,7 +2429,7 @@ placeholder="항목"
                           </span>
                         </button>
                         {isExpanded && (
-                          <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-[13px] text-neutral-600">
+                          <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-[13px] text-neutral-600 md:text-sm">
                             {entries.map(({ date, amount, item }, i) => (
                               <li
                                 key={`${date}-${item}-${i}`}
@@ -2513,7 +2513,7 @@ placeholder="항목"
                                 {flatDetails.map((d, idx) => (
                                   <li
                                     key={d.id}
-                                    className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
+                                    className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 md:text-sm ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
                                   >
                                     <span className="min-w-0 truncate">{d.item}</span>
                                     <span className="shrink-0 tabular-nums font-medium">
