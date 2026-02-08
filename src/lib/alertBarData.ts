@@ -212,12 +212,19 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
 
   // --- 지출: 오늘 ---
   const keywordsForMonth = getKeywordsForMonth(keywords, monthExtras, yearMonth);
+  const hasAnyTodayEntry = (budgetEntries ?? []).some((e) => e.date === today);
   const todayEntries = (budgetEntries ?? []).filter((e) => e.date === today && !isExcludedFromMonthTotal(e.item));
   const todayTotal = todayEntries.reduce((s, e) => s + e.amount, 0);
   if (todayTotal > 0) {
     alerts.push({
       type: "plain",
       text: `오늘의 지출은 ${formatAmount(todayTotal)}원이에요.`,
+      href: "/finance",
+    });
+  } else if (!hasAnyTodayEntry) {
+    alerts.push({
+      type: "plain",
+      text: "오늘 가계부 작성하셨나요?",
       href: "/finance",
     });
   }
