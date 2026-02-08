@@ -148,3 +148,30 @@ body {
   }
 }
 
+/* 기상 후 샤워 알림 - 좋아! 후 큰 아이콘 애니메이션 */
+@keyframes shower-goodbye {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  15% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.shower-goodbye-icon {
+  animation: shower-goodbye 1.8s ease-out forwards;
+}
+

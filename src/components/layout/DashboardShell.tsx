@@ -3,6 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { Sidebar } from "./Sidebar";
+import { ShowerReminderPopup } from "@/components/ShowerReminderPopup";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 interface DashboardShellProps {
@@ -14,6 +15,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-4 md:px-10 md:pt-10 md:pb-4 sm:px-4 sm:pt-4 sm:pb-5">
+      <ShowerReminderPopup />
       {/* 모바일: 상단 바 (홈 + 메뉴) */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 md:hidden">
         <Link
