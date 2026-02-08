@@ -102,6 +102,15 @@ export default function SleepPage() {
   const [barTooltip, setBarTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   /** 왼쪽 통계 박스 호버 툴팁 (한글) */
   const [statTooltip, setStatTooltip] = useState<{ content: React.ReactNode; x: number; y: number } | null>(null);
+  /** 모바일 여부 (오늘 박스 시간 입력 시 모달 사용) */
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const viewRecord = data[viewDateKey];
 
@@ -260,9 +269,9 @@ export default function SleepPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <p className="min-w-0 flex-1 text-center text-xl font-semibold text-neutral-800">
+          <p className="min-w-0 flex-1 text-center text-lg font-semibold text-neutral-800 sm:text-xl">
             {new Date(viewDateKey + "T12:00:00").toLocaleDateString("ko-KR", {
-              year: "numeric",
+              ...(isMobile ? {} : { year: "numeric" }),
               month: "long",
               day: "numeric",
               weekday: "long",
@@ -296,7 +305,7 @@ export default function SleepPage() {
                 <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
                   <span className="text-base opacity-80" aria-hidden>☀️</span>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">기상</p>
-                  {editWake !== null ? (
+                  {editWake !== null && !isMobile ? (
                     <div className="mt-2 flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <TimeInputWithAmPm
                         value={editWake}
@@ -341,7 +350,7 @@ export default function SleepPage() {
                 <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
                   <span className="text-base opacity-80" aria-hidden>🌙</span>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">취침</p>
-                  {editBed !== null ? (
+                  {editBed !== null && !isMobile ? (
                     <div className="mt-2 flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <TimeInputWithAmPm
                         value={editBed}
@@ -395,6 +404,99 @@ export default function SleepPage() {
           );
         })()}
       </Card>
+
+      {/* 모바일: 오늘 박스 기상/취침 시간 입력 모달 */}
+      {isMobile && (editWake !== null || editBed !== null) && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+            onClick={() => (setEditWake(null), setEditBed(null))}
+            role="dialog"
+            aria-modal="true"
+            aria-label={editWake !== null ? "기상 시간 입력" : "취침 시간 입력"}
+          >
+            <Card
+              className="w-full max-w-sm space-y-4 p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {editWake !== null ? "☀️ 기상" : "🌙 취침"}
+              </h3>
+              {editWake !== null ? (
+                <>
+                  <TimeInputWithAmPm
+                    value={editWake}
+                    onChange={setEditWake}
+                    onSubmit={() => saveWake(viewDateKey, editWake)}
+                    className="w-full"
+                    inputClassName="w-full text-lg py-2"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => (saveWake(viewDateKey, editWake), setEditWake(null))}
+                      className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+                    >
+                      저장
+                    </button>
+                    {viewRecord?.wakeTime != null && (
+                      <button
+                        type="button"
+                        onClick={() => (clearViewWake(), setEditWake(null))}
+                        className="rounded-xl border border-neutral-200 py-2.5 px-4 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
+                      >
+                        삭제
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setEditWake(null)}
+                      className="rounded-xl border border-neutral-200 py-2.5 px-4 text-sm font-medium text-neutral-600"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <TimeInputWithAmPm
+                    value={editBed!}
+                    onChange={setEditBed}
+                    onSubmit={() => saveBed(viewDateKey, editBed!)}
+                    className="w-full"
+                    inputClassName="w-full text-lg py-2"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => (saveBed(viewDateKey, editBed!), setEditBed(null))}
+                      className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+                    >
+                      저장
+                    </button>
+                    {viewRecord?.bedTime != null && (
+                      <button
+                        type="button"
+                        onClick={() => (clearViewBed(), setEditBed(null))}
+                        className="rounded-xl border border-neutral-200 py-2.5 px-4 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
+                      >
+                        삭제
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setEditBed(null)}
+                      className="rounded-xl border border-neutral-200 py-2.5 px-4 text-sm font-medium text-neutral-600"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>,
+          document.body
+        )}
 
       {/* 일주일: Y축 시간 차트 (막대 위=기상, 아래=취침) */}
       <Card className="min-w-0 space-y-3">
