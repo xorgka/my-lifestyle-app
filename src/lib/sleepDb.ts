@@ -116,3 +116,50 @@ export async function deleteSleepRecord(dateKey: string): Promise<void> {
   delete data[dateKey];
   saveToStorage(data);
 }
+
+/** 특정 날짜의 기상 또는 취침만 삭제 */
+export async function clearSleepRecordField(
+  dateKey: string,
+  field: "wakeTime" | "bedTime"
+): Promise<void> {
+  if (supabase) {
+    const { data: row } = await supabase
+      .from("sleep_records")
+      .select("wake_time, bed_time")
+      .eq("date", dateKey)
+      .maybeSingle();
+    const current = row
+      ? { wakeTime: row.wake_time ?? undefined, bedTime: row.bed_time ?? undefined }
+      : {};
+    if (field === "wakeTime") current.wakeTime = undefined;
+    else current.bedTime = undefined;
+    const { error } = await supabase
+      .from("sleep_records")
+      .upsert(
+        {
+          date: dateKey,
+          wake_time: current.wakeTime ?? null,
+          bed_time: current.bedTime ?? null,
+        },
+        { onConflict: "date" }
+      );
+    if (error) {
+      console.warn("[sleepDb] clearSleepRecordField (Supabase)", error.message);
+      const data = loadFromStorage();
+      const rec = data[dateKey] ?? {};
+      if (field === "wakeTime") delete rec.wakeTime;
+      else delete rec.bedTime;
+      if (Object.keys(rec).length === 0) delete data[dateKey];
+      else data[dateKey] = rec;
+      saveToStorage(data);
+    }
+    return;
+  }
+  const data = loadFromStorage();
+  const rec = data[dateKey] ?? {};
+  if (field === "wakeTime") delete rec.wakeTime;
+  else delete rec.bedTime;
+  if (Object.keys(rec).length === 0) delete data[dateKey];
+  else data[dateKey] = rec;
+  saveToStorage(data);
+}

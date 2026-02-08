@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { Card } from "@/components/ui/Card";
 import { TimeInputWithAmPm } from "@/components/ui/TimeInputWithAmPm";
-import { loadSleepData, saveSleepRecord, deleteSleepRecord, type SleepData } from "@/lib/sleepDb";
+import { loadSleepData, saveSleepRecord, clearSleepRecordField, type SleepData } from "@/lib/sleepDb";
 import {
   todayStr,
   getWeekDateStringsFromMonday,
@@ -146,26 +146,42 @@ export default function SleepPage() {
     setEditDayModal(null);
   }, [editDayModal, editDayWake, editDayBed]);
 
-  const deleteViewDateRecord = useCallback(async () => {
-    await deleteSleepRecord(viewDateKey);
-    setData((prev) => {
-      const next = { ...prev };
-      delete next[viewDateKey];
-      return next;
-    });
+  const clearViewWake = useCallback(async () => {
+    await clearSleepRecordField(viewDateKey, "wakeTime");
+    setData((prev) => ({
+      ...prev,
+      [viewDateKey]: { ...prev[viewDateKey], wakeTime: undefined },
+    }));
     setEditWake(null);
+  }, [viewDateKey]);
+
+  const clearViewBed = useCallback(async () => {
+    await clearSleepRecordField(viewDateKey, "bedTime");
+    setData((prev) => ({
+      ...prev,
+      [viewDateKey]: { ...prev[viewDateKey], bedTime: undefined },
+    }));
     setEditBed(null);
   }, [viewDateKey]);
 
-  const deleteEditDayRecord = useCallback(async () => {
+  const clearEditDayWake = useCallback(async () => {
     if (!editDayModal) return;
-    await deleteSleepRecord(editDayModal);
-    setData((prev) => {
-      const next = { ...prev };
-      delete next[editDayModal];
-      return next;
-    });
-    setEditDayModal(null);
+    await clearSleepRecordField(editDayModal, "wakeTime");
+    setData((prev) => ({
+      ...prev,
+      [editDayModal]: { ...prev[editDayModal], wakeTime: undefined },
+    }));
+    setEditDayWake("07:00");
+  }, [editDayModal]);
+
+  const clearEditDayBed = useCallback(async () => {
+    if (!editDayModal) return;
+    await clearSleepRecordField(editDayModal, "bedTime");
+    setData((prev) => ({
+      ...prev,
+      [editDayModal]: { ...prev[editDayModal], bedTime: undefined },
+    }));
+    setEditDayBed("23:00");
   }, [editDayModal]);
 
   const viewingWeekMonday = addDays(startOfWeek(new Date()), weekOffset * 7);
@@ -191,6 +207,24 @@ export default function SleepPage() {
   })();
 
   const calendarCells = getCalendarCells(calendarMonth.year, calendarMonth.month);
+  const monthDateKeys = calendarCells.filter((c) => c.isCurrentMonth).map((c) => c.dateStr);
+  const monthRecords = monthDateKeys.map((dateKey) => ({ dateKey, ...data[dateKey] }));
+
+  /** 달력 선택 월 기준: 평균 수면, 가장 늦게/일찍 기상, 골든타임 % */
+  const monthStats = (() => {
+    const withSleep = monthRecords.filter((r) => getSleepDurationMinutes(r.bedTime, r.wakeTime) != null);
+    const totalMins = withSleep.reduce((s, r) => s + (getSleepDurationMinutes(r.bedTime, r.wakeTime) ?? 0), 0);
+    const avgSleepMins = withSleep.length ? Math.round(totalMins / withSleep.length) : null;
+    const withWake = monthRecords.filter((r) => r.wakeTime);
+    const wakeMinutes = (t: string) => timeToMinutes(t);
+    const latestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) > wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
+    const earliestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) < wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
+    const goldenTarget = 8 * 60;
+    const goldenSuccess = monthRecords.filter((r) => r.wakeTime && wakeMinutes(r.wakeTime) <= goldenTarget).length;
+    const daysInMonth = monthDateKeys.length;
+    const goldenTimePct = daysInMonth ? Math.round((goldenSuccess / daysInMonth) * 100) : null;
+    return { avgSleepMins, latestWake, earliestWake, goldenTimePct };
+  })();
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -252,37 +286,62 @@ export default function SleepPage() {
         </div>
         {(() => {
           const sleepMins = getSleepDurationMinutes(viewRecord?.bedTime, viewRecord?.wakeTime);
+          const isEditing = editWake !== null || editBed !== null;
           return (
-            <>
-            <div className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-gradient-to-br from-slate-50 via-white to-neutral-50 py-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] sm:py-5">
+            <div
+              className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-gradient-to-br from-slate-50 via-white to-neutral-50 py-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] sm:py-5"
+              onClick={() => isEditing && (setEditWake(null), setEditBed(null))}
+            >
               <div className="flex flex-wrap items-stretch justify-center gap-0">
                 <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
                   <span className="text-base opacity-80" aria-hidden>☀️</span>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">기상</p>
                   {editWake !== null ? (
-                    <div className="mt-2 flex flex-col items-center gap-2">
+                    <div className="mt-2 flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <TimeInputWithAmPm
                         value={editWake}
                         onChange={setEditWake}
                         onSubmit={() => saveWake(viewDateKey, editWake)}
                         inputClassName="text-lg"
                       />
-                      <button
-                        type="button"
-                        onClick={() => saveWake(viewDateKey, editWake)}
-                        className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
-                      >
-                        저장
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveWake(viewDateKey, editWake)}
+                          className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
+                        >
+                          저장
+                        </button>
+                        {viewRecord?.wakeTime != null && (
+                          <button
+                            type="button"
+                            onClick={clearViewWake}
+                            className="rounded-xl border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setEditWake(viewRecord?.wakeTime ?? "07:00")}
-                      className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
-                    >
-                      {viewRecord?.wakeTime ?? "—"}
-                    </button>
+                    <div className="mt-1 flex flex-col items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => (e.stopPropagation(), setEditWake(viewRecord?.wakeTime ?? "07:00"))}
+                        className="text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
+                      >
+                        {viewRecord?.wakeTime ?? "—"}
+                      </button>
+                      {viewRecord?.wakeTime != null && (
+                        <button
+                          type="button"
+                          onClick={(e) => (e.stopPropagation(), clearViewWake())}
+                          className="text-xs text-neutral-400 hover:text-neutral-600"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="w-px shrink-0 bg-neutral-200/80" />
@@ -290,29 +349,51 @@ export default function SleepPage() {
                   <span className="text-base opacity-80" aria-hidden>🌙</span>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">취침</p>
                   {editBed !== null ? (
-                    <div className="mt-2 flex flex-col items-center gap-2">
+                    <div className="mt-2 flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <TimeInputWithAmPm
                         value={editBed}
                         onChange={setEditBed}
                         onSubmit={() => saveBed(viewDateKey, editBed)}
                         inputClassName="text-lg"
                       />
-                      <button
-                        type="button"
-                        onClick={() => saveBed(viewDateKey, editBed)}
-                        className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
-                      >
-                        저장
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveBed(viewDateKey, editBed)}
+                          className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
+                        >
+                          저장
+                        </button>
+                        {viewRecord?.bedTime != null && (
+                          <button
+                            type="button"
+                            onClick={clearViewBed}
+                            className="rounded-xl border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setEditBed(viewRecord?.bedTime ?? "23:00")}
-                      className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
-                    >
-                      {viewRecord?.bedTime ?? "—"}
-                    </button>
+                    <div className="mt-1 flex flex-col items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => (e.stopPropagation(), setEditBed(viewRecord?.bedTime ?? "23:00"))}
+                        className="text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
+                      >
+                        {viewRecord?.bedTime ?? "—"}
+                      </button>
+                      {viewRecord?.bedTime != null && (
+                        <button
+                          type="button"
+                          onClick={(e) => (e.stopPropagation(), clearViewBed())}
+                          className="text-xs text-neutral-400 hover:text-neutral-600"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="w-px shrink-0 bg-neutral-200/80" />
@@ -325,18 +406,6 @@ export default function SleepPage() {
                 </div>
               </div>
             </div>
-            {(viewRecord?.wakeTime ?? viewRecord?.bedTime) && (
-              <div className="flex justify-center pt-1">
-                <button
-                  type="button"
-                  onClick={deleteViewDateRecord}
-                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
-                >
-                  기록 삭제
-                </button>
-              </div>
-            )}
-            </>
           );
         })()}
       </Card>
@@ -625,6 +694,49 @@ export default function SleepPage() {
             );
           })}
         </div>
+        {/* 달력 월 기준 통계 4열 */}
+        <div className="grid grid-cols-4 gap-2 pt-4 border-t border-neutral-200/80 mt-4">
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            onMouseEnter={(e) => setStatTooltip({ content: "이번 달 평균 수면시간", x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
+            onMouseLeave={() => setStatTooltip(null)}
+          >
+            <p className="text-[10px] sm:text-xs uppercase tracking-wider text-neutral-500 mb-0.5">Avg. Sleep</p>
+            <p className="text-sm sm:text-base font-semibold text-neutral-800 tabular-nums">
+              {monthStats.avgSleepMins != null ? formatSleepDuration(monthStats.avgSleepMins) : "—"}
+            </p>
+          </div>
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            onMouseEnter={(e) => setStatTooltip({ content: "이번 달 가장 늦게 일어난 시간", x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
+            onMouseLeave={() => setStatTooltip(null)}
+          >
+            <p className="text-[10px] sm:text-xs uppercase tracking-wider text-neutral-500 mb-0.5">Latest Wake</p>
+            <p className="text-sm sm:text-base font-semibold text-neutral-800 tabular-nums">{monthStats.latestWake ?? "—"}</p>
+          </div>
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            onMouseEnter={(e) => setStatTooltip({ content: "이번 달 가장 일찍 일어난 시간", x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
+            onMouseLeave={() => setStatTooltip(null)}
+          >
+            <p className="text-[10px] sm:text-xs uppercase tracking-wider text-neutral-500 mb-0.5">Earliest Wake</p>
+            <p className="text-sm sm:text-base font-semibold text-neutral-800 tabular-nums">{monthStats.earliestWake ?? "—"}</p>
+          </div>
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">이번 달 골든타임 준수율</span><span className="block">: 8시 기상 성공 일수 ÷ 해당 월 일수</span></>, x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
+            onMouseLeave={() => setStatTooltip(null)}
+          >
+            <p className="text-[10px] sm:text-xs uppercase tracking-wider text-neutral-500 mb-0.5">Golden Time %</p>
+            <p className="text-sm sm:text-base font-semibold text-neutral-800 tabular-nums">
+              {monthStats.goldenTimePct != null ? `${monthStats.goldenTimePct}%` : "—"}
+            </p>
+          </div>
+        </div>
       </Card>
 
       {/* 날짜 클릭 시 수정 모달 (일주일/달력) */}
@@ -650,7 +762,18 @@ export default function SleepPage() {
                 })}
               </h3>
               <div>
-                <label className="text-sm text-neutral-500">기상</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-neutral-500">기상</label>
+                  {data[editDayModal]?.wakeTime != null && (
+                    <button
+                      type="button"
+                      onClick={clearEditDayWake}
+                      className="text-xs text-neutral-400 hover:text-neutral-600"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
                 <TimeInputWithAmPm
                   value={editDayWake}
                   onChange={setEditDayWake}
@@ -660,7 +783,18 @@ export default function SleepPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-neutral-500">취침 (전날 밤)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-neutral-500">취침 (전날 밤)</label>
+                  {data[editDayModal]?.bedTime != null && (
+                    <button
+                      type="button"
+                      onClick={clearEditDayBed}
+                      className="text-xs text-neutral-400 hover:text-neutral-600"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
                 <TimeInputWithAmPm
                   value={editDayBed}
                   onChange={setEditDayBed}
@@ -669,29 +803,20 @@ export default function SleepPage() {
                   inputClassName="w-full"
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditDayModal(null)}
-                    className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveEditDayModal}
-                    className="flex-1 rounded-xl bg-gradient-to-r from-neutral-800 to-neutral-900 py-2.5 text-sm font-medium text-white transition hover:from-neutral-700 hover:to-neutral-800"
-                  >
-                    저장
-                  </button>
-                </div>
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={deleteEditDayRecord}
-                  className="rounded-xl border border-red-200 bg-white py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                  onClick={() => setEditDayModal(null)}
+                  className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600"
                 >
-                  기록 삭제
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEditDayModal}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-neutral-800 to-neutral-900 py-2.5 text-sm font-medium text-white transition hover:from-neutral-700 hover:to-neutral-800"
+                >
+                  저장
                 </button>
               </div>
             </Card>
