@@ -68,15 +68,15 @@ export function HomeMemoCard() {
           </div>
         </div>
       ) : (
-        <div className="flex h-full min-h-0 flex-1 flex-row items-stretch gap-2 md:gap-3">
+        <div className="flex h-full min-h-0 flex-1 flex-row items-stretch gap-1 md:gap-3">
           <button
             type="button"
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
             disabled={!canPrev}
-            className="shrink-0 self-center rounded-full p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+            className="shrink-0 self-center rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 md:p-2"
             aria-label="이전 메모"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-4 w-4 md:h-5 md:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -94,10 +94,10 @@ export function HomeMemoCard() {
             type="button"
             onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
             disabled={!canNext}
-            className="shrink-0 self-center rounded-full p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+            className="shrink-0 self-center rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 md:p-2"
             aria-label="다음 메모"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-4 w-4 md:h-5 md:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
