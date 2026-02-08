@@ -349,11 +349,16 @@ export default function JournalPage() {
     return count;
   })();
 
-  const lastRecordDateStr = (() => {
+  const lastRecordLabel = (() => {
     if (entries.length === 0) return null;
     const latest = entries.reduce((max, e) => (e.date > max ? e.date : max), entries[0].date);
     const [y, m, day] = latest.split("-").map(Number);
-    return `${m}월 ${day}일`;
+    const dateLabel = `${m}월 ${day}일`;
+    const todayMs = new Date(today + "T12:00:00").getTime();
+    const latestMs = new Date(latest + "T12:00:00").getTime();
+    const diffDays = Math.floor((todayMs - latestMs) / 86400000);
+    const agoLabel = diffDays === 0 ? "오늘" : `${diffDays}일 전`;
+    return `${dateLabel} (${agoLabel})`;
   })();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -477,7 +482,7 @@ export default function JournalPage() {
               </>
             ) : (
               <>
-                마지막 기록: {lastRecordDateStr ?? "—"}
+                마지막 기록: {lastRecordLabel ?? "—"}
               </>
             )}
           </p>
