@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -152,6 +152,7 @@ export default function SchedulePage() {
   const [builtinDeletedVersion, setBuiltinDeletedVersion] = useState(0);
   const [completions, setCompletions] = useState<Set<string>>(() => loadScheduleCompletions());
   const [swipedRowKey, setSwipedRowKey] = useState<string | null>(null);
+  const touchStartRef = useRef<{ x: number; rowKey: string } | null>(null);
 
   const range = useMemo(
     () => getRange(viewMode, calendarYear, calendarMonth, weekStartDateStr),
@@ -359,7 +360,7 @@ export default function SchedulePage() {
                           openEdit();
                           setSwipedRowKey(null);
                         }}
-                        className="flex h-full w-14 shrink-0 items-center justify-center bg-neutral-300 text-neutral-700 md:hidden"
+                        className="absolute right-0 top-0 z-0 flex h-full w-14 items-center justify-center bg-neutral-300 text-neutral-700 md:hidden"
                         aria-label="수정"
                         title="수정"
                       >
@@ -392,7 +393,7 @@ export default function SchedulePage() {
                         ) : (
                           <span className="w-5 shrink-0 md:mr-2" aria-hidden />
                         )}
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 text-base md:text-lg">
                           {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
                           <span className={`font-medium text-neutral-800 ${isCompleted ? "line-through opacity-60" : ""}`}>
                             {item.title}
@@ -408,26 +409,39 @@ export default function SchedulePage() {
                     return (
                       <li
                         key={rowKey}
-                        className="rounded-xl border border-neutral-200/70 bg-neutral-50 overflow-hidden"
+                        className="relative rounded-xl border border-neutral-200/70 overflow-hidden bg-neutral-50"
                       >
                         <div
-                          className="flex items-center overflow-hidden"
+                          className="relative overflow-hidden select-none"
                           style={{ touchAction: "pan-y" }}
                           onTouchStart={canEdit ? (e) => {
                             const touch = e.touches[0];
-                            (e.currentTarget as HTMLElement).dataset.touchStartX = String(touch.clientX);
+                            if (touch) touchStartRef.current = { x: touch.clientX, rowKey };
+                          } : undefined}
+                          onTouchMove={canEdit ? (e) => {
+                            const start = touchStartRef.current;
+                            if (!start || start.rowKey !== rowKey) return;
+                            const touch = e.touches[0];
+                            if (!touch) return;
+                            const delta = start.x - touch.clientX;
+                            if (delta > 30) e.preventDefault();
                           } : undefined}
                           onTouchEnd={canEdit ? (e) => {
-                            const startX = Number((e.currentTarget as HTMLElement).dataset.touchStartX);
-                            if (Number.isNaN(startX)) return;
-                            const endX = e.changedTouches[0]?.clientX ?? startX;
-                            const delta = startX - endX;
-                            if (delta > 50) setSwipedRowKey(rowKey);
-                            else if (delta < -20) setSwipedRowKey(null);
+                            const start = touchStartRef.current;
+                            touchStartRef.current = null;
+                            if (!start || start.rowKey !== rowKey) return;
+                            const endX = e.changedTouches[0]?.clientX ?? start.x;
+                            const delta = start.x - endX;
+                            if (delta > 40) setSwipedRowKey(rowKey);
+                            else if (delta < -25) setSwipedRowKey(null);
                           } : undefined}
+                          onTouchCancel={() => {
+                            touchStartRef.current = null;
+                          }}
                         >
+                          {editButton}
                           <div
-                            className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2 px-4 py-3 transition-transform duration-200 ease-out md:!translate-x-0"
+                            className="relative z-10 flex min-h-[52px] items-center gap-2 bg-neutral-50 px-4 py-3 transition-transform duration-200 ease-out md:!translate-x-0"
                             style={isSwiped ? { transform: "translateX(-56px)" } : undefined}
                             onDoubleClick={() => {
                               if (canEdit) {
@@ -438,7 +452,6 @@ export default function SchedulePage() {
                           >
                             {rowContent}
                           </div>
-                          {editButton}
                         </div>
                       </li>
                     );
