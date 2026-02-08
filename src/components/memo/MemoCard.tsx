@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { Memo, MemoColorId } from "@/lib/memoDb";
 import { MEMO_COLORS } from "@/lib/memoDb";
 
@@ -10,6 +11,8 @@ type MemoCardProps = {
   className?: string;
   /** preview: 오른쪽 헤더에 표시 (예: 메모 페이지 링크) */
   headerRight?: ReactNode;
+  /** preview: 설정 시 헤더 전체 클릭으로 해당 URL 이동 (홈용) */
+  headerHref?: string;
   /** full only */
   updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt">>) => void;
   deleteMemo?: (id: string) => void;
@@ -24,6 +27,7 @@ export function MemoCard({
   variant,
   className = "",
   headerRight,
+  headerHref,
   updateMemo,
   deleteMemo,
   colorMenuId,
@@ -50,33 +54,62 @@ export function MemoCard({
       }`}
       style={rootStyle}
     >
-      {/* 헤더 (여기만 잡으면 카드 드래그) */}
-      <div
-        data-memo-drag-handle
-        className={`relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""}`}
-        style={{
-          backgroundColor: colors.headerBg,
-          borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
-          color: colors.headerFg ?? undefined,
-        }}
-        onContextMenu={
-          variant === "full" && setColorMenuId
-            ? (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setColorMenuId(isColorOpen ? null : memo.id);
-              }
-            : undefined
-        }
-        onDoubleClick={
-          variant === "full" && setEditingTitleId
-            ? (e) => {
-                if ((e.target as HTMLElement).closest("button")) return;
-                setEditingTitleId(memo.id);
-              }
-            : undefined
-        }
-      >
+      {/* 헤더 (preview+headerHref면 헤더 클릭 시 링크 이동) */}
+      {variant === "preview" && headerHref ? (
+        <Link
+          href={headerHref}
+          className="relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1 no-underline cursor-pointer"
+          style={{
+            backgroundColor: colors.headerBg,
+            borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
+            color: colors.headerFg ?? undefined,
+          }}
+          aria-label="메모 페이지로 이동"
+        >
+          <span className="flex min-w-0 flex-1 items-center">
+            <span className="min-w-0 truncate text-[17px] font-semibold">
+              {memo.title || "\u00A0"}
+            </span>
+          </span>
+          <div className="-space-x-1 flex shrink-0 items-center">
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded [&_svg]:size-4 ${memo.pinned ? "opacity-100" : "opacity-25"}`}
+              style={{ color: memo.pinned ? "#fff" : (colors.headerFg ?? "currentColor") }}
+              aria-hidden
+            >
+              <svg viewBox="0 0 24 24" fill={memo.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </span>
+          </div>
+        </Link>
+      ) : (
+        <div
+          data-memo-drag-handle
+          className={`relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""}`}
+          style={{
+            backgroundColor: colors.headerBg,
+            borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
+            color: colors.headerFg ?? undefined,
+          }}
+          onContextMenu={
+            variant === "full" && setColorMenuId
+              ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setColorMenuId(isColorOpen ? null : memo.id);
+                }
+              : undefined
+          }
+          onDoubleClick={
+            variant === "full" && setEditingTitleId
+              ? (e) => {
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  setEditingTitleId(memo.id);
+                }
+              : undefined
+          }
+        >
         <span className="flex min-w-0 flex-1 items-center">
           {variant === "full" && isEditingTitle && updateMemo ? (
             <input
@@ -177,6 +210,7 @@ export function MemoCard({
           )}
         </div>
       </div>
+      )}
 
       {/* 본문 */}
       <div className="min-h-0 flex-1 overflow-hidden px-4 py-3 bg-white rounded-b-[10px]">
