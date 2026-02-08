@@ -11,6 +11,9 @@ import {
   updateScheduleEntry,
   deleteScheduleEntry,
   deleteBuiltin,
+  loadScheduleCompletions,
+  saveScheduleCompletions,
+  getScheduleCompletionKey,
   type ScheduleEntry,
   type ScheduleItem,
   type ScheduleType,
@@ -147,6 +150,8 @@ export default function SchedulePage() {
   const [weekItemModal, setWeekItemModal] = useState<ScheduleItem & { dateStr: string } | null>(null);
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   const [builtinDeletedVersion, setBuiltinDeletedVersion] = useState(0);
+  const [completions, setCompletions] = useState<Set<string>>(() => loadScheduleCompletions());
+  const [swipedRowKey, setSwipedRowKey] = useState<string | null>(null);
 
   const range = useMemo(
     () => getRange(viewMode, calendarYear, calendarMonth, weekStartDateStr),
@@ -324,43 +329,120 @@ export default function SchedulePage() {
                   </span>
                 </h3>
                 <ul className="space-y-2">
-                  {dayItems.map((item, idx) => (
-                    <li
-                      key={item.type === "user" ? item.entryId! : `${dateStr}-${item.title}-${idx}`}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200/70 bg-neutral-50 px-4 py-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
-                        <span className="font-medium text-neutral-800">{item.title}</span>
-                        {getSystemCategoryLabel(item) && (
-                          <span className={`ml-2 ${getSystemCategoryClass(item)}`}>
-                            {getSystemCategoryLabel(item)}
-                          </span>
+                  {dayItems.map((item, idx) => {
+                    const rowKey = item.type === "user" ? item.entryId! : `${dateStr}-${item.title}-${idx}`;
+                    const canEdit = (item.type === "user" && item.entryId) || (item.type === "builtin" && item.builtinId);
+                    const completionKey = getScheduleCompletionKey(item, dateStr);
+                    const isCompleted = completionKey !== null && completions.has(completionKey);
+                    const toggleComplete = () => {
+                      if (completionKey === null) return;
+                      const next = new Set(completions);
+                      if (next.has(completionKey)) next.delete(completionKey);
+                      else next.add(completionKey);
+                      setCompletions(next);
+                      saveScheduleCompletions(next);
+                    };
+                    const openEdit = () => {
+                      if (item.type === "user" && item.entryId) {
+                        const e = entries.find((x) => x.id === item.entryId);
+                        if (e) setEditingEntry(e);
+                      } else if (item.type === "builtin" && item.builtinId) {
+                        setEditingEntry(builtinItemToEntry(item));
+                      }
+                    };
+                    const isSwiped = swipedRowKey === rowKey;
+                    const editButton = canEdit ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit();
+                          setSwipedRowKey(null);
+                        }}
+                        className="flex h-full w-14 shrink-0 items-center justify-center bg-neutral-300 text-neutral-700 md:hidden"
+                        aria-label="수정"
+                        title="수정"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                          <path d="m15 5 4 4" />
+                        </svg>
+                      </button>
+                    ) : null;
+                    const rowContent = (
+                      <>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleComplete();
+                            }}
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-neutral-400 text-white transition hover:border-neutral-500 md:mr-2"
+                            aria-label={isCompleted ? "완료 해제" : "완료"}
+                            title={isCompleted ? "완료 해제" : "완료"}
+                            style={isCompleted ? { backgroundColor: "#22c55e", borderColor: "#22c55e" } : undefined}
+                          >
+                            {isCompleted && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 6L9 17l-5-5" />
+                              </svg>
+                            )}
+                          </button>
+                        ) : (
+                          <span className="w-5 shrink-0 md:mr-2" aria-hidden />
                         )}
-                      </div>
-                      {((item.type === "user" && item.entryId) || (item.type === "builtin" && item.builtinId)) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (item.type === "user" && item.entryId) {
-                              const e = entries.find((x) => x.id === item.entryId);
-                              if (e) setEditingEntry(e);
-                            } else if (item.type === "builtin" && item.builtinId) {
-                              setEditingEntry(builtinItemToEntry(item));
-                            }
-                          }}
-                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200"
-                          aria-label="수정"
-                          title="수정"
+                        <div className="min-w-0 flex-1">
+                          {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
+                          <span className={`font-medium text-neutral-800 ${isCompleted ? "line-through opacity-60" : ""}`}>
+                            {item.title}
+                          </span>
+                          {getSystemCategoryLabel(item) && (
+                            <span className={`ml-2 ${getSystemCategoryClass(item)}`}>
+                              {getSystemCategoryLabel(item)}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    );
+                    return (
+                      <li
+                        key={rowKey}
+                        className="rounded-xl border border-neutral-200/70 bg-neutral-50 overflow-hidden"
+                      >
+                        <div
+                          className="flex items-center overflow-hidden"
+                          style={{ touchAction: "pan-y" }}
+                          onTouchStart={canEdit ? (e) => {
+                            const touch = e.touches[0];
+                            (e.currentTarget as HTMLElement).dataset.touchStartX = String(touch.clientX);
+                          } : undefined}
+                          onTouchEnd={canEdit ? (e) => {
+                            const startX = Number((e.currentTarget as HTMLElement).dataset.touchStartX);
+                            if (Number.isNaN(startX)) return;
+                            const endX = e.changedTouches[0]?.clientX ?? startX;
+                            const delta = startX - endX;
+                            if (delta > 50) setSwipedRowKey(rowKey);
+                            else if (delta < -20) setSwipedRowKey(null);
+                          } : undefined}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                            <path d="m15 5 4 4" />
-                          </svg>
-                        </button>
-                      )}
-                    </li>
-                  ))}
+                          <div
+                            className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2 px-4 py-3 transition-transform duration-200 ease-out md:!translate-x-0"
+                            style={isSwiped ? { transform: "translateX(-56px)" } : undefined}
+                            onDoubleClick={() => {
+                              if (canEdit) {
+                                setSwipedRowKey(null);
+                                openEdit();
+                              }
+                            }}
+                          >
+                            {rowContent}
+                          </div>
+                          {editButton}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </Card>
             );

@@ -58,7 +58,7 @@ export function MemoCard({
       {variant === "preview" && headerHref ? (
         <Link
           href={headerHref}
-          className="relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1 no-underline cursor-pointer"
+          className="relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-2 no-underline cursor-pointer min-h-[2.5rem]"
           style={{
             backgroundColor: colors.headerBg,
             borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
@@ -212,8 +212,8 @@ export function MemoCard({
       </div>
       )}
 
-      {/* 본문 */}
-      <div className="min-h-0 flex-1 overflow-hidden px-4 py-3 bg-white rounded-b-[10px]">
+      {/* 본문 (preview는 모바일에서 좌우 패딩 크게 → 화살표와 겹치지 않도록) */}
+      <div className={`min-h-0 flex-1 overflow-hidden py-3 bg-white rounded-b-[10px] ${variant === "preview" ? "px-12 md:px-4" : "px-4"}`}>
         {variant === "full" && updateMemo ? (
           <textarea
             value={memo.content}
@@ -224,7 +224,7 @@ export function MemoCard({
             style={{ minHeight: 120 }}
           />
         ) : (
-          <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden text-[19px] text-neutral-800 whitespace-pre-wrap break-words">
+          <div className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[19px] text-neutral-800 whitespace-pre-wrap break-words ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}>
             {memo.content.trim() || "내용 없음"}
           </div>
         )}

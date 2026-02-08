@@ -75,7 +75,7 @@ export function HomeMemoCard() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div className="flex min-h-0 min-w-0 flex-1 overflow-visible px-12 md:px-0">
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-visible w-full">
             {currentMemo && (
               <MemoCard
                 memo={currentMemo}

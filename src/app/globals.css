@@ -137,3 +137,14 @@ body {
   border-radius: 9999px;
 }
 
+/* 스크롤바 숨김 (홈 메모장 모바일 등) */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+

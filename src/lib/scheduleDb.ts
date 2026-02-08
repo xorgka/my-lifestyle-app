@@ -437,3 +437,31 @@ export function notifyScheduleChanged(): void {
     window.dispatchEvent(new CustomEvent("schedule-changed"));
   }
 }
+
+/** 오늘/내일 뷰에서 완료 체크용 키 (user 또는 builtin 항목만) */
+export function getScheduleCompletionKey(item: ScheduleItem, dateStr: string): string | null {
+  if (item.type === "user" && item.entryId) return `user:${item.entryId}:${dateStr}`;
+  if (item.type === "builtin" && item.builtinId) return `builtin:${item.builtinId}:${dateStr}`;
+  return null;
+}
+
+const COMPLETIONS_STORAGE_KEY = "my-lifestyle-schedule-completions";
+
+export function loadScheduleCompletions(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(COMPLETIONS_STORAGE_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as unknown;
+    return Array.isArray(arr) ? new Set(arr.map(String)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveScheduleCompletions(set: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(COMPLETIONS_STORAGE_KEY, JSON.stringify([...set]));
+  } catch {}
+}
