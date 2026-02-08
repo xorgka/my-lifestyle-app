@@ -43,6 +43,12 @@ function formatNum(n: number): string {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
 }
 
+/** 만 원 단위로 반올림해서 "250만원" 형식 */
+function formatManWon(n: number): string {
+  const man = Math.round(n / 10000);
+  return `${man.toLocaleString("ko-KR")}만원`;
+}
+
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021];
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -66,8 +72,8 @@ export default function IncomePage() {
   const [newIncomeAmount, setNewIncomeAmount] = useState("");
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  /** 구분 클릭 시 상세 모달: 해당 월·구분 내역 */
-  const [detailModal, setDetailModal] = useState<{ month: number; category: string } | null>(null);
+  /** 월 클릭 시 상세 모달: 해당 월 전체금액·구분별 세부내역 */
+  const [monthDetailModal, setMonthDetailModal] = useState<number | null>(null);
   /** 수정 중인 항목 */
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -847,7 +853,7 @@ export default function IncomePage() {
       <Card>
         <h3 className="text-3xl font-semibold text-neutral-900">월별 수입 한눈에</h3>
         <p className="mt-1 text-sm text-neutral-500">
-          {incomeYear}년 월별로 클릭하면 상세 내역 모달이 열려요.
+          {incomeYear}년 월을 클릭하면 전체금액·세부내역 모달이 열려요.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {MONTHS.map((m) => {
@@ -857,9 +863,11 @@ export default function IncomePage() {
               incomeYear === new Date().getFullYear() &&
               m === new Date().getMonth() + 1;
             return (
-              <div
+              <button
                 key={m}
-                className={`rounded-xl bg-neutral-50/50 ${
+                type="button"
+                onClick={() => setMonthDetailModal(m)}
+                className={`rounded-xl bg-neutral-50/50 text-left transition hover:bg-neutral-100/70 ${
                   isCurrentMonth
                     ? "border-2 border-black"
                     : "border border-neutral-200"
@@ -868,7 +876,7 @@ export default function IncomePage() {
                 <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2.5">
                   <span className="font-semibold text-neutral-800">{m}월</span>
                   <span className="text-sm font-bold text-emerald-700">
-                    {formatNum(total)}원
+                    {formatManWon(total)}
                   </span>
                 </div>
                 <ul className="min-h-[2.5rem] px-4 py-2">
@@ -877,32 +885,22 @@ export default function IncomePage() {
                       수입 없음
                     </li>
                   ) : (
-                    groups.map(({ category, total: catTotal }) => {
-                      return (
-                        <li
-                          key={`${m}-${category}`}
-                          className="border-b border-neutral-100 last:border-0"
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDetailModal({ month: m, category })
-                            }
-                            className="flex w-full items-center justify-between gap-3 py-2 pl-2 pr-3 text-left transition hover:bg-neutral-100/80"
-                          >
-                            <span className="font-medium text-neutral-500">
-                              {category}
-                            </span>
-                            <span className="text-sm font-semibold text-emerald-600/90">
-                              {formatNum(catTotal)}원
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })
+                    groups.map(({ category, total: catTotal }) => (
+                      <li
+                        key={`${m}-${category}`}
+                        className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 py-2 pl-2 pr-3 last:border-0"
+                      >
+                        <span className="font-medium text-neutral-500">
+                          {category}
+                        </span>
+                        <span className="text-sm font-semibold text-emerald-600/90">
+                          {formatManWon(catTotal)}
+                        </span>
+                      </li>
+                    ))
                   )}
                 </ul>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -1231,167 +1229,89 @@ export default function IncomePage() {
           document.body
         )}
 
-      {detailModal &&
+      {monthDetailModal !== null &&
         typeof document !== "undefined" &&
         createPortal(
           <div
             className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
-            onClick={() => {
-              setDetailModal(null);
-              setEditingId(null);
-            }}
+            onClick={() => setMonthDetailModal(null)}
           >
             <div
               className="my-auto w-full max-w-2xl max-h-[85vh] shrink-0 overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-            <div className="border-b border-neutral-200 px-5 py-4">
-              <h3 className="text-lg font-semibold text-neutral-900">
-                {incomeYear}년 {detailModal.month}월 – {detailModal.category}
-              </h3>
-              <p className="mt-1 text-sm text-neutral-500">
-                항목·금액·월을 확인하고 수정·삭제할 수 있어요.
-              </p>
-            </div>
-            <div className="flex-1 overflow-auto px-5 py-4">
-              {(() => {
-                const entries = filteredEntriesForYear.filter(
-                  (e) =>
-                    e.month === detailModal.month &&
-                    e.category === detailModal.category
-                );
-                if (entries.length === 0) {
+              <div className="border-b border-neutral-200 px-5 py-4">
+                <h3 className="text-lg font-semibold text-neutral-900">
+                  {incomeYear}년 {monthDetailModal}월
+                </h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                  전체금액과 구분별 세부내역이에요.
+                </p>
+              </div>
+              <div className="flex-1 overflow-auto px-5 py-4">
+                {(() => {
+                  const groups = monthCategoryGroups[monthDetailModal] ?? [];
+                  const fullTotal = groups.reduce((s, g) => s + g.total, 0);
+                  if (groups.length === 0) {
+                    return (
+                      <p className="py-8 text-center text-sm text-neutral-500">
+                        해당 월 수입 내역이 없어요.
+                      </p>
+                    );
+                  }
                   return (
-                    <p className="py-8 text-center text-sm text-neutral-500">
-                      내역이 없어요.
-                    </p>
-                  );
-                }
-                return (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                        <th className="pb-2 pr-3 font-medium">월</th>
-                        <th className="pb-2 pr-3 font-medium">항목</th>
-                        <th className="pb-2 pr-3 font-medium text-right">금액</th>
-                        <th className="pb-2 w-24 font-medium"> </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((e) => {
-                        const isEditing = editingId === e.id;
-                        return (
-                          <tr
-                            key={e.id}
-                            className="border-b border-neutral-100 align-top"
-                          >
-                            <td className="py-2.5 pr-3">
-                              {isEditing ? (
-                                <select
-                                  value={editMonth}
-                                  onChange={(ev) =>
-                                    setEditMonth(Number(ev.target.value))
-                                  }
-                                  className="rounded border border-neutral-200 px-2 py-1.5 text-neutral-800"
+                    <div className="space-y-5">
+                      <div className="flex items-center justify-between rounded-xl border-2 border-neutral-200 bg-neutral-50 px-4 py-3">
+                        <span className="font-semibold text-neutral-800">전체금액</span>
+                        <span className="text-xl font-bold text-emerald-700">
+                          {formatNum(fullTotal)}원
+                        </span>
+                      </div>
+                      <div className="space-y-4">
+                        {groups.map(({ category, total: catTotal, entries: catEntries }) => (
+                          <div key={category} className="rounded-lg border border-neutral-200 bg-neutral-50/50 overflow-hidden">
+                            <div className="border-b border-neutral-200 bg-neutral-100/80 px-4 py-2.5 font-semibold text-neutral-800">
+                              구분: {category}
+                            </div>
+                            <ul className="px-4 py-2">
+                              {catEntries.map((e) => (
+                                <li
+                                  key={e.id}
+                                  className="flex items-center justify-between gap-3 border-b border-neutral-100 py-2.5 last:border-0"
                                 >
-                                  {MONTHS.map((mo) => (
-                                    <option key={mo} value={mo}>
-                                      {mo}월
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span className="text-neutral-600">{e.month}월</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 pr-3">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={editItem}
-                                  onChange={(e) => setEditItem(e.target.value)}
-                                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-neutral-800"
-                                />
-                              ) : (
-                                <span className="text-neutral-800">{e.item}</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 pr-3 text-right">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={editAmount}
-                                  onChange={(e) => setEditAmount(e.target.value)}
-                                  className="w-28 rounded border border-neutral-200 px-2 py-1.5 text-right text-neutral-800"
-                                />
-                              ) : (
-                                <span className="font-medium text-neutral-800">
-                                  {formatNum(e.amount)}원
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 w-24">
-                              {isEditing ? (
-                                <span className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={saveEdit}
-                                    className="rounded bg-neutral-800 px-2 py-1 text-xs font-medium text-white hover:bg-neutral-700"
-                                  >
-                                    저장
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingId(null)}
-                                    className="rounded bg-neutral-200 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-300"
-                                  >
-                                    취소
-                                  </button>
-                                </span>
-                              ) : (
-                                <span className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => startEdit(e)}
-                                    className="rounded bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                                  >
-                                    수정
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeIncomeEntry(e.id)}
-                                    className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
-                                  >
-                                    삭제
-                                  </button>
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                );
-              })()}
+                                  <span className="text-neutral-700">{e.item}</span>
+                                  <span className="font-medium text-emerald-700">
+                                    {formatNum(e.amount)}원
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="flex justify-end border-t border-neutral-100 bg-white/60 px-4 py-2 text-sm">
+                              <span className="text-neutral-500">소계 </span>
+                              <span className="font-semibold text-neutral-800 ml-2">
+                                {formatNum(catTotal)}원
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="flex justify-end border-t border-neutral-200 px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setMonthDetailModal(null)}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
-            <div className="flex justify-end border-t border-neutral-200 px-5 py-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setDetailModal(null);
-                  setEditingId(null);
-                }}
-                className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
 
       {showIncomeSettingsMenu &&
         typeof document !== "undefined" &&
