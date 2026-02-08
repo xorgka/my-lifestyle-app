@@ -48,6 +48,15 @@ function formatDateLabel(dateStr: string): string {
   return `${m}월 ${day}일 (${week})`;
 }
 
+/** 모달 세부내역용 짧은 날짜: "2/2(목)" */
+function formatDateLabelShort(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const week = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return `${m}/${day}(${week})`;
+}
+
 type DetailEntry = { date: string; amount: number; item: string };
 
 /** "강아지 (병원)", "강아지 (사료)" → "강아지"로 묶어 total·entries 합침. entries에는 항목명(item) 유지 */
@@ -2404,11 +2413,11 @@ placeholder="항목"
                               return next;
                             })
                           }
-                          className="flex w-full items-center justify-between p-4 text-left hover:bg-neutral-100/80 transition-colors"
+                          className="flex w-full items-center justify-between p-4 text-left hover:bg-neutral-100/80 transition-colors text-[13px]"
                         >
                           <span className="font-semibold text-neutral-900">{itemName} ({entries.length})</span>
                           <span className="flex items-center gap-2">
-                            <span className="text-lg font-semibold text-neutral-900">
+                            <span className="text-sm font-semibold text-neutral-900">
                               {formatNum(total)}원
                             </span>
                             <span
@@ -2420,14 +2429,14 @@ placeholder="항목"
                           </span>
                         </button>
                         {isExpanded && (
-                          <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-sm text-neutral-600">
+                          <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-[13px] text-neutral-600">
                             {entries.map(({ date, amount, item }, i) => (
                               <li
                                 key={`${date}-${item}-${i}`}
                                 className="flex justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
                               >
                                 <span className="min-w-0">
-                                  <span className="mr-3 text-neutral-500">{formatDateLabel(date)}</span>
+                                  <span className="mr-3 text-neutral-500">{formatDateLabelShort(date)}</span>
                                   <span>{item}</span>
                                 </span>
                                 <span className="shrink-0 font-medium">{formatNum(amount)}원</span>
@@ -2498,13 +2507,13 @@ placeholder="항목"
                           return (
                             <div key={date}>
                               <div className="text-xs font-medium text-neutral-500">
-                                {formatDateLabel(date)}
+                                {formatDateLabelShort(date)}
                               </div>
                               <ul className="mt-1">
                                 {flatDetails.map((d, idx) => (
                                   <li
                                     key={d.id}
-                                    className={`flex justify-between gap-2 py-1.5 text-sm text-neutral-800 ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
+                                    className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
                                   >
                                     <span className="min-w-0 truncate">{d.item}</span>
                                     <span className="shrink-0 tabular-nums font-medium">
