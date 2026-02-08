@@ -253,6 +253,7 @@ export default function SleepPage() {
         {(() => {
           const sleepMins = getSleepDurationMinutes(viewRecord?.bedTime, viewRecord?.wakeTime);
           return (
+            <>
             <div className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-gradient-to-br from-slate-50 via-white to-neutral-50 py-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] sm:py-5">
               <div className="flex flex-wrap items-stretch justify-center gap-0">
                 <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
@@ -335,6 +336,7 @@ export default function SleepPage() {
                 </button>
               </div>
             )}
+            </>
           );
         })()}
       </Card>
