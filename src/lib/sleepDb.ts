@@ -99,3 +99,20 @@ export async function saveSleepRecord(
   };
   saveToStorage(data);
 }
+
+/** 특정 날짜 수면 기록 삭제(초기화) */
+export async function deleteSleepRecord(dateKey: string): Promise<void> {
+  if (supabase) {
+    const { error } = await supabase.from("sleep_records").delete().eq("date", dateKey);
+    if (error) {
+      console.warn("[sleepDb] deleteSleepRecord (Supabase)", error.message);
+      const data = loadFromStorage();
+      delete data[dateKey];
+      saveToStorage(data);
+    }
+    return;
+  }
+  const data = loadFromStorage();
+  delete data[dateKey];
+  saveToStorage(data);
+}

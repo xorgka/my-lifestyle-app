@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { Card } from "@/components/ui/Card";
 import { TimeInputWithAmPm } from "@/components/ui/TimeInputWithAmPm";
-import { loadSleepData, saveSleepRecord, type SleepData } from "@/lib/sleepDb";
+import { loadSleepData, saveSleepRecord, deleteSleepRecord, type SleepData } from "@/lib/sleepDb";
 import {
   todayStr,
   getWeekDateStringsFromMonday,
@@ -145,6 +145,28 @@ export default function SleepPage() {
     }));
     setEditDayModal(null);
   }, [editDayModal, editDayWake, editDayBed]);
+
+  const deleteViewDateRecord = useCallback(async () => {
+    await deleteSleepRecord(viewDateKey);
+    setData((prev) => {
+      const next = { ...prev };
+      delete next[viewDateKey];
+      return next;
+    });
+    setEditWake(null);
+    setEditBed(null);
+  }, [viewDateKey]);
+
+  const deleteEditDayRecord = useCallback(async () => {
+    if (!editDayModal) return;
+    await deleteSleepRecord(editDayModal);
+    setData((prev) => {
+      const next = { ...prev };
+      delete next[editDayModal];
+      return next;
+    });
+    setEditDayModal(null);
+  }, [editDayModal]);
 
   const viewingWeekMonday = addDays(startOfWeek(new Date()), weekOffset * 7);
   const weekDates = getWeekDateStringsFromMonday(viewingWeekMonday);
@@ -302,6 +324,17 @@ export default function SleepPage() {
                 </div>
               </div>
             </div>
+            {(viewRecord?.wakeTime ?? viewRecord?.bedTime) && (
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  onClick={deleteViewDateRecord}
+                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
+                >
+                  기록 삭제
+                </button>
+              </div>
+            )}
           );
         })()}
       </Card>
@@ -634,20 +667,29 @@ export default function SleepPage() {
                   inputClassName="w-full"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditDayModal(null)}
+                    className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEditDayModal}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-neutral-800 to-neutral-900 py-2.5 text-sm font-medium text-white transition hover:from-neutral-700 hover:to-neutral-800"
+                  >
+                    저장
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setEditDayModal(null)}
-                  className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600"
+                  onClick={deleteEditDayRecord}
+                  className="rounded-xl border border-red-200 bg-white py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
                 >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={saveEditDayModal}
-                  className="flex-1 rounded-xl bg-gradient-to-r from-neutral-800 to-neutral-900 py-2.5 text-sm font-medium text-white transition hover:from-neutral-700 hover:to-neutral-800"
-                >
-                  저장
+                  기록 삭제
                 </button>
               </div>
             </Card>
