@@ -654,9 +654,9 @@ export default function SchedulePage() {
                           });
                         }}
                         onMouseLeave={() => setWeekTooltip(null)}
-                        className="group flex flex-row items-center justify-between gap-2 rounded-lg border border-neutral-200/60 bg-white px-2.5 py-2 text-[14px] cursor-pointer transition hover:bg-neutral-100 hover:border-neutral-300"
+                        className={`group flex flex-row items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-[14px] cursor-pointer transition ${getSystemCategoryCardClass(item)}`}
                       >
-                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">
+                        <span className="min-w-0 flex-1 truncate font-medium [color:inherit]">
                           {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
                           {item.title}
                         </span>
