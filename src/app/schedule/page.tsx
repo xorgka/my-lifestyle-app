@@ -657,6 +657,7 @@ export default function SchedulePage() {
                               }
                             }}
                           >
+                            {rowContent}
                             {isDesktop && (
                               <div
                                 draggable
@@ -666,7 +667,7 @@ export default function SchedulePage() {
                                   setDragOrderKey(orderKey);
                                   setDragDateStr(dateStr);
                                 }}
-                                className="hidden shrink-0 cursor-grab touch-none items-center justify-center rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 active:cursor-grabbing md:flex"
+                                className="ml-auto hidden shrink-0 cursor-grab touch-none items-center justify-center rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 active:cursor-grabbing md:flex"
                                 aria-label="순서 변경 드래그"
                                 onClick={(e) => e.stopPropagation()}
                               >
@@ -680,7 +681,6 @@ export default function SchedulePage() {
                                 </svg>
                               </div>
                             )}
-                            {rowContent}
                           </div>
                         </div>
                       </li>
