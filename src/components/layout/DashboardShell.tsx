@@ -1,10 +1,16 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { GymReminderPopup } from "@/components/GymReminderPopup";
 import { ShowerReminderPopup } from "@/components/ShowerReminderPopup";
+import { WakeTimePopup } from "@/components/WakeTimePopup";
+import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
 import { isSupabaseConfigured } from "@/lib/supabase";
+
+const TEST_ALERTS_KEY = "testAlerts";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -12,10 +18,23 @@ interface DashboardShellProps {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [forceShowWakePopup, setForceShowWakePopup] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname !== "/" || typeof window === "undefined") return;
+    if (sessionStorage.getItem(TEST_ALERTS_KEY) === "1") {
+      sessionStorage.removeItem(TEST_ALERTS_KEY);
+      setForceShowWakePopup(true);
+    }
+  }, [pathname]);
 
   return (
     <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-4 md:px-10 md:pt-10 md:pb-4 sm:px-4 sm:pt-4 sm:pb-5">
       <ShowerReminderPopup />
+      <GymReminderPopup />
+      <YoutubeUploadReminderPopup />
+      <WakeTimePopup forceShow={forceShowWakePopup} />
       {/* 모바일: 상단 바 (홈 + 메뉴) */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 md:hidden">
         <Link

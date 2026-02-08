@@ -5,21 +5,21 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { todayStr } from "@/lib/dateUtil";
 
-const SHOWER_ITEM_TITLE = "기상 후 샤워";
-const STORAGE_KEY = "shower-reminder-last";
+const GYM_ITEM_TITLE = "헬스장";
+const STORAGE_KEY = "gym-reminder-last";
 const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
-/** 첫 체크 지연(0=즉시). 헬스장 +20분, 유튜브 +40분과 20분 간격 유지 */
-const INITIAL_DELAY_MS = 0;
-/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시 (완료 여부·2시간 제한 무시). 테스트 후 false로 되돌리기 */
+/** 첫 체크 지연(20분). 샤워 0분, 유튜브 40분과 20분 간격 유지 */
+const INITIAL_DELAY_MS = 20 * 60 * 1000;
+/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
 const TEST_ALWAYS_SHOW = false;
 
 const BENEFITS: { text: string; bold: string[] }[] = [
-  { text: "뇌가 깨어나 인지기능 상승!", bold: ["인지기능"] },
-  { text: "창의적 사고 촉진", bold: ["창의적 사고"] },
-  { text: "문제 해결능력 UP", bold: ["문제 해결능력"] },
-  { text: "자는동안 쌓인 피지, 땀, 먼지 제거", bold: ["피지, 땀, 먼지"] },
-  { text: "혈액순환 촉진으로 붓기 완화", bold: ["혈액순환", "붓기"] },
-  { text: "하루 시작을 알리는 신호!", bold: ["하루 시작"] },
+  { text: "뱃살이 조금 들어간다", bold: ["뱃살"] },
+  { text: "어깨가 조금 넓어진다", bold: ["어깨"] },
+  { text: "밤에 꿀잠 잘 확률 UP", bold: ["꿀잠"] },
+  { text: "평생 건강한 습관 만드는 ing", bold: ["평생", "습관"] },
+  { text: "우울감 사라지고, 능률 UP", bold: ["우울감", "능률"] },
+  { text: "후회 없고, 보람 찬 하루 추가!", bold: ["후회", "보람"] },
 ];
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
@@ -58,12 +58,11 @@ function setLastShown(): void {
   } catch {}
 }
 
-interface ShowerReminderPopupProps {
-  /** 홈에서 ?testAlerts=1 시 알림 테스트용으로 강제 표시 */
+interface GymReminderPopupProps {
   forceShow?: boolean;
 }
 
-export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
+export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"ask" | "benefits" | "goodbye">("ask");
   const [itemId, setItemId] = useState<number | null>(null);
@@ -73,25 +72,25 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
   const checkAndShow = useCallback(async () => {
     const today = todayStr();
     const [items, completions] = await Promise.all([loadRoutineItems(), loadRoutineCompletions()]);
-    const showerItem = items.find((i) => i.title.trim() === SHOWER_ITEM_TITLE);
+    const gymItem = items.find((i) => i.title.trim() === GYM_ITEM_TITLE);
     if (forceShow) {
-      setItemId(showerItem?.id ?? null);
+      setItemId(gymItem?.id ?? null);
       setStep("ask");
       setOpen(true);
       return;
     }
     const hour = new Date().getHours();
     if (hour >= 0 && hour < 5) return;
-    if (!showerItem) return;
+    if (!gymItem) return;
     if (!TEST_ALWAYS_SHOW) {
-      const completedToday = (completions[today] ?? []).includes(showerItem.id);
+      const completedToday = (completions[today] ?? []).includes(gymItem.id);
       if (completedToday) return;
       const last = getLastShown();
       const now = Date.now();
       if (last && last.date === today && now - last.time < THROTTLE_MS) return;
     }
 
-    setItemId(showerItem.id);
+    setItemId(gymItem.id);
     setStep("ask");
     setOpen(true);
     setLastShown();
@@ -152,7 +151,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30"
+        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/30"
         aria-hidden
       >
         <div className="shower-goodbye-icon text-[240px]">
@@ -167,11 +166,11 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="shower-reminder-title"
+      aria-labelledby="gym-reminder-title"
     >
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
@@ -199,11 +198,11 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
           <>
             <div className="flex justify-center mb-4">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-3xl" role="img" aria-label="알림">
-                🔔
+                💪
               </span>
             </div>
-            <h2 id="shower-reminder-title" className="text-center text-lg font-semibold text-neutral-900">
-              기상 후 샤워 하셨나요?
+            <h2 id="gym-reminder-title" className="text-center text-lg font-semibold text-neutral-900">
+              오늘 헬스장 가셨나요?
             </h2>
             <div className="mt-10 flex flex-nowrap items-center justify-center gap-4 sm:gap-8">
               <button
@@ -226,7 +225,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
         {step === "benefits" && (
           <>
             <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700">
-              지금 샤워를 하면,
+              헬스장에 가면,
             </p>
             <ul className="space-y-2.5 text-lg leading-relaxed text-neutral-800 md:text-xl">
               {BENEFITS.map((item, i) => (

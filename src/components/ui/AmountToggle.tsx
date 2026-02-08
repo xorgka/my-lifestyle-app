@@ -29,7 +29,7 @@ export function AmountToggle({ amount, className = "", variant = "default" }: Am
     variant === "loss"
       ? "text-red-600"
       : variant === "profit"
-        ? "text-blue-600"
+        ? "text-neutral-800"
         : "text-neutral-900";
 
   return (

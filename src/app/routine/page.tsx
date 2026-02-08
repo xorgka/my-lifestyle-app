@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -465,10 +466,19 @@ export default function RoutinePage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <SectionTitle
-        title="루틴"
-        subtitle="체크할수록 폭죽처럼 터지는, 오늘의 작은 승리들."
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionTitle
+          title="루틴"
+          subtitle="체크할수록 폭죽처럼 터지는, 오늘의 작은 승리들."
+        />
+        <Link
+          href="/routine/sleep"
+          className="mt-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 shadow-sm transition hover:border-neutral-800 hover:bg-neutral-800 hover:text-white"
+          aria-label="수면 관리"
+        >
+          <span className="text-2xl" role="img" aria-hidden>🌙</span>
+        </Link>
+      </div>
 
       {/* 오늘의 진행률 - 가로 배치, 100%일 때 강조 */}
       <Card

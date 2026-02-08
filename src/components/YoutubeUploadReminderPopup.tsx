@@ -5,21 +5,22 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { todayStr } from "@/lib/dateUtil";
 
-const SHOWER_ITEM_TITLE = "기상 후 샤워";
-const STORAGE_KEY = "shower-reminder-last";
+const YOUTUBE_ITEM_TITLE = "유튜브 업로드";
+const STORAGE_KEY = "youtube-upload-reminder-last";
 const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
-/** 첫 체크 지연(0=즉시). 헬스장 +20분, 유튜브 +40분과 20분 간격 유지 */
-const INITIAL_DELAY_MS = 0;
-/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시 (완료 여부·2시간 제한 무시). 테스트 후 false로 되돌리기 */
+/** 첫 체크 지연(40분). 샤워 0분, 헬스장 20분과 20분 간격 유지 */
+const INITIAL_DELAY_MS = 40 * 60 * 1000;
+/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
 const TEST_ALWAYS_SHOW = false;
 
 const BENEFITS: { text: string; bold: string[] }[] = [
-  { text: "뇌가 깨어나 인지기능 상승!", bold: ["인지기능"] },
-  { text: "창의적 사고 촉진", bold: ["창의적 사고"] },
-  { text: "문제 해결능력 UP", bold: ["문제 해결능력"] },
-  { text: "자는동안 쌓인 피지, 땀, 먼지 제거", bold: ["피지, 땀, 먼지"] },
-  { text: "혈액순환 촉진으로 붓기 완화", bold: ["혈액순환", "붓기"] },
-  { text: "하루 시작을 알리는 신호!", bold: ["하루 시작"] },
+  { text: "삽질하는게 겁난다? 그냥 해야한다!", bold: [] },
+  { text: "쇼츠는 물량을 퍼부어야 한다.", bold: ["물량"] },
+  { text: "사실 소재가 전부다!", bold: ["소재"] },
+  { text: "텍홀님은 매일 8개 올렸다", bold: ["매일 8개"] },
+  { text: "월억남님은 술 먹고 와서도 했다.", bold: ["술 먹고", "월억"] },
+  { text: "디하클에 월억이 5명 넘는다.", bold: ["월억"] },
+  { text: "홈피 할래? 유튜브 할래?", bold: [] },
 ];
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
@@ -58,12 +59,11 @@ function setLastShown(): void {
   } catch {}
 }
 
-interface ShowerReminderPopupProps {
-  /** 홈에서 ?testAlerts=1 시 알림 테스트용으로 강제 표시 */
+interface YoutubeUploadReminderPopupProps {
   forceShow?: boolean;
 }
 
-export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
+export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderPopupProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"ask" | "benefits" | "goodbye">("ask");
   const [itemId, setItemId] = useState<number | null>(null);
@@ -73,25 +73,25 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
   const checkAndShow = useCallback(async () => {
     const today = todayStr();
     const [items, completions] = await Promise.all([loadRoutineItems(), loadRoutineCompletions()]);
-    const showerItem = items.find((i) => i.title.trim() === SHOWER_ITEM_TITLE);
+    const youtubeItem = items.find((i) => i.title.trim() === YOUTUBE_ITEM_TITLE);
     if (forceShow) {
-      setItemId(showerItem?.id ?? null);
+      setItemId(youtubeItem?.id ?? null);
       setStep("ask");
       setOpen(true);
       return;
     }
     const hour = new Date().getHours();
     if (hour >= 0 && hour < 5) return;
-    if (!showerItem) return;
+    if (!youtubeItem) return;
     if (!TEST_ALWAYS_SHOW) {
-      const completedToday = (completions[today] ?? []).includes(showerItem.id);
+      const completedToday = (completions[today] ?? []).includes(youtubeItem.id);
       if (completedToday) return;
       const last = getLastShown();
       const now = Date.now();
       if (last && last.date === today && now - last.time < THROTTLE_MS) return;
     }
 
-    setItemId(showerItem.id);
+    setItemId(youtubeItem.id);
     setStep("ask");
     setOpen(true);
     setLastShown();
@@ -152,7 +152,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30"
+        className="fixed inset-0 z-[9997] flex items-center justify-center bg-black/30"
         aria-hidden
       >
         <div className="shower-goodbye-icon text-[240px]">
@@ -167,11 +167,11 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9997] flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="shower-reminder-title"
+      aria-labelledby="youtube-upload-reminder-title"
     >
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
@@ -198,12 +198,14 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
         {step === "ask" && (
           <>
             <div className="flex justify-center mb-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-3xl" role="img" aria-label="알림">
-                🔔
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 p-2" role="img" aria-label="유튜브">
+                <svg viewBox="0 0 24 24" className="h-full w-full text-white" fill="currentColor" aria-hidden>
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                </svg>
               </span>
             </div>
-            <h2 id="shower-reminder-title" className="text-center text-lg font-semibold text-neutral-900">
-              기상 후 샤워 하셨나요?
+            <h2 id="youtube-upload-reminder-title" className="text-center text-lg font-semibold text-neutral-900">
+              오늘 유튜브 업로드 하셨나요?
             </h2>
             <div className="mt-10 flex flex-nowrap items-center justify-center gap-4 sm:gap-8">
               <button
@@ -226,7 +228,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
         {step === "benefits" && (
           <>
             <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700">
-              지금 샤워를 하면,
+              지금 유튜브 업로드 하면,
             </p>
             <ul className="space-y-2.5 text-lg leading-relaxed text-neutral-800 md:text-xl">
               {BENEFITS.map((item, i) => (
