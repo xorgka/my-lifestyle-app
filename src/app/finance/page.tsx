@@ -1577,9 +1577,9 @@ placeholder="항목"
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
                 const total = viewYearByMonthGlance.byMonth[m] ?? 0;
                 return (
-                  <div key={m} className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center">
-                    <div className="text-xs text-neutral-500">{m}월</div>
-                    <div className="mt-0.5 text-sm font-semibold text-neutral-800">{formatAmountShort(total)}</div>
+                  <div key={m} className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center md:px-3 md:py-3">
+                    <div className="text-xs text-neutral-500 md:text-sm">{m}월</div>
+                    <div className="mt-0.5 text-sm font-semibold text-neutral-800 md:text-lg">{formatAmountShort(total)}</div>
                   </div>
                 );
               })}

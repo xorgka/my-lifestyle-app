@@ -14,6 +14,9 @@ import {
   loadScheduleCompletions,
   saveScheduleCompletions,
   getScheduleCompletionKey,
+  loadScheduleOrder,
+  saveScheduleOrder,
+  getScheduleItemOrderKey,
   type ScheduleEntry,
   type ScheduleItem,
   type ScheduleType,
@@ -138,6 +141,23 @@ function getSystemCategoryCardClass(item: ScheduleItem, opts?: { calendar?: bool
 
 const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
+/** 사용자 지정 순서가 있으면 적용, 없으면 items 순서 유지 */
+function applyScheduleOrder(
+  items: ScheduleItem[],
+  dateStr: string,
+  order: Record<string, string[]>,
+  getKey: (item: ScheduleItem, date: string) => string
+): ScheduleItem[] {
+  const orderList = order[dateStr];
+  if (!orderList || orderList.length === 0) return items;
+  const keyToIndex = new Map(orderList.map((k, i) => [k, i]));
+  return [...items].sort((a, b) => {
+    const ia = keyToIndex.get(getKey(a, dateStr)) ?? 9999;
+    const ib = keyToIndex.get(getKey(b, dateStr)) ?? 9999;
+    return ia - ib;
+  });
+}
+
 export default function SchedulePage() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +172,19 @@ export default function SchedulePage() {
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   const [builtinDeletedVersion, setBuiltinDeletedVersion] = useState(0);
   const [completions, setCompletions] = useState<Set<string>>(() => loadScheduleCompletions());
+  const [scheduleOrder, setScheduleOrder] = useState<Record<string, string[]>>(() => loadScheduleOrder());
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [dragOrderKey, setDragOrderKey] = useState<string | null>(null);
+  const [dragDateStr, setDragDateStr] = useState<string | null>(null);
+  const [dropTargetDate, setDropTargetDate] = useState<string | null>(null);
+  const [dropTargetOrderKey, setDropTargetOrderKey] = useState<string | null>(null);
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(m.matches);
+    update();
+    m.addEventListener("change", update);
+    return () => m.removeEventListener("change", update);
+  }, []);
   const [swipedRowKey, setSwipedRowKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [weekTooltip, setWeekTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -440,7 +473,8 @@ export default function SchedulePage() {
         <div className="min-w-0 space-y-4">
           {[range.start, range.end].map((dateStr) => {
             const isTomorrow = dateStr !== range.start;
-            const dayItems = itemsByDate[dateStr] ?? [];
+            const rawDayItems = itemsByDate[dateStr] ?? [];
+            const dayItems = applyScheduleOrder(rawDayItems, dateStr, scheduleOrder, getScheduleItemOrderKey);
             if (dayItems.length === 0) return null;
             return (
               <Card
@@ -455,6 +489,7 @@ export default function SchedulePage() {
                 </h3>
                 <ul className="space-y-2">
                   {dayItems.map((item, idx) => {
+                    const orderKey = getScheduleItemOrderKey(item, dateStr);
                     const rowKey = item.type === "user" ? item.entryId! : `${dateStr}-${item.title}-${idx}`;
                     const canEdit = (item.type === "user" && item.entryId) || (item.type === "builtin" && item.builtinId);
                     const completionKey = getScheduleCompletionKey(item, dateStr);
@@ -530,10 +565,58 @@ export default function SchedulePage() {
                         </div>
                       </>
                     );
+                    const isDropTarget = isDesktop && dropTargetDate === dateStr && dropTargetOrderKey === orderKey;
                     return (
                       <li
                         key={rowKey}
-                        className="relative rounded-xl border border-neutral-200/70 overflow-hidden bg-neutral-50"
+                        className={`relative rounded-xl border overflow-hidden bg-neutral-50 ${isDropTarget ? "border-neutral-400 ring-2 ring-neutral-300" : "border-neutral-200/70"}`}
+                        onDragOver={isDesktop ? (e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          setDropTargetDate(dateStr);
+                          setDropTargetOrderKey(orderKey);
+                        } : undefined}
+                        onDragLeave={isDesktop ? () => {
+                          if (dropTargetOrderKey === orderKey) setDropTargetOrderKey(null);
+                        } : undefined}
+                        onDrop={isDesktop ? (e) => {
+                          e.preventDefault();
+                          const fromDate = e.dataTransfer.getData("text/plain").split("|")[0];
+                          const fromKey = e.dataTransfer.getData("text/plain").split("|")[1];
+                          if (fromDate !== dateStr || !fromKey) {
+                            setDragOrderKey(null);
+                            setDragDateStr(null);
+                            setDropTargetDate(null);
+                            setDropTargetOrderKey(null);
+                            return;
+                          }
+                          const keys = dayItems.map((i) => getScheduleItemOrderKey(i, dateStr));
+                          const fromIdx = keys.indexOf(fromKey);
+                          const toIdx = keys.indexOf(dropTargetOrderKey ?? fromKey);
+                          if (fromIdx === -1 || toIdx === -1) {
+                            setDragOrderKey(null);
+                            setDragDateStr(null);
+                            setDropTargetDate(null);
+                            setDropTargetOrderKey(null);
+                            return;
+                          }
+                          const newKeys = keys.filter((_, i) => i !== fromIdx);
+                          const insertAt = fromIdx < toIdx ? toIdx - 1 : toIdx;
+                          newKeys.splice(insertAt, 0, fromKey);
+                          const next = { ...scheduleOrder, [dateStr]: newKeys };
+                          setScheduleOrder(next);
+                          saveScheduleOrder(next);
+                          setDragOrderKey(null);
+                          setDragDateStr(null);
+                          setDropTargetDate(null);
+                          setDropTargetOrderKey(null);
+                        } : undefined}
+                        onDragEnd={isDesktop ? () => {
+                          setDragOrderKey(null);
+                          setDragDateStr(null);
+                          setDropTargetDate(null);
+                          setDropTargetOrderKey(null);
+                        } : undefined}
                       >
                         <div
                           className="relative overflow-hidden select-none"
@@ -574,6 +657,29 @@ export default function SchedulePage() {
                               }
                             }}
                           >
+                            {isDesktop && (
+                              <div
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData("text/plain", `${dateStr}|${orderKey}`);
+                                  e.dataTransfer.effectAllowed = "move";
+                                  setDragOrderKey(orderKey);
+                                  setDragDateStr(dateStr);
+                                }}
+                                className="hidden shrink-0 cursor-grab touch-none items-center justify-center rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 active:cursor-grabbing md:flex"
+                                aria-label="순서 변경 드래그"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                                  <circle cx="9" cy="6" r="1.5" />
+                                  <circle cx="9" cy="12" r="1.5" />
+                                  <circle cx="9" cy="18" r="1.5" />
+                                  <circle cx="15" cy="6" r="1.5" />
+                                  <circle cx="15" cy="12" r="1.5" />
+                                  <circle cx="15" cy="18" r="1.5" />
+                                </svg>
+                              </div>
+                            )}
                             {rowContent}
                           </div>
                         </div>

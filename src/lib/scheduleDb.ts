@@ -35,6 +35,8 @@ export type ScheduleItem = {
   builtinKind?: "birthday" | "other";
   /** 선택: 시간 (HH:mm) */
   time?: string | null;
+  /** user일 때만: 추가 순서 정렬용 */
+  createdAt?: string;
 };
 
 /** 기본 등록 생일 (매년 반복) */
@@ -245,6 +247,7 @@ function expandEntriesInRange(entries: ScheduleEntry[], start: string, end: stri
           entryId: e.id,
           scheduleType: e.scheduleType,
           time: e.time ?? undefined,
+          createdAt: e.createdAt,
         });
       }
     }
@@ -323,7 +326,14 @@ export function getScheduleItemsInRange(
   const builtinItems = expandBuiltinInRange(start, end);
   const userItems = expandEntriesInRange(userEntries, start, end);
   const combined = [...holidays, ...builtinItems, ...userItems];
-  combined.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+  const typeOrder = (t: ScheduleItem["type"]) => (t === "holiday" ? 0 : t === "builtin" ? 1 : 2);
+  combined.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    if (typeOrder(a.type) !== typeOrder(b.type)) return typeOrder(a.type) - typeOrder(b.type);
+    if (a.type === "user" && b.type === "user" && a.createdAt && b.createdAt)
+      return a.createdAt.localeCompare(b.createdAt);
+    return (a.title || "").localeCompare(b.title || "");
+  });
   return combined;
 }
 
@@ -463,5 +473,34 @@ export function saveScheduleCompletions(set: Set<string>): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(COMPLETIONS_STORAGE_KEY, JSON.stringify([...set]));
+  } catch {}
+}
+
+/** 항목별 정렬용 고유 키 (PC 드래그 순서 저장에 사용) */
+export function getScheduleItemOrderKey(item: ScheduleItem, dateStr: string): string {
+  if (item.type === "user" && item.entryId) return `user:${item.entryId}`;
+  if (item.type === "builtin" && item.builtinId) return `builtin:${item.builtinId}`;
+  return `holiday:${dateStr}:${item.title}`;
+}
+
+const ORDER_STORAGE_KEY = "my-lifestyle-schedule-order";
+
+export function loadScheduleOrder(): Record<string, string[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(ORDER_STORAGE_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw) as unknown;
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) return obj as Record<string, string[]>;
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveScheduleOrder(order: Record<string, string[]>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
   } catch {}
 }
