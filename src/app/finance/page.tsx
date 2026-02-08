@@ -19,6 +19,7 @@ import {
   getKeywordsForMonth,
   SEED_BUDGET_2024_TAX,
   SEED_BUDGET_2025_TAX,
+  SEED_GLANCE_BY_YEAR,
   isExcludedFromMonthTotal,
   insertEntry,
   loadEntries,
@@ -357,8 +358,12 @@ export default function FinancePage() {
     return map;
   }, [viewMonthEntries, entryDetails, keywords, monthExtras]);
 
-  /** 한눈에 탭: 선택 연도의 1~12월 월별 지출 합계 (표시용: 제외 항목 뺀 금액) */
+  /** 한눈에 탭: 선택 연도의 1~12월 월별 지출. 22~25년은 시스템 입력(SEED_GLANCE_BY_YEAR), 26년~는 가계부 입력 반영 */
   const viewYearByMonthGlance = useMemo(() => {
+    if (glanceYear >= 2021 && glanceYear <= 2025 && SEED_GLANCE_BY_YEAR[glanceYear]) {
+      const byMonth = SEED_GLANCE_BY_YEAR[glanceYear];
+      return { year: glanceYear, byMonth: { ...byMonth } };
+    }
     const yearPrefix = String(glanceYear);
     const entriesInYear = displayEntries.filter((e) => e.date.startsWith(yearPrefix));
     const byMonth: Record<number, number> = {};
@@ -1568,6 +1573,11 @@ placeholder="항목"
                 onChange={(e) => setGlanceYear(Number(e.target.value))}
                 className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
               >
+                <option value={2021}>2021년</option>
+                <option value={2022}>2022년</option>
+                <option value={2023}>2023년</option>
+                <option value={2024}>2024년</option>
+                <option value={2025}>2025년</option>
                 <option value={2026}>2026년</option>
                 <option value={2027}>2027년</option>
               </select>
