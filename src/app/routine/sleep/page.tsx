@@ -324,24 +324,13 @@ export default function SleepPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-1 flex flex-col items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={(e) => (e.stopPropagation(), setEditWake(viewRecord?.wakeTime ?? "07:00"))}
-                        className="text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
-                      >
-                        {viewRecord?.wakeTime ?? "—"}
-                      </button>
-                      {viewRecord?.wakeTime != null && (
-                        <button
-                          type="button"
-                          onClick={(e) => (e.stopPropagation(), clearViewWake())}
-                          className="text-xs text-neutral-400 hover:text-neutral-600"
-                        >
-                          삭제
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => (e.stopPropagation(), setEditWake(viewRecord?.wakeTime ?? "07:00"))}
+                      className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
+                    >
+                      {viewRecord?.wakeTime ?? "—"}
+                    </button>
                   )}
                 </div>
                 <div className="w-px shrink-0 bg-neutral-200/80" />
@@ -376,24 +365,13 @@ export default function SleepPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-1 flex flex-col items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={(e) => (e.stopPropagation(), setEditBed(viewRecord?.bedTime ?? "23:00"))}
-                        className="text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
-                      >
-                        {viewRecord?.bedTime ?? "—"}
-                      </button>
-                      {viewRecord?.bedTime != null && (
-                        <button
-                          type="button"
-                          onClick={(e) => (e.stopPropagation(), clearViewBed())}
-                          className="text-xs text-neutral-400 hover:text-neutral-600"
-                        >
-                          삭제
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => (e.stopPropagation(), setEditBed(viewRecord?.bedTime ?? "23:00"))}
+                      className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
+                    >
+                      {viewRecord?.bedTime ?? "—"}
+                    </button>
                   )}
                 </div>
                 <div className="w-px shrink-0 bg-neutral-200/80" />
@@ -694,10 +672,10 @@ export default function SleepPage() {
             );
           })}
         </div>
-        {/* 달력 월 기준 통계 4열 */}
-        <div className="grid grid-cols-4 gap-2 pt-4 border-t border-neutral-200/80 mt-4">
+        {/* 달력 월 기준 통계: 모바일 2x2, PC 4열 (글래스모피즘 + 호버) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-4 border-t border-neutral-200/80 mt-4">
           <div
-            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-3 cursor-default shadow-sm transition duration-200 hover:bg-white/60 hover:border-white/30 hover:shadow-md"
             onMouseEnter={(e) => setStatTooltip({ content: "이번 달 평균 수면시간", x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
             onMouseLeave={() => setStatTooltip(null)}
@@ -708,7 +686,7 @@ export default function SleepPage() {
             </p>
           </div>
           <div
-            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-3 cursor-default shadow-sm transition duration-200 hover:bg-white/60 hover:border-white/30 hover:shadow-md"
             onMouseEnter={(e) => setStatTooltip({ content: "이번 달 가장 늦게 일어난 시간", x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
             onMouseLeave={() => setStatTooltip(null)}
@@ -717,7 +695,7 @@ export default function SleepPage() {
             <p className="text-sm sm:text-base font-semibold text-neutral-800 tabular-nums">{monthStats.latestWake ?? "—"}</p>
           </div>
           <div
-            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-3 cursor-default shadow-sm transition duration-200 hover:bg-white/60 hover:border-white/30 hover:shadow-md"
             onMouseEnter={(e) => setStatTooltip({ content: "이번 달 가장 일찍 일어난 시간", x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
             onMouseLeave={() => setStatTooltip(null)}
@@ -726,7 +704,7 @@ export default function SleepPage() {
             <p className="text-sm sm:text-base font-semibold text-neutral-800 tabular-nums">{monthStats.earliestWake ?? "—"}</p>
           </div>
           <div
-            className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-3 py-3 cursor-default"
+            className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-3 cursor-default shadow-sm transition duration-200 hover:bg-white/60 hover:border-white/30 hover:shadow-md"
             onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">이번 달 골든타임 준수율</span><span className="block">: 8시 기상 성공 일수 ÷ 해당 월 일수</span></>, x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
             onMouseLeave={() => setStatTooltip(null)}
