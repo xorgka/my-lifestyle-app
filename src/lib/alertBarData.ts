@@ -185,9 +185,11 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const rate = totalRoutine === 0 ? 0 : Math.round((doneRoutine / totalRoutine) * 100);
   const hour = now.getHours();
   const minute = now.getMinutes();
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const timeLabel = `[${ampm} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}]`;
   alerts.push({
     type: "plain",
-    text: `지금 ${hour}시 ${String(minute).padStart(2, "0")}분 | 루틴 달성률 ${rate}% 🕐`,
+    text: `${timeLabel} 루틴 달성률 ${rate}% 🕐`,
     href: "/routine",
   });
 
@@ -318,13 +320,13 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
       if (missDays === 1) {
         alerts.push({
           type: "plain",
-          text: "어제 헬스장에 가지 않았어요! ⚠️",
+          text: "어제 헬스장 안 갔어요! ⚠️",
           href: "/routine",
         });
       } else {
         alerts.push({
           type: "plain",
-          text: `${missDays}일째 ${label}에 가지 않고 있어요! ⚠️`,
+          text: `${missDays}일째 ${label} 안 가고 있어요! ⚠️`,
           href: "/routine",
         });
       }
