@@ -1647,7 +1647,7 @@ placeholder="항목"
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3 text-[13px] md:text-sm">
+            <div className="flex flex-wrap gap-3 text-[13.5px] md:text-sm">
               {(
                 ["고정비", "생활비", "기타", "세금", "사업경비"] as const
               ).map((cat) => (
@@ -1655,7 +1655,7 @@ placeholder="항목"
                   key={cat}
                   type="button"
                   onClick={() => setCategoryDetailModal(cat)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 px-3 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm md:gap-3 md:px-4"
+                  className="inline-flex items-center gap-2.5 rounded-full border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-neutral-800 transition hover:border-slate-400 hover:bg-slate-200 hover:shadow-sm md:gap-3 md:px-4"
                 >
                   <span className="font-semibold">{CATEGORY_LABELS[cat]}</span>
                   <span className="font-medium">
@@ -1666,7 +1666,7 @@ placeholder="항목"
               <button
                 type="button"
                 onClick={() => setShowCardExpenseDetailModal(true)}
-                className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50/90 px-3 py-2 text-violet-900 transition hover:border-violet-300 hover:bg-violet-100 hover:shadow-sm md:gap-3 md:px-4"
+                className="inline-flex items-center gap-2.5 rounded-full border border-violet-200 bg-violet-50/90 px-3.5 py-2 text-violet-900 transition hover:border-violet-300 hover:bg-violet-100 hover:shadow-sm md:gap-3 md:px-4"
               >
                 <span className="font-semibold">카드출금</span>
                 <span className="font-medium">
