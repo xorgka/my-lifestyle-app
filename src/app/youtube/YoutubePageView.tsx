@@ -318,7 +318,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-xl border border-red-400/50 bg-gradient-to-br from-[#E62117] to-[#b91c1c] px-5 py-4 shadow-sm">
                 <div className="text-sm font-medium text-white/85">
-                  유튜브 집계
+                  유튜브 집계 <span className="text-white/55">({Number(channelListViewYearMonth.slice(5, 7))}월)</span>
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-white">
                   <AmountToggle amount={viewedMonthAggregateUsd} usdToKrw={usdToKrw} defaultShowUsd className="text-2xl font-bold text-white hover:bg-white/10" />
@@ -326,7 +326,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
               </div>
               <div className="rounded-xl border border-emerald-400/50 bg-gradient-to-br from-emerald-600 to-teal-700 px-5 py-4 shadow-sm">
                 <div className="text-sm font-medium text-white/85">
-                  이전달 입금액
+                  이전달 입금액 <span className="text-white/55">({Number(prevOfViewedYyyyMm.slice(5, 7))}월분)</span>
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-white">
                   {formatAmountShort(prevMonthDepositKrwForViewed)}
