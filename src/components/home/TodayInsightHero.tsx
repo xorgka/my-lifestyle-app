@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { loadSystemInsights } from "@/lib/insights";
-
-type InsightItem = {
-  id: number;
-  text: string;
-  createdAt: string;
-};
+import { loadInsightEntries } from "@/lib/insightDb";
 
 /** 명언 한 편: 줄바꿈(\n) = 의미·문장 단위, author = 인물명 */
 export type QuoteEntry = { quote: string; author: string };
@@ -56,7 +51,6 @@ function getQuoteSegments(text: string): QuoteSegment[] {
   return result;
 }
 
-const STORAGE_KEY = "my-lifestyle-insights";
 const FAVORITES_KEY = "my-lifestyle-insights-favorites";
 
 function loadFavorites(): Set<string> {
@@ -399,16 +393,6 @@ export const RECOMMENDED_INSIGHTS: QuoteEntry[] = [
   },
 ];
 
-function pickDailyIndex(length: number): number {
-  const d = new Date();
-  const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  let hash = 0;
-  for (let i = 0; i < todayKey.length; i++) {
-    hash = (hash * 31 + todayKey.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % length;
-}
-
 function shuffle<T>(arr: T[]): T[] {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
@@ -418,33 +402,21 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-/** 문장이 2개 이상이면 문장 단위로 줄바꿈 */
-function sentenceBreaks(text: string): string {
-  return text
-    .replace(/\.\s+/g, ".\n")
-    .replace(/\?\s+/g, "?\n")
-    .replace(/!\s+/g, "!\n")
-    .trim();
-}
-
-/** "인용문 - 인물명" 형태면 { quote, author }로 파싱 */
-function parseQuoteAndAuthor(raw: string): { quote: string; author: string | null } {
-  const dash = " - ";
-  const idx = raw.lastIndexOf(dash);
-  if (idx === -1) return { quote: raw, author: null };
-  const quote = raw.slice(0, idx).trim();
-  const author = raw.slice(idx + dash.length).trim();
-  if (author.length > 40 || !author) return { quote: raw, author: null };
-  return { quote, author };
-}
-
-type ListItem = string | QuoteEntry;
+type ListItem = QuoteEntry;
 
 function getItemId(item: ListItem): string {
-  if (typeof item === "object" && item !== null && "quote" in item && "author" in item) {
-    return `${item.quote}|${item.author}`;
-  }
-  return String(item);
+  return `${item.quote}|${item.author}`;
+}
+
+function loadManagedQuotes(): Promise<QuoteEntry[]> {
+  return Promise.all([
+    loadInsightEntries().then((r) =>
+      r.entries
+        .filter((e) => e.text?.trim())
+        .map((e) => ({ quote: e.text.trim(), author: e.author ?? "" }))
+    ),
+    loadSystemInsights(RECOMMENDED_INSIGHTS),
+  ]).then(([user, system]) => [...user, ...system]);
 }
 
 export function TodayInsightHero() {
@@ -456,33 +428,36 @@ export function TodayInsightHero() {
     let cancelled = false;
     (async () => {
       try {
-        if (typeof window === "undefined") return;
-        let userList: string[] = [];
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as InsightItem[];
-          userList = parsed
-            .filter((item) => item.text && item.text.trim())
-            .map((item) => item.text.trim());
-        }
-        const systemList = await loadSystemInsights(RECOMMENDED_INSIGHTS);
+        const combined = await loadManagedQuotes();
         if (cancelled) return;
-        const combined = shuffle<ListItem>([...userList, ...systemList]);
         if (combined.length > 0) {
-          setList(combined);
-          setIndex(pickDailyIndex(combined.length));
+          const shuffled = shuffle(combined);
+          setList(shuffled);
+          setIndex(0);
         }
       } catch {
-        const systemList = await loadSystemInsights(RECOMMENDED_INSIGHTS);
-        if (!cancelled) {
-          setList(systemList);
-          setIndex(pickDailyIndex(systemList.length));
-        }
+        if (!cancelled) setList([]);
       }
     })();
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        loadManagedQuotes().then((combined) => {
+          if (combined.length > 0) {
+            setList(shuffle(combined));
+            setIndex(0);
+          }
+        });
+      }
+    };
+    if (typeof document === "undefined") return;
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
   }, []);
 
   if (list.length === 0) {
@@ -497,16 +472,8 @@ export function TodayInsightHero() {
   const goPrev = () => setIndex((i) => (i - 1 + list.length) % list.length);
   const goNext = () => setIndex((i) => (i + 1) % list.length);
 
-  const isQuote = (x: ListItem): x is QuoteEntry =>
-    typeof x === "object" && x !== null && "quote" in x && "author" in x;
-  const quoteText = isQuote(item) ? item.quote : "";
-  const parsed = !isQuote(item) ? parseQuoteAndAuthor(item) : null;
-  const lines = isQuote(item)
-    ? quoteText.split("\n").filter(Boolean)
-    : parsed
-      ? sentenceBreaks(parsed.quote).split("\n").filter(Boolean)
-      : [item];
-  const author = isQuote(item) ? item.author : parsed?.author ?? null;
+  const lines = item.quote.split("\n").filter(Boolean);
+  const author = item.author || null;
   const itemId = getItemId(item);
   const isFav = favorites.has(itemId);
   const toggleFavorite = () => {
