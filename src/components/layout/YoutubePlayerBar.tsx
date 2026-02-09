@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -39,6 +39,16 @@ interface YTPlayer {
   getPlayerState(): number;
 }
 
+/** Fisher-Yates 셔플 (즐겨찾기 재생 순서 랜덤) */
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /** 768 미만이면 모바일로 간주 (유튜브 외부 열기) */
 function useIsMobile(): boolean {
   const [mobile, setMobile] = useState(false);
@@ -67,15 +77,10 @@ export function YoutubePlayerBar() {
 
   const load = useCallback(() => {
     loadPlaylistEntries().then((list) => {
-      const prevId = currentEntryIdRef.current;
       setEntries(list);
       const favorites = list.filter((e) => e.favorite);
-      if (favorites.length === 0) {
-        setCurrentIndex(0);
-        return;
-      }
-      const newIndex = prevId ? favorites.findIndex((e) => e.id === prevId) : -1;
-      setCurrentIndex(newIndex >= 0 ? newIndex : 0);
+      if (favorites.length === 0) setCurrentIndex(0);
+      // 즐겨찾기 있으면 shuffledList useMemo + effect에서 인덱스 보정
     });
   }, []);
 
@@ -90,11 +95,24 @@ export function YoutubePlayerBar() {
     };
   }, [load]);
 
-  /** 사이드바에서는 즐겨찾기한 항목만 재생·표시 */
+  /** 사이드바에서는 즐겨찾기한 항목만 재생·표시. 매번 랜덤 순서로 재생 */
   const playlistEntries = entries.filter((e) => e.favorite);
-  const current = playlistEntries[currentIndex];
+  const favoriteIdsKey = playlistEntries.map((e) => e.id).sort().join(",");
+  const shuffledList = useMemo(
+    () => (playlistEntries.length === 0 ? [] : shuffle(playlistEntries)),
+    [favoriteIdsKey]
+  );
+  const current = shuffledList[currentIndex];
   currentEntryIdRef.current = current?.id ?? null;
   const { videoId, startSeconds } = current ? parseYoutubeUrl(current.url) : { videoId: null, startSeconds: undefined };
+
+  /** 즐겨찾기 목록이 바뀌면 현재 트랙이 새 순서에서의 인덱스로 맞춤 */
+  useEffect(() => {
+    if (shuffledList.length === 0) return;
+    const id = currentEntryIdRef.current;
+    const idx = shuffledList.findIndex((e) => e.id === id);
+    setCurrentIndex(idx >= 0 ? idx : 0);
+  }, [shuffledList]);
 
   // YouTube IFrame API (PC only) - onReady 후에만 loadVideoById 호출
   useEffect(() => {
@@ -166,16 +184,16 @@ export function YoutubePlayerBar() {
   }, [isPlaying, playerReady]);
 
   const goPrev = () => {
-    if (playlistEntries.length === 0) return;
-    setCurrentIndex((i) => (i - 1 + playlistEntries.length) % playlistEntries.length);
+    if (shuffledList.length === 0) return;
+    setCurrentIndex((i) => (i - 1 + shuffledList.length) % shuffledList.length);
     setIsPlaying(true);
   };
 
   const goNext = useCallback(() => {
-    if (playlistEntries.length === 0) return;
-    setCurrentIndex((i) => (i + 1) % playlistEntries.length);
+    if (shuffledList.length === 0) return;
+    setCurrentIndex((i) => (i + 1) % shuffledList.length);
     setIsPlaying(true);
-  }, [playlistEntries.length]);
+  }, [shuffledList.length]);
 
   const goNextRef = useRef(goNext);
   goNextRef.current = goNext;
@@ -209,7 +227,7 @@ export function YoutubePlayerBar() {
     return () => setListPanelPos(null);
   }, [drawerOpen, isMobile]);
 
-  const isEmpty = playlistEntries.length === 0;
+  const isEmpty = shuffledList.length === 0;
 
   /** 전역 단축키: 1 = 재생/정지, 2 = 다음. 입력 필드에 포커스 있을 때는 무시 */
   const isPlayingRef = useRef(isPlaying);
@@ -393,10 +411,10 @@ export function YoutubePlayerBar() {
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Playist (즐겨찾기)</span>
               </div>
               <ul className="min-h-0 flex-1 overflow-y-auto py-1.5">
-                {playlistEntries.length === 0 ? (
+                {shuffledList.length === 0 ? (
                   <li className="py-6 text-center text-sm text-neutral-500">즐겨찾기한 항목이 없어요.</li>
                 ) : (
-                  playlistEntries.map((entry, index) => (
+                  shuffledList.map((entry, index) => (
                     <li key={entry.id} className="px-2">
                       <button
                         type="button"
