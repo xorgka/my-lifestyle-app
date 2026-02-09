@@ -54,7 +54,6 @@ export function YoutubePlayerBar() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerFavoritesOnly, setDrawerFavoritesOnly] = useState(true);
   const [playerReady, setPlayerReady] = useState(false);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const listButtonRef = useRef<HTMLButtonElement>(null);
@@ -68,8 +67,12 @@ export function YoutubePlayerBar() {
     loadPlaylistEntries().then((list) => {
       const prevId = currentEntryIdRef.current;
       setEntries(list);
-      if (list.length === 0) return;
-      const newIndex = prevId ? list.findIndex((e) => e.id === prevId) : -1;
+      const favorites = list.filter((e) => e.favorite);
+      if (favorites.length === 0) {
+        setCurrentIndex(0);
+        return;
+      }
+      const newIndex = prevId ? favorites.findIndex((e) => e.id === prevId) : -1;
       setCurrentIndex(newIndex >= 0 ? newIndex : 0);
     });
   }, []);
@@ -85,7 +88,9 @@ export function YoutubePlayerBar() {
     };
   }, [load]);
 
-  const current = entries[currentIndex];
+  /** 사이드바에서는 즐겨찾기한 항목만 재생·표시 */
+  const playlistEntries = entries.filter((e) => e.favorite);
+  const current = playlistEntries[currentIndex];
   currentEntryIdRef.current = current?.id ?? null;
   const { videoId, startSeconds } = current ? parseYoutubeUrl(current.url) : { videoId: null, startSeconds: undefined };
 
@@ -156,14 +161,14 @@ export function YoutubePlayerBar() {
   }, [isPlaying, playerReady]);
 
   const goPrev = () => {
-    if (entries.length === 0) return;
-    setCurrentIndex((i) => (i - 1 + entries.length) % entries.length);
+    if (playlistEntries.length === 0) return;
+    setCurrentIndex((i) => (i - 1 + playlistEntries.length) % playlistEntries.length);
     setIsPlaying(true);
   };
 
   const goNext = () => {
-    if (entries.length === 0) return;
-    setCurrentIndex((i) => (i + 1) % entries.length);
+    if (playlistEntries.length === 0) return;
+    setCurrentIndex((i) => (i + 1) % playlistEntries.length);
     setIsPlaying(true);
   };
 
@@ -196,12 +201,12 @@ export function YoutubePlayerBar() {
     return () => setListPanelPos(null);
   }, [drawerOpen, isMobile]);
 
-  const isEmpty = entries.length === 0;
+  const isEmpty = playlistEntries.length === 0;
 
   return (
     <>
       <div className="mt-auto pt-4">
-        <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-white to-neutral-200 px-3 py-1">
+        <div className="rounded-xl border border-neutral-200 border-b-0 bg-gradient-to-br from-white to-neutral-200 px-3 py-1 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               <svg className="h-4 w-4 shrink-0 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -224,12 +229,12 @@ export function YoutubePlayerBar() {
           </div>
           {isEmpty ? (
             <div className="mt-3 space-y-2">
-              <p className="text-sm text-neutral-600">Playist가 비어 있어요.</p>
+              <p className="text-sm text-neutral-600">즐겨찾기한 항목이 없어요.</p>
               <Link
                 href="/youtube/playlist"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
               >
-                링크 추가하러 가기
+                재생목록 관리에서 즐겨찾기 추가
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -335,49 +340,33 @@ export function YoutubePlayerBar() {
               role="dialog"
               aria-label="Playlist"
             >
-              <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 bg-neutral-50/80 px-4 py-2.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Playist</span>
-                <button
-                  type="button"
-                  onClick={() => setDrawerFavoritesOnly((v) => !v)}
-                  className={`rounded-lg p-1.5 transition-colors ${drawerFavoritesOnly ? "text-red-500" : "text-neutral-400 hover:text-neutral-600"}`}
-                  title={drawerFavoritesOnly ? "전체 보기" : "즐겨찾기만 보기"}
-                  aria-label={drawerFavoritesOnly ? "전체 보기" : "즐겨찾기만 보기"}
-                >
-                  {drawerFavoritesOnly ? (
-                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  )}
-                </button>
+              <div className="flex shrink-0 border-b border-neutral-100 bg-neutral-50/80 px-4 py-2.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Playist (즐겨찾기)</span>
               </div>
               <ul className="min-h-0 flex-1 overflow-y-auto py-1.5">
-                {(drawerFavoritesOnly ? entries.filter((e) => e.favorite) : entries).map((entry) => {
-                  const i = entries.findIndex((e) => e.id === entry.id);
-                  return (
+                {playlistEntries.length === 0 ? (
+                  <li className="py-6 text-center text-sm text-neutral-500">즐겨찾기한 항목이 없어요.</li>
+                ) : (
+                  playlistEntries.map((entry, index) => (
                     <li key={entry.id} className="px-2">
                       <button
                         type="button"
-                        onClick={() => selectTrack(i)}
+                        onClick={() => selectTrack(index)}
                         className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
-                          i === currentIndex
+                          index === currentIndex
                             ? "bg-neutral-900 text-white"
                             : "text-neutral-700 hover:bg-neutral-100"
                         }`}
                       >
                         <span
                           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums ${
-                            i === currentIndex ? "bg-white/20 text-white" : "bg-neutral-200/80 text-neutral-600"
+                            index === currentIndex ? "bg-white/20 text-white" : "bg-neutral-200/80 text-neutral-600"
                           }`}
                         >
-                          {i + 1}
+                          {index + 1}
                         </span>
                         <span className="min-w-0 flex-1 truncate font-medium">{entry.title || "—"}</span>
-                        {i === currentIndex && (
+                        {index === currentIndex && (
                           <span className="shrink-0 text-white/80" aria-hidden>
                             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z" />
@@ -386,12 +375,9 @@ export function YoutubePlayerBar() {
                         )}
                       </button>
                     </li>
-                  );
-                })}
+                  ))
+                )}
               </ul>
-              {(drawerFavoritesOnly && entries.filter((e) => e.favorite).length === 0) && (
-                <div className="py-6 text-center text-sm text-neutral-500">즐겨찾기한 항목이 없어요.</div>
-              )}
             </div>
           </>,
           document.body

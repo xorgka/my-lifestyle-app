@@ -15,7 +15,7 @@ const menuItems = [
   { href: "/routine", label: "루틴" },
   { href: "/memo", label: "메모" },
   { href: "/journal", label: "일기장" },
-  { href: "/youtube", label: "유튜브" },
+  { href: "/youtube", label: "유튜브", exact: true },
   { href: "/finance", label: "가계부" },
   { href: "/income", label: "수입" },
 ];
@@ -61,7 +61,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           const active =
             item.href === "/"
               ? pathname === "/"
-              : pathname.startsWith(item.href);
+              : "exact" in item && item.exact
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
           const showBadge = "badge" in item && item.badge && scheduleBadge > 0;
 
           return (
@@ -98,7 +100,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </nav>
 
       <YoutubePlayerBar />
-      <div className="mt-auto flex items-center justify-between border-t border-neutral-100 pt-4">
+      <div className="mt-auto flex items-center justify-between pt-4">
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}

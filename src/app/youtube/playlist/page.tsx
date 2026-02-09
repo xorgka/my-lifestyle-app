@@ -31,7 +31,6 @@ function getUniqueTagValues(entries: PlaylistEntry[], key: keyof PlaylistTags): 
 export default function YoutubePlaylistPage() {
   const [entries, setEntries] = useState<PlaylistEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [filterTags, setFilterTags] = useState<PlaylistTags>({});
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -112,24 +111,6 @@ export default function YoutubePlaylistPage() {
     const next = { ...entry, favorite: !entry.favorite };
     await savePlaylistEntry(next);
     setEntries((prev) => prev.map((e) => (e.id === entry.id ? next : e)));
-  };
-
-  /** 지금 보이는 목록을 Supabase에 올려서 다른 브라우저/기기에서도 보이게 함 */
-  const syncToCloud = async () => {
-    if (entries.length === 0) return;
-    setSyncing(true);
-    try {
-      await savePlaylistEntries(entries);
-      await load();
-      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("youtube-playlist-changed"));
-      if (typeof window !== "undefined") window.alert("클라우드에 저장했습니다. 다른 브라우저에서 새로고침(F5) 해 보세요.");
-    } catch (e) {
-      console.error(e);
-      const msg = e instanceof Error ? e.message : "알 수 없는 오류";
-      if (typeof window !== "undefined") window.alert("클라우드 저장 실패: " + msg + "\n\nSupabase 대시보드에서 youtube_playlist 테이블과 favorite 컬럼, RLS 정책을 확인해 주세요.");
-    } finally {
-      setSyncing(false);
-    }
   };
 
   const saveEntry = () => {
@@ -216,20 +197,6 @@ export default function YoutubePlaylistPage() {
           <strong>DB 연동 실패</strong> — 이 브라우저는 로컬만 사용 중이에요. 다른 기기와 목록이 맞지 않을 수 있어요.
           <br />
           <span className="font-mono text-xs text-red-700">{dbError}</span>
-        </Card>
-      )}
-
-      {isSupabaseConfigured && entries.length > 0 && !dbError && (
-        <Card className="flex flex-wrap items-center justify-between gap-3 border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-sky-800">
-          <span>다른 브라우저에서 목록이 안 보이면, 지금 목록을 클라우드에 저장해 보세요.</span>
-          <button
-            type="button"
-            onClick={syncToCloud}
-            disabled={syncing}
-            className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 font-medium text-white hover:bg-sky-700 disabled:opacity-60"
-          >
-            {syncing ? "저장 중…" : "클라우드에 저장"}
-          </button>
         </Card>
       )}
 
