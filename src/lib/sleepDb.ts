@@ -35,15 +35,17 @@ function saveToStorage(data: SleepData): void {
   } catch {}
 }
 
-/** 전체 수면 데이터 로드 */
-export async function loadSleepData(): Promise<SleepData> {
+export type SleepLoadResult = { data: SleepData; source: "supabase" | "local" };
+
+/** 전체 수면 데이터 로드. source로 기기 동기화 여부 확인 가능 */
+export async function loadSleepData(): Promise<SleepLoadResult> {
   if (supabase) {
     const { data: rows, error } = await supabase
       .from("sleep_records")
       .select("date, wake_time, bed_time");
     if (error) {
-      console.warn("[sleepDb] loadSleepData (Supabase)", error.message, "- localStorage 사용");
-      return loadFromStorage();
+      console.warn("[sleepDb] loadSleepData (Supabase)", error.message, "- localStorage 사용. sleep_records 테이블 생성 여부 확인.");
+      return { data: loadFromStorage(), source: "local" };
     }
     const out: SleepData = {};
     (rows ?? []).forEach((row) => {
@@ -54,9 +56,9 @@ export async function loadSleepData(): Promise<SleepData> {
         if (row.bed_time != null) out[key].bedTime = row.bed_time;
       }
     });
-    return out;
+    return { data: out, source: "supabase" };
   }
-  return loadFromStorage();
+  return { data: loadFromStorage(), source: "local" };
 }
 
 /** 특정 날짜 수면 기록 저장 (wakeTime/bedTime 일부만 넘겨도 병합) */

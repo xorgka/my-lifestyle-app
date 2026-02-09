@@ -104,6 +104,8 @@ export default function SleepPage() {
   const [statTooltip, setStatTooltip] = useState<{ content: React.ReactNode; x: number; y: number } | null>(null);
   /** 모바일 여부 (오늘 박스 시간 입력 시 모달 사용) */
   const [isMobile, setIsMobile] = useState(false);
+  /** 수면 데이터 저장 위치: supabase = 기기 동기화, local = 이 기기만 */
+  const [sleepSource, setSleepSource] = useState<"supabase" | "local" | null>(null);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
     const update = () => setIsMobile(mq.matches);
@@ -115,8 +117,9 @@ export default function SleepPage() {
   const viewRecord = data[viewDateKey];
 
   const load = useCallback(async () => {
-    const next = await loadSleepData();
+    const { data: next, source } = await loadSleepData();
     setData(next);
+    setSleepSource(source);
   }, []);
 
   useEffect(() => {
@@ -253,6 +256,11 @@ export default function SleepPage() {
         <h1 className="text-2xl font-bold text-neutral-900">수면 관리</h1>
         <div className="w-20" />
       </div>
+      {sleepSource === "local" && (
+        <p className="rounded-xl bg-amber-50 border border-amber-200/80 px-4 py-2.5 text-sm text-amber-800">
+          <span className="font-medium">이 기기만 저장 중</span> — PC·모바일 동기화: .env.local에 <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_URL</code>, <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> 설정 후, Supabase SQL Editor에서 <code className="rounded bg-amber-100 px-1">supabase/migration-sleep.sql</code> 실행해 주세요.
+        </p>
+      )}
 
       {/* 오늘 박스: 이전/다음 날짜 선택 + 기상/취침 클릭 수정 */}
       <Card className="min-w-0 space-y-4">

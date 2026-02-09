@@ -31,7 +31,7 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
     }
     if (!isMorningNow()) return;
     const today = todayStr();
-    const data = await loadSleepData();
+    const { data } = await loadSleepData();
     if (data[today]?.wakeTime) return;
     setOpen(true);
   }, [forceShow]);

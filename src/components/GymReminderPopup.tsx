@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
+import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { todayStr } from "@/lib/dateUtil";
 
 const GYM_ITEM_TITLE = "헬스장";
-const STORAGE_KEY = "gym-reminder-last";
-const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
+const THROTTLE_MS = 1 * 60 * 60 * 1000; // 1시간 (오후 6시 이후 1시간 단위)
 /** 첫 체크 지연(20분). 샤워 0분, 유튜브 40분과 20분 간격 유지 */
 const INITIAL_DELAY_MS = 20 * 60 * 1000;
 /** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
@@ -39,25 +39,6 @@ function benefitLineWithBold(text: string, boldWords: string[]) {
   );
 }
 
-function getLastShown(): { date: string; time: number } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { date: string; time: number };
-    return parsed && typeof parsed.date === "string" && typeof parsed.time === "number" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function setLastShown(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayStr(), time: Date.now() }));
-  } catch {}
-}
-
 interface GymReminderPopupProps {
   forceShow?: boolean;
 }
@@ -80,12 +61,12 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
       return;
     }
     const hour = new Date().getHours();
-    if (hour >= 0 && hour < 5) return;
+    if (hour < 18) return; // 오후 6시(18:00) 이후에만 헬스장 알림
     if (!gymItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(gymItem.id);
       if (completedToday) return;
-      const last = getLastShown();
+      const last = await getReminderLastShown("gym");
       const now = Date.now();
       if (last && last.date === today && now - last.time < THROTTLE_MS) return;
     }
@@ -93,7 +74,7 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
     setItemId(gymItem.id);
     setStep("ask");
     setOpen(true);
-    setLastShown();
+    await setReminderLastShown("gym");
   }, [forceShow]);
 
   useEffect(() => {

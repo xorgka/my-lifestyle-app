@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
+import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { todayStr } from "@/lib/dateUtil";
 
 const YOUTUBE_ITEM_TITLE = "유튜브 업로드";
-const STORAGE_KEY = "youtube-upload-reminder-last";
 const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
 /** 첫 체크 지연(40분). 샤워 0분, 헬스장 20분과 20분 간격 유지 */
 const INITIAL_DELAY_MS = 40 * 60 * 1000;
@@ -40,25 +40,6 @@ function benefitLineWithBold(text: string, boldWords: string[]) {
   );
 }
 
-function getLastShown(): { date: string; time: number } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { date: string; time: number };
-    return parsed && typeof parsed.date === "string" && typeof parsed.time === "number" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function setLastShown(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayStr(), time: Date.now() }));
-  } catch {}
-}
-
 interface YoutubeUploadReminderPopupProps {
   forceShow?: boolean;
 }
@@ -86,7 +67,7 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(youtubeItem.id);
       if (completedToday) return;
-      const last = getLastShown();
+      const last = await getReminderLastShown("youtube");
       const now = Date.now();
       if (last && last.date === today && now - last.time < THROTTLE_MS) return;
     }
@@ -94,7 +75,7 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
     setItemId(youtubeItem.id);
     setStep("ask");
     setOpen(true);
-    setLastShown();
+    await setReminderLastShown("youtube");
   }, [forceShow]);
 
   useEffect(() => {
