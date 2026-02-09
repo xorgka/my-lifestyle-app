@@ -31,6 +31,7 @@ export default function YoutubePlaylistPage() {
   const [entries, setEntries] = useState<PlaylistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTags, setFilterTags] = useState<PlaylistTags>({});
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<PlaylistEntry>>({
@@ -61,6 +62,9 @@ export default function YoutubePlaylistPage() {
     }
     return true;
   });
+
+  /** 태그 필터 + 즐겨찾기만 보기 적용한 목록 */
+  const displayed = showFavoritesOnly ? filtered.filter((e) => e.favorite) : filtered;
 
   const openAdd = () => {
     setForm({
@@ -152,6 +156,9 @@ export default function YoutubePlaylistPage() {
     reorderFiltered(index, index + 1);
   };
 
+  /** displayed 목록에서의 index → filtered 목록에서의 index */
+  const displayedIndexToFiltered = (entry: PlaylistEntry) => filtered.findIndex((e) => e.id === entry.id);
+
   return (
     <div className="min-w-0 space-y-4">
       <SectionTitle
@@ -191,31 +198,54 @@ export default function YoutubePlaylistPage() {
       <Card className="overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
           <h3 className="text-lg font-semibold text-neutral-800">목록</h3>
-          <button
-            type="button"
-            onClick={openAdd}
-            className="flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
-          >
-            <span aria-hidden>+</span>
-            추가
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFavoritesOnly((v) => !v)}
+              className={`rounded-lg p-2 transition-colors ${showFavoritesOnly ? "text-red-500" : "text-neutral-400 hover:text-neutral-600"}`}
+              title={showFavoritesOnly ? "전체 보기" : "즐겨찾기만 보기"}
+              aria-label={showFavoritesOnly ? "전체 보기" : "즐겨찾기만 보기"}
+            >
+              {showFavoritesOnly ? (
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={openAdd}
+              className="flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+            >
+              <span aria-hidden>+</span>
+              추가
+            </button>
+          </div>
         </div>
         {loading ? (
           <div className="py-12 text-center text-neutral-500">불러오는 중…</div>
-        ) : filtered.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="py-12 text-center text-neutral-500">
             {entries.length === 0
               ? "등록된 항목이 없어요. 추가 버튼으로 링크를 등록해 보세요."
-              : "선택한 태그에 맞는 항목이 없어요."}
+              : showFavoritesOnly
+                ? "즐겨찾기한 항목이 없어요."
+                : "선택한 태그에 맞는 항목이 없어요."}
           </div>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {filtered.map((entry, index) => (
+            {displayed.map((entry, index) => {
+              const filteredIndex = displayedIndexToFiltered(entry);
+              return (
               <li
                 key={entry.id}
                 className="flex flex-wrap items-center gap-2 px-4 py-3 hover:bg-neutral-50/80"
               >
-                <span className="w-6 text-sm text-neutral-400">{index + 1}</span>
+                <span className="w-6 text-sm text-neutral-400">{filteredIndex + 1}</span>
                 <div className="min-w-0 flex-1">
                   {entry.url ? (
                     <a
@@ -249,8 +279,8 @@ export default function YoutubePlaylistPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => moveUp(index)}
-                    disabled={index === 0}
+                    onClick={() => moveUp(filteredIndex)}
+                    disabled={filteredIndex <= 0}
                     className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
                     aria-label="위로"
                   >
@@ -260,8 +290,8 @@ export default function YoutubePlaylistPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => moveDown(index)}
-                    disabled={index === filtered.length - 1}
+                    onClick={() => moveDown(filteredIndex)}
+                    disabled={filteredIndex >= filtered.length - 1 || filteredIndex < 0}
                     className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
                     aria-label="아래로"
                   >
@@ -285,7 +315,8 @@ export default function YoutubePlaylistPage() {
                   </button>
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </Card>

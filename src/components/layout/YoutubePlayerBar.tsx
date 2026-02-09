@@ -54,6 +54,7 @@ export function YoutubePlayerBar() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerFavoritesOnly, setDrawerFavoritesOnly] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const listButtonRef = useRef<HTMLButtonElement>(null);
@@ -188,9 +189,12 @@ export function YoutubePlayerBar() {
   useEffect(() => {
     if (!drawerOpen || !listButtonRef.current) return;
     const rect = listButtonRef.current.getBoundingClientRect();
-    setListPanelPos({ top: rect.top, left: rect.right + 8 });
+    setListPanelPos({
+      top: isMobile ? rect.top : 24,
+      left: rect.right + 8,
+    });
     return () => setListPanelPos(null);
-  }, [drawerOpen]);
+  }, [drawerOpen, isMobile]);
 
   const isEmpty = entries.length === 0;
 
@@ -322,7 +326,7 @@ export function YoutubePlayerBar() {
               aria-hidden
             />
             <div
-              className="fixed z-[9999] w-72 max-h-[min(60vh,320px)] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
+              className="fixed z-[9999] flex w-72 max-h-[min(85vh,420px)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
               style={
                 isMobile
                   ? { left: "50%", top: "50%", transform: "translate(-50%, -50%)" }
@@ -331,40 +335,63 @@ export function YoutubePlayerBar() {
               role="dialog"
               aria-label="Playlist"
             >
-              <div className="border-b border-neutral-100 bg-neutral-50/80 px-4 py-2.5">
+              <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 bg-neutral-50/80 px-4 py-2.5">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Playist</span>
+                <button
+                  type="button"
+                  onClick={() => setDrawerFavoritesOnly((v) => !v)}
+                  className={`rounded-lg p-1.5 transition-colors ${drawerFavoritesOnly ? "text-red-500" : "text-neutral-400 hover:text-neutral-600"}`}
+                  title={drawerFavoritesOnly ? "전체 보기" : "즐겨찾기만 보기"}
+                  aria-label={drawerFavoritesOnly ? "전체 보기" : "즐겨찾기만 보기"}
+                >
+                  {drawerFavoritesOnly ? (
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  )}
+                </button>
               </div>
-              <ul className="overflow-y-auto py-1.5 max-h-[min(calc(60vh - 2.5rem),296px)]">
-                {entries.map((entry, i) => (
-                  <li key={entry.id} className="px-2">
-                    <button
-                      type="button"
-                      onClick={() => selectTrack(i)}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
-                        i === currentIndex
-                          ? "bg-neutral-900 text-white"
-                          : "text-neutral-700 hover:bg-neutral-100"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums ${
-                          i === currentIndex ? "bg-white/20 text-white" : "bg-neutral-200/80 text-neutral-600"
+              <ul className="min-h-0 flex-1 overflow-y-auto py-1.5">
+                {(drawerFavoritesOnly ? entries.filter((e) => e.favorite) : entries).map((entry) => {
+                  const i = entries.findIndex((e) => e.id === entry.id);
+                  return (
+                    <li key={entry.id} className="px-2">
+                      <button
+                        type="button"
+                        onClick={() => selectTrack(i)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                          i === currentIndex
+                            ? "bg-neutral-900 text-white"
+                            : "text-neutral-700 hover:bg-neutral-100"
                         }`}
                       >
-                        {i + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-medium">{entry.title || "—"}</span>
-                      {i === currentIndex && (
-                        <span className="shrink-0 text-white/80" aria-hidden>
-                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums ${
+                            i === currentIndex ? "bg-white/20 text-white" : "bg-neutral-200/80 text-neutral-600"
+                          }`}
+                        >
+                          {i + 1}
                         </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
+                        <span className="min-w-0 flex-1 truncate font-medium">{entry.title || "—"}</span>
+                        {i === currentIndex && (
+                          <span className="shrink-0 text-white/80" aria-hidden>
+                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
+              {(drawerFavoritesOnly && entries.filter((e) => e.favorite).length === 0) && (
+                <div className="py-6 text-center text-sm text-neutral-500">즐겨찾기한 항목이 없어요.</div>
+              )}
             </div>
           </>,
           document.body
