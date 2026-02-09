@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { GymReminderPopup } from "@/components/GymReminderPopup";
+import { MorningFaceReminderPopup } from "@/components/MorningFaceReminderPopup";
 import { ShowerReminderPopup } from "@/components/ShowerReminderPopup";
 import { WakeTimePopup } from "@/components/WakeTimePopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
@@ -32,6 +33,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-4 md:px-10 md:pt-10 md:pb-4 sm:px-4 sm:pt-4 sm:pb-5">
       <ShowerReminderPopup />
+      <MorningFaceReminderPopup />
       <GymReminderPopup />
       <YoutubeUploadReminderPopup />
       <WakeTimePopup forceShow={forceShowWakePopup} />

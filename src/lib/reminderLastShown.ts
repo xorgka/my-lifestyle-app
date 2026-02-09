@@ -6,7 +6,7 @@
 import { supabase } from "./supabase";
 import { todayStr } from "./dateUtil";
 
-export type ReminderType = "shower" | "gym" | "youtube";
+export type ReminderType = "shower" | "gym" | "youtube" | "morning_face";
 
 const STORAGE_PREFIX = "reminder-last-";
 
