@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -80,7 +80,7 @@ export function YoutubePlayerBar() {
       setEntries(list);
       const favorites = list.filter((e) => e.favorite);
       if (favorites.length === 0) setCurrentIndex(0);
-      // 즐겨찾기 있으면 shuffledList useMemo + effect에서 인덱스 보정
+      // 즐겨찾기 있으면 effect에서 섞고 인덱스 보정
     });
   }, []);
 
@@ -95,18 +95,24 @@ export function YoutubePlayerBar() {
     };
   }, [load]);
 
-  /** 사이드바에서는 즐겨찾기한 항목만 재생·표시. 매번 랜덤 순서로 재생 */
+  /** 사이드바에서는 즐겨찾기한 항목만 재생·표시. 페이지 열 때마다 + 하트 변경 시 랜덤 순서 */
   const playlistEntries = entries.filter((e) => e.favorite);
   const favoriteIdsKey = playlistEntries.map((e) => e.id).sort().join(",");
-  const shuffledList = useMemo(
-    () => (playlistEntries.length === 0 ? [] : shuffle(playlistEntries)),
-    [favoriteIdsKey]
-  );
+  const [shuffledList, setShuffledList] = useState<PlaylistEntry[]>([]);
+
+  useEffect(() => {
+    if (playlistEntries.length === 0) {
+      setShuffledList([]);
+      return;
+    }
+    setShuffledList(shuffle([...playlistEntries]));
+  }, [favoriteIdsKey]);
+
   const current = shuffledList[currentIndex];
   currentEntryIdRef.current = current?.id ?? null;
   const { videoId, startSeconds } = current ? parseYoutubeUrl(current.url) : { videoId: null, startSeconds: undefined };
 
-  /** 즐겨찾기 목록이 바뀌면 현재 트랙이 새 순서에서의 인덱스로 맞춤 */
+  /** 섞인 목록이 바뀌면 현재 트랙이 새 순서에서의 인덱스로 맞춤 */
   useEffect(() => {
     if (shuffledList.length === 0) return;
     const id = currentEntryIdRef.current;
