@@ -7,9 +7,7 @@ import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastSh
 import { todayStr } from "@/lib/dateUtil";
 
 const YOUTUBE_ITEM_TITLE = "유튜브 업로드";
-const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
-/** 첫 체크 지연(40분). 샤워 0분, 헬스장 20분과 20분 간격 유지 */
-const INITIAL_DELAY_MS = 40 * 60 * 1000;
+const THROTTLE_MS = 30 * 60 * 1000; // 30분마다 알림
 /** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
 const TEST_ALWAYS_SHOW = false;
 
@@ -63,8 +61,6 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
       setOpen(true);
       return;
     }
-    const hour = new Date().getHours();
-    if (hour >= 0 && hour < 5) return;
     if (!youtubeItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(youtubeItem.id);
@@ -85,15 +81,9 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
       checkAndShow();
       return;
     }
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-    const timeoutId = setTimeout(() => {
-      checkAndShow();
-      intervalId = setInterval(checkAndShow, THROTTLE_MS);
-    }, INITIAL_DELAY_MS);
-    return () => {
-      clearTimeout(timeoutId);
-      if (intervalId) clearInterval(intervalId);
-    };
+    checkAndShow();
+    const intervalId = setInterval(checkAndShow, THROTTLE_MS);
+    return () => clearInterval(intervalId);
   }, [forceShow, checkAndShow]);
 
   const handleYes = useCallback(async () => {
