@@ -392,7 +392,7 @@ function TitleDisplay({ title }: { title: string }) {
 
   return (
     <div ref={wrapRef} className="mt-2 min-h-[2rem] overflow-hidden rounded-full bg-white/80 px-3 py-1.5 text-left shadow-md">
-      <div className={`text-sm font-medium text-neutral-800 whitespace-nowrap ${needsMarquee ? "youtube-title-marquee" : ""}`}>
+      <div className={`text-sm font-medium text-neutral-500 whitespace-nowrap ${needsMarquee ? "youtube-title-marquee" : ""}`}>
         <span ref={spanRef} className="inline-block whitespace-nowrap">{title}</span>
       </div>
     </div>

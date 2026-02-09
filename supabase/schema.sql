@@ -99,6 +99,7 @@ create table if not exists youtube_playlist (
   sort_order integer not null default 0,
   start_seconds integer,
   tags jsonb not null default '{}',
+  favorite boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

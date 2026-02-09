@@ -20,6 +20,8 @@ export type PlaylistEntry = {
   /** 재생 시작 초 (optional, URL의 t= 파라미터) */
   startSeconds?: number;
   tags: PlaylistTags;
+  /** 즐겨찾기 여부 */
+  favorite?: boolean;
 };
 
 const STORAGE_KEY = "my-lifestyle-youtube-playlist";
@@ -69,6 +71,7 @@ function loadFromStorage(): PlaylistEntry[] {
         sortOrder: typeof e.sortOrder === "number" ? e.sortOrder : 0,
         startSeconds: typeof e.startSeconds === "number" ? e.startSeconds : undefined,
         tags: e.tags && typeof e.tags === "object" ? e.tags : {},
+        favorite: e.favorite === true,
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder);
   } catch {
@@ -109,6 +112,7 @@ function rowToEntry(row: {
   sort_order: number;
   start_seconds: number | null;
   tags: PlaylistTags | null;
+  favorite?: boolean | null;
 }): PlaylistEntry {
   return {
     id: row.id,
@@ -117,6 +121,7 @@ function rowToEntry(row: {
     sortOrder: row.sort_order ?? 0,
     startSeconds: row.start_seconds != null ? row.start_seconds : undefined,
     tags: row.tags && typeof row.tags === "object" ? row.tags : {},
+    favorite: row.favorite === true,
   };
 }
 
@@ -124,7 +129,7 @@ export async function loadPlaylistEntries(): Promise<PlaylistEntry[]> {
   if (supabase) {
     const { data, error } = await supabase
       .from("youtube_playlist")
-      .select("id, url, title, sort_order, start_seconds, tags")
+      .select("id, url, title, sort_order, start_seconds, tags, favorite")
       .order("sort_order", { ascending: true });
     if (error) {
       console.warn("[youtubePlaylist] load", error);
@@ -178,6 +183,7 @@ export async function savePlaylistEntry(entry: PlaylistEntry): Promise<void> {
         sort_order: entry.sortOrder,
         start_seconds: entry.startSeconds ?? null,
         tags: entry.tags ?? {},
+        favorite: entry.favorite === true,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
