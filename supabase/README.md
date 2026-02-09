@@ -23,6 +23,14 @@ on conflict (category) do update set keywords = excluded.keywords, updated_at = 
 RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막혀서 저장이 안 됩니다.  
 **SQL Editor**에서 `rls-policies.sql` 내용을 실행해 주세요. (테이블은 이미 있다면 RLS 정책만 적용됩니다.)
 
+### 유튜브 실제 입금 금액 테이블 (기기/브라우저 동기화)
+
+유튜브 페이지의 **실제 입금 금액**(국민 6954/8189 등)을 기기·브라우저 간 연동하려면 **SQL Editor → New query**에서 아래 파일 내용을 붙여넣고 **Run** 하세요.
+
+- **`migration-youtube-actual-deposits.sql`** — 테이블 `youtube_actual_deposits` 생성 + RLS + 트리거
+
+(이미 `schema.sql`을 실행했다면 위 마이그레이션만 추가로 실행하면 됩니다.)
+
 ### 유튜브 채널 테이블만 추가 (이미 schema.sql 실행한 경우)
 
 유튜브 페이지를 Supabase로 쓰려면 **SQL Editor**에서 아래를 실행해 주세요.

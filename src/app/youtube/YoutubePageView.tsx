@@ -73,6 +73,22 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const formatted = p.formatted as (n: number) => string;
   const channelMonthRevenue = p.channelMonthRevenue as (c: ChannelRecord, yyyyMm: string) => number;
   const channelTotalRevenue = p.channelTotalRevenue as (c: ChannelRecord) => number;
+  const usdToKrw = (p.usdToKrw as number) ?? 1350;
+  const actualDeposits = (p.actualDeposits as Record<string, number>) ?? {};
+  const actualDepositForm = p.actualDepositForm as {
+    bank: "국민 6954" | "국민 8189";
+    year: number;
+    month: number;
+    amountKrw: number;
+  };
+  const setActualDepositForm = p.setActualDepositForm as React.Dispatch<
+    React.SetStateAction<{ bank: "국민 6954" | "국민 8189"; year: number; month: number; amountKrw: number }>
+  >;
+  const saveActualDeposit = p.saveActualDeposit as () => void;
+  const statsTab = (p.statsTab as "월별" | "연도") ?? "월별";
+  const setStatsTab = p.setStatsTab as React.Dispatch<React.SetStateAction<"월별" | "연도">>;
+  const statsYear = (p.statsYear as number) ?? 2026;
+  const setStatsYear = p.setStatsYear as React.Dispatch<React.SetStateAction<number>>;
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -119,18 +135,27 @@ export function YoutubePageView(props: Record<string, unknown>) {
     }
 
     const wb = XLSX.utils.book_new();
+    const fmtUsd = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     years.forEach((y) => {
-      const yearTotal = Object.entries(monthlyAggregate)
+      const yearTotalUsd = Object.entries(monthlyAggregate)
         .filter(([k]) => k.startsWith(String(y)) && k >= fromYm && k <= toYm)
         .reduce((a, [, v]) => a + v, 0);
+      const yearTotalActual = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+        (s, m) =>
+          s +
+          (actualDeposits[`국민6954-${y}-${String(m).padStart(2, "0")}`] ?? 0) +
+          (actualDeposits[`국민8189-${y}-${String(m).padStart(2, "0")}`] ?? 0),
+        0
+      );
       const rows: (string | number)[][] = [
-        ["월", "수익(원)"],
+        ["월", "애드센스 달러 합계", "실제 입금 합계(원)"],
         ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
           const yyyyMm = `${y}-${String(m).padStart(2, "0")}`;
-          const amount = yyyyMm >= fromYm && yyyyMm <= toYm ? (monthlyAggregate[yyyyMm] ?? 0) : 0;
-          return [`${m}월`, formatted(amount)];
+          const adSenseUsd = yyyyMm >= fromYm && yyyyMm <= toYm ? (monthlyAggregate[yyyyMm] ?? 0) : 0;
+          const actualKrw = (actualDeposits[`국민6954-${yyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${yyyyMm}`] ?? 0);
+          return [`${m}월`, adSenseUsd ? fmtUsd(adSenseUsd) : "", actualKrw ? formatted(actualKrw) : ""];
         }),
-        ["연 전체", formatted(yearTotal)],
+        ["총합", fmtUsd(yearTotalUsd), formatted(yearTotalActual)],
       ];
       const ws = XLSX.utils.aoa_to_sheet(rows);
       XLSX.utils.book_append_sheet(wb, ws, `${y}년`);
@@ -146,7 +171,12 @@ export function YoutubePageView(props: Record<string, unknown>) {
     setShowExportModal(false);
   };
 
-  const formatChannelAmount = (n: number) => (n >= 10_000 ? formatAmountShort(n) : `${formatted(n)}원`);
+  const [currY, currM] = currentYearMonth.split("-").map(Number);
+  const prevMonthDate = new Date(currY, currM - 2, 1);
+  const prevYyyyMm = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
+  const prevMonthDepositKrw =
+    (actualDeposits[`국민6954-${prevYyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${prevYyyyMm}`] ?? 0);
+  const totalActualDepositKrw = Object.values(actualDeposits).reduce((a, b) => a + b, 0);
 
   return (
     <div className="min-w-0 space-y-4">
@@ -220,99 +250,35 @@ export function YoutubePageView(props: Record<string, unknown>) {
         </Card>
       ) : (
         <>
-          <Card className="bg-gradient-to-br from-white via-[#f5f5f7] to-white ring-1 ring-neutral-300">
-            <h2 className="text-lg font-semibold text-neutral-900">
-              채널 수익 합계
+          <Card className="bg-gradient-to-br from-white via-neutral-50 to-white ring-1 ring-neutral-100">
+            <h2 className="text-xl font-semibold text-neutral-900 md:text-2xl">
+              {currentMonthLabel} 수익
             </h2>
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm">
-                <div className="text-sm font-medium text-neutral-500">
-                  이번 달 수익
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-red-400/50 bg-gradient-to-br from-[#E62117] to-[#b91c1c] px-5 py-4 shadow-sm">
+                <div className="text-sm font-medium text-white/85">
+                  유튜브 집계
                 </div>
-                <div className="mt-2 text-2xl font-bold tracking-tight text-neutral-900">
-                  <AmountToggle amount={totals.thisMonth} className="text-2xl font-bold" />
+                <div className="mt-2 text-2xl font-bold tracking-tight text-white">
+                  <AmountToggle amount={totals.thisMonth} usdToKrw={usdToKrw} defaultShowUsd className="text-2xl font-bold text-white hover:bg-white/10" />
                 </div>
               </div>
-              <div className="rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm">
-                <div className="text-sm font-medium text-neutral-500">
+              <div className="rounded-xl border border-emerald-400/50 bg-gradient-to-br from-emerald-600 to-teal-700 px-5 py-4 shadow-sm">
+                <div className="text-sm font-medium text-white/85">
+                  이전달 입금액
+                </div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-white">
+                  {formatAmountShort(prevMonthDepositKrw)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-neutral-500/50 bg-gradient-to-br from-neutral-600 via-neutral-800 to-neutral-950 px-5 py-4 shadow-sm">
+                <div className="text-sm font-medium text-white/85">
                   누적 수익
                 </div>
-                <div className="mt-2 text-2xl font-bold tracking-tight text-neutral-900">
-                  <AmountToggle amount={totals.total} className="text-2xl font-bold" />
+                <div className="mt-2 text-2xl font-bold tracking-tight text-white">
+                  {formatAmountShort(totalActualDepositKrw)}
                 </div>
               </div>
-            </div>
-            <div className="mt-4 border-t border-neutral-200 pt-4">
-              <div className="flex gap-3">
-                {([2026, 2027] as const).map((y) => (
-                  <button
-                    key={y}
-                    type="button"
-                    onClick={() => setAggregateYear((prev) => (prev === y ? null : y))}
-                    className={`rounded-xl border-2 px-5 py-2.5 text-sm font-semibold transition ${
-                      aggregateYear === y
-                        ? "border-neutral-900 bg-neutral-900 text-white shadow-md"
-                        : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-800"
-                    }`}
-                  >
-                    {y}년
-                  </button>
-                ))}
-              </div>
-              {aggregateYear != null && (
-                <div className="mt-4 space-y-3">
-                  <h4 className="text-sm font-semibold text-neutral-700">
-                    {aggregateYear}년 월별 수익
-                  </h4>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-6 gap-2">
-                      {[1, 2, 3, 4, 5, 6].map((m) => {
-                        const yyyyMm = `${aggregateYear}-${String(m).padStart(2, "0")}`;
-                        const amount = monthlyAggregate[yyyyMm] ?? 0;
-                        return (
-                          <div
-                            key={yyyyMm}
-                            className="rounded-lg bg-neutral-50/80 px-2 py-2 text-center text-sm"
-                          >
-                            <div className="text-neutral-500 text-xs">{m}월</div>
-                            <div className="mt-0.5 font-medium text-neutral-900 break-all">
-                              {formatted(amount)}원
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {[7, 8, 9, 10, 11, 12].map((m) => {
-                        const yyyyMm = `${aggregateYear}-${String(m).padStart(2, "0")}`;
-                        const amount = monthlyAggregate[yyyyMm] ?? 0;
-                        return (
-                          <div
-                            key={yyyyMm}
-                            className="rounded-lg bg-neutral-50/80 px-2 py-2 text-center text-sm"
-                          >
-                            <div className="text-neutral-500 text-xs">{m}월</div>
-                            <div className="mt-0.5 font-medium text-neutral-900 break-all">
-                              {formatted(amount)}원
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex justify-between rounded-xl bg-neutral-100 px-4 py-3 text-base font-semibold text-neutral-900">
-                    <span>{aggregateYear}년 연 전체 수익</span>
-                    <span>
-                      {formatted(
-                        Object.entries(monthlyAggregate)
-                          .filter(([k]) => k.startsWith(String(aggregateYear)))
-                          .reduce((a, [, v]) => a + v, 0)
-                      )}
-                      원
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -502,7 +468,10 @@ export function YoutubePageView(props: Record<string, unknown>) {
 
           <Card className="overflow-hidden p-0">
             <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2">
-              <h3 className="text-lg font-semibold text-neutral-800">채널 LIST</h3>
+              <h3 className="text-lg font-semibold text-neutral-800">
+                채널 LIST
+                <span className="ml-2 text-sm font-normal text-neutral-400">(유튜브 집계)</span>
+              </h3>
               <span className="group relative inline-block">
                 <button
                   type="button"
@@ -574,26 +543,36 @@ export function YoutubePageView(props: Record<string, unknown>) {
                           보기
                         </button>
                       </td>
-                      <td className="px-5 py-3 font-medium text-neutral-900" title={formatted(channelMonthRevenue(ch, currentYearMonth)) + "원"}>
-                        {formatChannelAmount(channelMonthRevenue(ch, currentYearMonth))}
+                      <td className="px-5 py-3 font-medium text-neutral-900">
+                        <AmountToggle
+                          amount={channelMonthRevenue(ch, currentYearMonth)}
+                          usdToKrw={usdToKrw}
+                          defaultShowUsd
+                          className="font-medium"
+                        />
                       </td>
                       <td className="px-5 py-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRevenueViewChannelId(ch.id);
-                            setChannelRevenueYear(new Date().getFullYear());
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg font-medium text-neutral-900 hover:bg-neutral-100 hover:text-neutral-700 px-1.5 py-0.5 -mx-1.5 -my-0.5 transition"
-                          title={formatted(channelTotalRevenue(ch)) + "원"}
-                        >
-                          <span>{formatChannelAmount(channelTotalRevenue(ch))}</span>
-                          <span className="text-neutral-400" aria-hidden>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <AmountToggle
+                            amount={channelTotalRevenue(ch)}
+                            usdToKrw={usdToKrw}
+                            defaultShowUsd
+                            className="font-medium"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRevenueViewChannelId(ch.id);
+                              setChannelRevenueYear(new Date().getFullYear());
+                            }}
+                            className="rounded-lg p-0.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+                            aria-label="누적 수익 상세 보기"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
-                          </span>
-                        </button>
+                          </button>
+                        </span>
                       </td>
                       <td className="px-5 py-3">
                         <button
@@ -634,7 +613,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
 
           <Card className="overflow-hidden !bg-gradient-to-br !from-[#E62117] !to-[#b91c1c] p-0 ring-[#cc1a14] shadow-none hover:shadow-none hover:translate-y-0">
             <h2 className="mb-4 text-lg font-semibold text-white">
-              월별 수익 입력
+              유튜브 집계 수익
             </h2>
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[1fr_6rem_6rem_1fr] sm:items-end">
               <div className="min-w-0">
@@ -709,8 +688,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         if (quickRevenue.channelId) saveQuickRevenue();
                       }
                     }}
-                    placeholder="수익 (엔터)"
-                    aria-label="수익 원"
+                    placeholder="달러 (엔터)"
+                    aria-label="수익 달러"
                     className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
                   />
                   <button
@@ -724,6 +703,206 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 </div>
               </div>
             </div>
+          </Card>
+
+          <Card className="overflow-hidden !bg-gradient-to-br !from-emerald-600 !to-teal-700 p-0 shadow-md ring-1 ring-emerald-500/30">
+            <h2 className="mb-4 px-4 pt-4 text-lg font-semibold text-white">
+              실제 입금 금액
+              <span className="ml-2 font-normal text-white/75">(전월 수익)</span>
+            </h2>
+            <div className="grid w-full grid-cols-1 gap-4 px-4 pb-4 sm:grid-cols-[1fr_6rem_6rem_1fr] sm:items-end">
+              <div className="min-w-0">
+                <select
+                  value={actualDepositForm.bank}
+                  onChange={(e) =>
+                    setActualDepositForm((f) => ({
+                      ...f,
+                      bank: e.target.value as "국민 6954" | "국민 8189",
+                    }))
+                  }
+                  aria-label="계좌 선택"
+                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-3 pr-8 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.5rem_center] [background-repeat:no-repeat] [background-size:1.25rem]"
+                >
+                  <option value="국민 6954">국민 6954</option>
+                  <option value="국민 8189">국민 8189</option>
+                </select>
+              </div>
+              <div className="min-w-0">
+                <select
+                  value={actualDepositForm.year}
+                  onChange={(e) =>
+                    setActualDepositForm((f) => ({ ...f, year: Number(e.target.value) }))
+                  }
+                  aria-label="연도"
+                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
+                >
+                  <option value={2026}>2026년</option>
+                  <option value={2027}>2027년</option>
+                </select>
+              </div>
+              <div className="min-w-0">
+                <select
+                  value={actualDepositForm.month}
+                  onChange={(e) =>
+                    setActualDepositForm((f) => ({ ...f, month: Number(e.target.value) }))
+                  }
+                  aria-label="월"
+                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {m}월
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={actualDepositForm.amountKrw || ""}
+                    onChange={(e) =>
+                      setActualDepositForm((f) => ({
+                        ...f,
+                        amountKrw: Number(e.target.value) || 0,
+                      }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        saveActualDeposit();
+                      }
+                    }}
+                    placeholder="원 (엔터)"
+                    aria-label="입금액 원"
+                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveActualDeposit}
+                    className="shrink-0 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-50/90 to-neutral-100/80 p-0 shadow-sm">
+            <h2 className="mb-4 px-4 pt-4 text-lg font-semibold text-neutral-900">
+              통계
+            </h2>
+            <div className="flex gap-2 px-4">
+              <button
+                type="button"
+                onClick={() => setStatsTab("월별")}
+                className={`rounded-xl border-2 px-5 py-2.5 text-sm font-semibold transition ${
+                  statsTab === "월별"
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"
+                }`}
+              >
+                월별
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatsTab("연도")}
+                className={`rounded-xl border-2 px-5 py-2.5 text-sm font-semibold transition ${
+                  statsTab === "연도"
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"
+                }`}
+              >
+                연도
+              </button>
+            </div>
+            {statsTab === "월별" && (
+              <div className="mt-4 px-4 pb-4">
+                <div className="mb-3 flex gap-2">
+                  {([2026, 2027] as const).map((y) => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => setStatsYear(y)}
+                      className={`rounded-xl border-2 px-4 py-2 text-sm font-semibold transition ${
+                        statsYear === y
+                          ? "border-neutral-900 bg-neutral-900 text-white"
+                          : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"
+                      }`}
+                    >
+                      {y}년
+                    </button>
+                  ))}
+                </div>
+                <div className="text-base font-semibold text-neutral-800">
+                  {statsYear}년 1~12월 (실제 입금 원)
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
+                    const yyyyMm = `${statsYear}-${String(m).padStart(2, "0")}`;
+                    const amountKrw =
+                      (actualDeposits[`국민6954-${yyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${yyyyMm}`] ?? 0);
+                    return (
+                      <div
+                        key={m}
+                        className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center md:px-3 md:py-3"
+                      >
+                        <div className="text-xs text-neutral-500 md:text-sm">{m}월</div>
+                        <div className="mt-0.5 text-sm font-semibold text-neutral-800 md:text-lg">
+                          <AmountToggle amount={amountKrw} className="text-neutral-800" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 border-t border-neutral-200 pt-4 text-sm font-semibold text-neutral-700">
+                  {statsYear}년 합계:{" "}
+                  <AmountToggle
+                    amount={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+                      (s, m) =>
+                        s +
+                        (actualDeposits[`국민6954-${statsYear}-${String(m).padStart(2, "0")}`] ?? 0) +
+                        (actualDeposits[`국민8189-${statsYear}-${String(m).padStart(2, "0")}`] ?? 0),
+                      0
+                    )}
+                    className="text-neutral-700"
+                  />
+                </div>
+              </div>
+            )}
+            {statsTab === "연도" && (
+              <div className="mt-4 px-4 pb-4">
+                <div className="text-base font-semibold text-neutral-800">
+                  연도별 (실제 입금 원)
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
+                  {[2026, 2027].map((y) => {
+                    const yearTotalKrw = Object.entries(actualDeposits)
+                      .filter(
+                        ([k]) =>
+                          k.startsWith(`국민6954-${y}-`) || k.startsWith(`국민8189-${y}-`)
+                      )
+                      .reduce((a, [, v]) => a + v, 0);
+                    return (
+                      <div
+                        key={y}
+                        className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center md:px-3 md:py-3"
+                      >
+                        <div className="text-xs text-neutral-500 md:text-sm">{y}년</div>
+                        <div className="mt-0.5 text-sm font-semibold text-neutral-800 md:text-lg">
+                          <AmountToggle amount={yearTotalKrw} className="text-neutral-800" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 border-t border-neutral-200 pt-4 text-sm font-semibold text-neutral-700">
+                  전체 합계: <AmountToggle amount={totalActualDepositKrw} className="text-neutral-700" />
+                </div>
+              </div>
+            )}
           </Card>
         </>
       )}
@@ -1022,7 +1201,6 @@ export function YoutubePageView(props: Record<string, unknown>) {
         (() => {
           const ch = channels.find((c) => c.id === revenueViewChannelId);
           if (!ch) return null;
-          const total = channelTotalRevenue(ch);
           const mr = ch.monthlyRevenues || {};
           const closeRevenueModal = () => {
             setRevenueViewChannelId(null);
@@ -1082,46 +1260,46 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         <ul className="space-y-1.5">
                           {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
                             const yyyyMm = `${channelRevenueYear}-${String(m).padStart(2, "0")}`;
-                            const amount = mr[yyyyMm] ?? 0;
+                            const amountUsd = mr[yyyyMm] ?? 0;
+                            const amountKrw = Math.round(amountUsd * usdToKrw);
                             return (
                               <li
                                 key={yyyyMm}
-                                className="flex items-center justify-between gap-2 rounded-xl bg-neutral-50 px-3 py-2 text-sm"
+                                className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
                               >
                                 <span className="text-neutral-700">{m}월</span>
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="number"
                                     min={0}
-                                    value={amount || ""}
+                                    step={0.01}
+                                    value={amountUsd || ""}
                                     onChange={(e) =>
                                       updateMonthRevenue(ch.id, yyyyMm, Number(e.target.value) || 0)
                                     }
-                                    className="w-28 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-right text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900/10"
+                                    className="w-24 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-right text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900/10"
                                   />
-                                  <span className="text-neutral-500">원</span>
-                                  {amount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteMonthRevenue(ch.id, yyyyMm)}
-                                      className="rounded-lg px-1.5 py-0.5 text-xs text-red-500 hover:bg-red-50"
-                                    >
-                                      삭제
-                                    </button>
+                                  <span className="text-neutral-500 shrink-0">$</span>
+                                  {amountUsd > 0 && (
+                                    <span className="text-neutral-700 text-xs font-medium whitespace-nowrap">
+                                      ≈ {formatted(amountKrw)}원
+                                    </span>
                                   )}
                                 </div>
                               </li>
                             );
                           })}
                         </ul>
-                        <div className="mt-3 flex justify-between rounded-xl bg-neutral-100 px-4 py-3 text-base font-semibold text-neutral-900">
-                          <span>{channelRevenueYear}년 연 전체 수익</span>
+                        <div className="mt-3 flex justify-between rounded-xl bg-neutral-900 px-4 py-3 text-base font-semibold text-white">
+                          <span>{channelRevenueYear}년 수익</span>
                           <span>
                             {formatted(
-                              Array.from({ length: 12 }, (_, i) => i + 1).reduce(
-                                (a, m) =>
-                                  a + (mr[`${channelRevenueYear}-${String(m).padStart(2, "0")}`] ?? 0),
-                                0
+                              Math.round(
+                                Array.from({ length: 12 }, (_, i) => i + 1).reduce(
+                                  (a, m) =>
+                                    a + (mr[`${channelRevenueYear}-${String(m).padStart(2, "0")}`] ?? 0),
+                                  0
+                                ) * usdToKrw
                               )
                             )}
                             원
@@ -1129,12 +1307,6 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         </div>
                       </div>
                     )}
-                  </div>
-                  <div className="border-t border-neutral-200 pt-4">
-                    <div className="flex justify-between text-base font-semibold text-neutral-900">
-                      <span>누적 수익</span>
-                      <span>{formatted(total)}원</span>
-                    </div>
                   </div>
                 </div>
               </Card>
@@ -1201,9 +1373,10 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 </div>
               </div>
               <div className="mt-3">
-                <label className="text-xs font-medium text-neutral-600">수익 (원)</label>
+                <label className="text-xs font-medium text-neutral-600">수익 (달러)</label>
                 <input
                   type="number"
+                  step={0.01}
                   value={revenueForm.amount || ""}
                   onChange={(e) =>
                     setRevenueForm((f) => ({ ...f, amount: Number(e.target.value) || 0 }))

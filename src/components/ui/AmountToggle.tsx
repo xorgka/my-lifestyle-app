@@ -21,16 +21,38 @@ type AmountToggleProps = {
   className?: string;
   /** 연도별 테이블 등에서 음수 색상 */
   variant?: "default" | "profit" | "loss";
+  /** 있으면 amount는 USD. 기본 표시=원(환산), 클릭=달러 */
+  usdToKrw?: number;
+  /** usdToKrw 사용 시 true면 기본 표시를 달러로 */
+  defaultShowUsd?: boolean;
 };
 
-export function AmountToggle({ amount, className = "", variant = "default" }: AmountToggleProps) {
+export function AmountToggle({ amount, className = "", variant = "default", usdToKrw, defaultShowUsd }: AmountToggleProps) {
   const [showFull, setShowFull] = useState(false);
+  const [showUsd, setShowUsd] = useState(!!defaultShowUsd);
   const colorClass =
     variant === "loss"
       ? "text-red-600"
       : variant === "profit"
         ? "text-neutral-800"
         : "text-neutral-900";
+
+  if (usdToKrw != null && usdToKrw > 0) {
+    const krw = amount * usdToKrw;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowUsd((v) => !v);
+        }}
+        className={`cursor-pointer rounded px-0.5 py-0.5 text-left transition hover:bg-neutral-100 ${colorClass} ${className}`}
+        title={showUsd ? "원으로 보기" : "달러로 보기"}
+      >
+        {showUsd ? `$${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : (krw >= 10_000 ? formatAmountShort(krw) : `${formatNum(krw)}원`)}
+      </button>
+    );
+  }
 
   return (
     <button

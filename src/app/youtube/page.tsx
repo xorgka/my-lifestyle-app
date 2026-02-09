@@ -8,9 +8,15 @@ import {
   saveYoutubeChannels,
   deleteYoutubeChannel,
 } from "@/lib/youtubeDb";
+import {
+  loadYoutubeActualDeposits,
+  saveYoutubeActualDeposits,
+} from "@/lib/youtubeActualDepositsDb";
 import { supabase } from "@/lib/supabase";
 
 const ACCOUNT_VIEW_PIN = "2013";
+/** 수익 입력·저장 단위: 달러. 원 표시 시 이 환율로 곱함 */
+export const USD_TO_KRW = 1350;
 
 function getCurrentYearMonth(): string {
   const d = new Date();
@@ -69,6 +75,19 @@ export default function YoutubePage() {
   /** 채널별 수익: 선택한 연도 */
   const [channelRevenueYear, setChannelRevenueYear] = useState<number | null>(null);
 
+  /** 실제 입금 금액: 키 "국민6954-YYYY-MM" | "국민8189-YYYY-MM", 값 원. Supabase 또는 localStorage 동기화 */
+  const [actualDeposits, setActualDeposits] = useState<Record<string, number>>({});
+  const [actualDepositForm, setActualDepositForm] = useState({
+    bank: "국민 6954" as "국민 6954" | "국민 8189",
+    year: 2026,
+    month: new Date().getMonth() + 1,
+    amountKrw: 0,
+  });
+
+  /** 통계 탭: 월별 | 연도. 월별일 때 선택 연도 */
+  const [statsTab, setStatsTab] = useState<"월별" | "연도">("월별");
+  const [statsYear, setStatsYear] = useState<number>(2026);
+
   const checkAccountPin = (channelId: number) => {
     if (accountPinInput.trim() === ACCOUNT_VIEW_PIN) {
       setRevealAccountId(channelId);
@@ -106,9 +125,18 @@ export default function YoutubePage() {
   }, []);
 
   useEffect(() => {
+    loadYoutubeActualDeposits().then(setActualDeposits).catch(console.error);
+  }, []);
+
+  useEffect(() => {
     if (channelsLoading || channels.length === 0) return;
     saveYoutubeChannels(channels).catch(console.error);
   }, [channels, channelsLoading]);
+
+  useEffect(() => {
+    if (Object.keys(actualDeposits).length === 0) return;
+    saveYoutubeActualDeposits(actualDeposits).catch(console.error);
+  }, [actualDeposits]);
 
   // 채널이 바뀌면 빠른 입력 기본 채널을 첫 채널로
   useEffect(() => {
@@ -135,6 +163,17 @@ export default function YoutubePage() {
       )
     );
     setQuickRevenue((q) => ({ ...q, amount: 0 }));
+  };
+
+  const bankKey = (bank: string) => (bank.replace(/\s/g, "") as "국민6954" | "국민8189");
+
+  const saveActualDeposit = () => {
+    const { bank, year, month, amountKrw } = actualDepositForm;
+    if (amountKrw <= 0) return;
+    const yyyyMm = `${year}-${String(month).padStart(2, "0")}`;
+    const key = `${bankKey(bank)}-${yyyyMm}`;
+    setActualDeposits((prev) => ({ ...prev, [key]: amountKrw }));
+    setActualDepositForm((f) => ({ ...f, amountKrw: 0 }));
   };
 
   const currentYearMonth = getCurrentYearMonth();
@@ -323,6 +362,15 @@ export default function YoutubePage() {
     formatted,
     channelMonthRevenue,
     channelTotalRevenue,
+    usdToKrw: USD_TO_KRW,
+    actualDeposits,
+    actualDepositForm,
+    setActualDepositForm,
+    saveActualDeposit,
+    statsTab,
+    setStatsTab,
+    statsYear,
+    setStatsYear,
   };
 
   return React.createElement(YoutubePageView, viewProps);

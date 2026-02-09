@@ -11,7 +11,7 @@ export type YouTubeChannel = {
   category: string;
   accountEmail: string;
   password: string;
-  /** 월별 수익. 키: "YYYY-MM", 값: 원 */
+  /** 월별 수익. 키: "YYYY-MM", 값: 달러(USD) */
   monthlyRevenues: Record<string, number>;
   memo: string;
 };

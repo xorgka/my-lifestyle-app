@@ -22,13 +22,15 @@ declare global {
           width?: number;
           height?: number;
           playerVars?: { start?: number };
-          events?: { onReady?: () => void };
+          events?: { onReady?: () => void; onStateChange?: (e: { data: number }) => void };
         }
       ) => YTPlayer;
     };
     onYouTubeIframeAPIReady?: () => void;
   }
 }
+
+const YT_PLAYER_STATE_ENDED = 0;
 
 interface YTPlayer {
   loadVideoById(videoId: string, startSeconds?: number): void;
@@ -115,6 +117,9 @@ export function YoutubePlayerBar() {
           playerVars: { start: startSeconds ?? 0 },
           events: {
             onReady: () => setPlayerReady(true),
+            onStateChange: (e) => {
+              if (e.data === YT_PLAYER_STATE_ENDED) goNextRef.current();
+            },
           },
         });
         playerRef.current = player;
@@ -166,11 +171,14 @@ export function YoutubePlayerBar() {
     setIsPlaying(true);
   };
 
-  const goNext = () => {
+  const goNext = useCallback(() => {
     if (playlistEntries.length === 0) return;
     setCurrentIndex((i) => (i + 1) % playlistEntries.length);
     setIsPlaying(true);
-  };
+  }, [playlistEntries.length]);
+
+  const goNextRef = useRef(goNext);
+  goNextRef.current = goNext;
 
   const togglePlay = () => {
     if (isMobile && current) {
@@ -203,12 +211,12 @@ export function YoutubePlayerBar() {
 
   const isEmpty = playlistEntries.length === 0;
 
-  /** 전역 단축키: 1 = 재생/정지. 입력 필드에 포커스 있을 때는 무시 */
+  /** 전역 단축키: 1 = 재생/정지, 2 = 다음. 입력 필드에 포커스 있을 때는 무시 */
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "1") return;
+      if (e.key !== "1" && e.key !== "2") return;
       const active = document.activeElement;
       if (
         active &&
@@ -219,6 +227,11 @@ export function YoutubePlayerBar() {
         return;
       }
       if (isEmpty || !current) return;
+      if (e.key === "2") {
+        e.preventDefault();
+        goNextRef.current();
+        return;
+      }
       e.preventDefault();
       if (isMobile) {
         const { videoId: v, startSeconds: s } = parseYoutubeUrl(current.url);
