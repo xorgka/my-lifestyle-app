@@ -54,7 +54,7 @@ export function YoutubePlayerBar() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerFavoritesOnly, setDrawerFavoritesOnly] = useState(false);
+  const [drawerFavoritesOnly, setDrawerFavoritesOnly] = useState(true);
   const [playerReady, setPlayerReady] = useState(false);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const listButtonRef = useRef<HTMLButtonElement>(null);
