@@ -1,0 +1,340 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  loadPlaylistEntries,
+  savePlaylistEntry,
+  savePlaylistEntries,
+  deletePlaylistEntry,
+  reorderPlaylistEntries,
+  parseYoutubeUrl,
+  type PlaylistEntry,
+  type PlaylistTags,
+} from "@/lib/youtubePlaylistDb";
+import { SectionTitle } from "@/components/ui/SectionTitle";
+import { Card } from "@/components/ui/Card";
+
+const TAG_KEYS: (keyof PlaylistTags)[] = ["가수", "노래분위기"];
+const TAG_LABEL: Record<keyof PlaylistTags, string> = { 가수: "가수", 노래분위기: "분위기", 장르: "장르" };
+
+function getUniqueTagValues(entries: PlaylistEntry[], key: keyof PlaylistTags): string[] {
+  const set = new Set<string>();
+  entries.forEach((e) => {
+    const v = e.tags?.[key]?.trim();
+    if (v) set.add(v);
+  });
+  return Array.from(set).sort();
+}
+
+export default function YoutubePlaylistPage() {
+  const [entries, setEntries] = useState<PlaylistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterTags, setFilterTags] = useState<PlaylistTags>({});
+  const [modal, setModal] = useState<"add" | "edit" | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<Partial<PlaylistEntry>>({
+    url: "",
+    title: "",
+    sortOrder: 0,
+    startSeconds: undefined,
+    tags: {},
+  });
+
+  const load = useCallback(() => {
+    setLoading(true);
+    loadPlaylistEntries()
+      .then(setEntries)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = entries.filter((e) => {
+    for (const k of TAG_KEYS) {
+      const fv = filterTags[k]?.trim();
+      if (!fv) continue;
+      if ((e.tags?.[k] ?? "").trim() !== fv) return false;
+    }
+    return true;
+  });
+
+  const openAdd = () => {
+    setForm({
+      url: "",
+      title: "",
+      sortOrder: entries.length,
+      startSeconds: undefined,
+      tags: {},
+    });
+    setEditingId(null);
+    setModal("add");
+  };
+
+  const openEdit = (entry: PlaylistEntry) => {
+    setForm({ ...entry });
+    setEditingId(entry.id);
+    setModal("edit");
+  };
+
+  const closeModal = () => {
+    setModal(null);
+    setEditingId(null);
+  };
+
+  const saveEntry = () => {
+    const url = form.url?.trim();
+    const title = form.title?.trim();
+    if (!url) return;
+    const { videoId, startSeconds } = parseYoutubeUrl(url);
+    if (!videoId) {
+      alert("유효한 YouTube 링크를 입력해 주세요.");
+      return;
+    }
+    const id = editingId ?? `pl-${Date.now()}`;
+    const sortOrder = form.sortOrder ?? (modal === "add" ? entries.length : 0);
+    const entry: PlaylistEntry = {
+      id,
+      url: url,
+      title: title || "제목 없음",
+      sortOrder,
+      startSeconds,
+      tags: form.tags ?? {},
+    };
+    savePlaylistEntry(entry).then(() => {
+      load();
+      closeModal();
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("youtube-playlist-changed"));
+    });
+  };
+
+  const remove = (id: string) => {
+    if (typeof window !== "undefined" && !window.confirm("이 항목을 삭제할까요?")) return;
+    deletePlaylistEntry(id).then(() => {
+      load();
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("youtube-playlist-changed"));
+    });
+  };
+
+  const reorderFiltered = (fromIndex: number, toIndex: number) => {
+    const sorted = [...entries].sort((a, b) => a.sortOrder - b.sortOrder);
+    const filteredIds = filtered.map((e) => e.id);
+    const aId = filteredIds[fromIndex];
+    const bId = filteredIds[toIndex];
+    const i = sorted.findIndex((e) => e.id === aId);
+    const j = sorted.findIndex((e) => e.id === bId);
+    if (i < 0 || j < 0) return;
+    [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+    const next = sorted.map((e, idx) => ({ ...e, sortOrder: idx }));
+    savePlaylistEntries(next).then(() => {
+      load();
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("youtube-playlist-changed"));
+    });
+  };
+
+  const moveUp = (index: number) => {
+    if (index <= 0) return;
+    reorderFiltered(index, index - 1);
+  };
+
+  const moveDown = (index: number) => {
+    if (index >= filtered.length - 1) return;
+    reorderFiltered(index, index + 1);
+  };
+
+  return (
+    <div className="min-w-0 space-y-4">
+      <SectionTitle
+        title="재생목록 관리"
+        subtitle="유튜브 플레이리스트를 관리할 수 있어요."
+      />
+
+      {/* 태그로 보기: 한 줄에 가수·분위기 오른쪽 정렬 */}
+      <Card className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:py-3">
+        <h3 className="text-xs font-semibold text-neutral-700 md:text-sm">태그로 보기</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          {TAG_KEYS.map((key) => {
+            const values = getUniqueTagValues(entries, key);
+            return (
+              <div key={key} className="flex items-center gap-2">
+                <span className="text-xs text-neutral-500 md:text-sm">{TAG_LABEL[key]}:</span>
+                <select
+                  value={filterTags[key] ?? ""}
+                  onChange={(e) =>
+                    setFilterTags((f) => ({ ...f, [key]: e.target.value || undefined }))
+                  }
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-xs text-neutral-800 md:py-1 md:text-sm"
+                >
+                  <option value="">전체</option>
+                  {values.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
+          <h3 className="text-lg font-semibold text-neutral-800">목록</h3>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+          >
+            <span aria-hidden>+</span>
+            추가
+          </button>
+        </div>
+        {loading ? (
+          <div className="py-12 text-center text-neutral-500">불러오는 중…</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center text-neutral-500">
+            {entries.length === 0
+              ? "등록된 항목이 없어요. 추가 버튼으로 링크를 등록해 보세요."
+              : "선택한 태그에 맞는 항목이 없어요."}
+          </div>
+        ) : (
+          <ul className="divide-y divide-neutral-100">
+            {filtered.map((entry, index) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-center gap-2 px-4 py-3 hover:bg-neutral-50/80"
+              >
+                <span className="w-6 text-sm text-neutral-400">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-neutral-900 truncate">{entry.title || "—"}</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveUp(index)}
+                    disabled={index === 0}
+                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
+                    aria-label="위로"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveDown(index)}
+                    disabled={index === filtered.length - 1}
+                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
+                    aria-label="아래로"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(entry)}
+                    className="rounded-lg px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
+                  >
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(entry.id)}
+                    className="rounded-lg px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* 추가/수정 모달: body에 포탈로 렌더 → 전체 화면 덮고 가운데 정렬 */}
+      {modal &&
+        typeof document !== "undefined" &&
+        document.body &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label={modal === "add" ? "항목 추가" : "항목 수정"}
+          >
+            <div
+              className="absolute inset-0 bg-black/85"
+              onClick={closeModal}
+              aria-hidden
+            />
+            <Card className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl mx-4">
+              <h2 className="text-lg font-bold text-neutral-900">
+                {modal === "add" ? "항목 추가" : "항목 수정"}
+              </h2>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">YouTube 링크 *</label>
+                  <input
+                    type="url"
+                    value={form.url ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">제목</label>
+                  <input
+                    type="text"
+                    value={form.title ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="영상 제목 (비우면 자동)"
+                    className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                {TAG_KEYS.map((key) => (
+                  <div key={key}>
+                    <label className="text-xs font-medium text-neutral-600">{TAG_LABEL[key]}</label>
+                    <input
+                      type="text"
+                      value={form.tags?.[key] ?? ""}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          tags: { ...(f.tags ?? {}), [key]: e.target.value.trim() || undefined },
+                        }))
+                      }
+                      placeholder={`예: ${key === "가수" ? "아티스트명" : key === "노래분위기" ? "잔잔함" : "재즈"}`}
+                      className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                ))}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="flex-1 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-600"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEntry}
+                    className="flex-1 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    {modal === "add" ? "추가" : "저장"}
+                  </button>
+                </div>
+              </div>
+            </Card>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}

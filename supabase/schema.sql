@@ -91,6 +91,20 @@ create table if not exists youtube_channels (
 comment on table youtube_channels is '유튜브 채널 목록. monthly_revenues: {"YYYY-MM": 금액(원)}';
 comment on column youtube_channels.monthly_revenues is '월별 수익 원. 예: {"2026-01": 100000}';
 
+-- 유튜브 재생목록 (노래/영상 링크 + 태그: 가수, 노래분위기, 장르)
+create table if not exists youtube_playlist (
+  id text primary key,
+  url text not null default '',
+  title text not null default '',
+  sort_order integer not null default 0,
+  start_seconds integer,
+  tags jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_youtube_playlist_sort on youtube_playlist (sort_order);
+comment on table youtube_playlist is '사이드바 재생목록. tags: 가수, 노래분위기, 장르 등';
+
 -- ------------------------------------------------------------
 -- 4. 루틴
 -- ------------------------------------------------------------
@@ -163,6 +177,81 @@ create index if not exists idx_schedule_entries_type on schedule_entries (schedu
 comment on table schedule_entries is '스케줄: 일회성/매월/매년/매주. 공휴일은 앱에서 별도 제공';
 
 -- ------------------------------------------------------------
+-- 8. 스케줄 완료 체크·순서·삭제한 시스템 일정 (기기 간 동기화)
+-- ------------------------------------------------------------
+create table if not exists schedule_completions (
+  completion_key text primary key
+);
+comment on table schedule_completions is '스케줄 일정별 날짜 완료 체크. 기기 간 동기화용';
+
+create table if not exists schedule_order (
+  date text primary key,
+  order_keys jsonb not null default '[]'
+);
+comment on table schedule_order is '스케줄 날짜별 항목 표시 순서. 기기 간 동기화용';
+
+create table if not exists schedule_builtin_deleted (
+  builtin_id text primary key,
+  created_at timestamptz not null default now()
+);
+comment on table schedule_builtin_deleted is '삭제한 시스템 일정 ID';
+
+-- ------------------------------------------------------------
+-- 9. 수입 (홈·수입 페이지 기기 간 동기화)
+-- ------------------------------------------------------------
+create table if not exists income_entries (
+  id text primary key,
+  year smallint not null,
+  month smallint not null check (month >= 1 and month <= 12),
+  item text not null default '',
+  amount bigint not null,
+  category text not null default '기타',
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_income_entries_year_month on income_entries (year, month);
+comment on table income_entries is '수입 내역. 홈 위젯·수입 페이지, 모바일/PC 동기화';
+
+-- ------------------------------------------------------------
+-- 10. 메모(포스트잇) - 기기/브라우저 동기화
+-- ------------------------------------------------------------
+create table if not exists memos (
+  id text primary key,
+  content text not null default '',
+  created_at timestamptz not null default now(),
+  color text not null default 'black' check (color in ('black', 'wine', 'purple', 'orange', 'warmgray')),
+  pinned boolean not null default false,
+  pinned_at timestamptz,
+  title text,
+  deleted_at timestamptz,
+  x integer,
+  y integer,
+  width integer,
+  height integer
+);
+create index if not exists idx_memos_deleted_at on memos (deleted_at) where deleted_at is null;
+comment on table memos is '메모(포스트잇). PC/모바일 동기화';
+
+-- ------------------------------------------------------------
+-- 11. 수면 관리 - 날짜별 기상/취침 (기기 간 동기화)
+-- ------------------------------------------------------------
+create table if not exists sleep_records (
+  date date primary key,
+  wake_time text,
+  bed_time text,
+  updated_at timestamptz not null default now()
+);
+comment on table sleep_records is '수면: 날짜별 기상(wake_time)·취침(bed_time)';
+
+-- ------------------------------------------------------------
+-- 12. 알림 팝업 마지막 표시 (기기 간 동기화)
+-- ------------------------------------------------------------
+create table if not exists reminder_last_shown (
+  reminder_type text primary key,
+  last_shown_at timestamptz not null default now()
+);
+comment on table reminder_last_shown is '알림 팝업 마지막 표시 시각. shower | gym | youtube 등';
+
+-- ------------------------------------------------------------
 -- RLS (Row Level Security) - 현재는 anon 허용, 나중에 auth 붙이면 user_id로 제한
 -- ------------------------------------------------------------
 
@@ -172,11 +261,19 @@ alter table budget_keywords enable row level security;
 alter table budget_month_extras enable row level security;
 alter table journal_entries enable row level security;
 alter table youtube_channels enable row level security;
+alter table youtube_playlist enable row level security;
 alter table routine_items enable row level security;
 alter table routine_completions enable row level security;
 alter table insight_system_quotes enable row level security;
 alter table insight_entries enable row level security;
 alter table schedule_entries enable row level security;
+alter table schedule_completions enable row level security;
+alter table schedule_order enable row level security;
+alter table schedule_builtin_deleted enable row level security;
+alter table income_entries enable row level security;
+alter table memos enable row level security;
+alter table sleep_records enable row level security;
+alter table reminder_last_shown enable row level security;
 
 -- anon 키로 모든 작업 허용 (단일 사용자/비로그인 사용 가정)
 create policy "allow all budget_entries" on budget_entries for all using (true) with check (true);
@@ -185,11 +282,19 @@ create policy "allow all budget_keywords" on budget_keywords for all using (true
 create policy "allow all budget_month_extras" on budget_month_extras for all using (true) with check (true);
 create policy "allow all journal_entries" on journal_entries for all using (true) with check (true);
 create policy "allow all youtube_channels" on youtube_channels for all using (true) with check (true);
+create policy "allow all youtube_playlist" on youtube_playlist for all using (true) with check (true);
 create policy "allow all routine_items" on routine_items for all using (true) with check (true);
 create policy "allow all routine_completions" on routine_completions for all using (true) with check (true);
 create policy "allow all insight_system_quotes" on insight_system_quotes for all using (true) with check (true);
 create policy "allow all insight_entries" on insight_entries for all using (true) with check (true);
 create policy "allow all schedule_entries" on schedule_entries for all using (true) with check (true);
+create policy "allow all schedule_completions" on schedule_completions for all using (true) with check (true);
+create policy "allow all schedule_order" on schedule_order for all using (true) with check (true);
+create policy "allow all schedule_builtin_deleted" on schedule_builtin_deleted for all using (true) with check (true);
+create policy "allow all income_entries" on income_entries for all using (true) with check (true);
+create policy "allow all memos" on memos for all using (true) with check (true);
+create policy "allow all sleep_records" on sleep_records for all using (true) with check (true);
+create policy "allow all reminder_last_shown" on reminder_last_shown for all using (true) with check (true);
 
 -- updated_at 자동 갱신 (선택)
 create or replace function set_updated_at()
@@ -210,3 +315,7 @@ create trigger journal_entries_updated_at
   before update on journal_entries for each row execute function set_updated_at();
 create trigger youtube_channels_updated_at
   before update on youtube_channels for each row execute function set_updated_at();
+create trigger youtube_playlist_updated_at
+  before update on youtube_playlist for each row execute function set_updated_at();
+create trigger sleep_records_updated_at
+  before update on sleep_records for each row execute function set_updated_at();

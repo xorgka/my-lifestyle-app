@@ -285,9 +285,10 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     if (days > 0) {
       const label = keyword === "헬스" ? "헬스장" : keyword;
       const verb = keyword === "헬스" ? "갔어요" : "했어요";
+      const particle = label === "독서" ? "는" : "은";
       alerts.push({
         type: "plain",
-        text: `이번달 ${label}은 ${days}일 ${verb}. 🔥`,
+        text: `이번달 ${label}${particle} ${days}일 ${verb}. 🔥`,
         href: "/routine",
       });
     }
@@ -407,6 +408,16 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     alerts.push({
       type: "plain",
       text: "당신의 속도대로 천천히.",
+      href: "/",
+    });
+  }
+
+  // --- 가만히 있으면 (날짜 시드로 가끔 표시) ---
+  const stillnessSeed = (parseInt(today.replace(/-/g, ""), 10) + 7) % 5;
+  if (stillnessSeed === 0) {
+    alerts.push({
+      type: "plain",
+      text: "가만히 있으면 아무 변화도 없다.",
       href: "/",
     });
   }

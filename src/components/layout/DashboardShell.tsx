@@ -75,7 +75,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       )}
 
       <div className="mx-auto flex w-full max-w-7xl gap-7">
-        <div className="sticky top-10 hidden h-[calc(100vh-12rem)] max-h-[calc(100vh-12rem)] md:block md:w-64 md:self-start">
+        <div className="sticky top-6 hidden h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)] md:block md:w-64 md:self-start">
           <Sidebar />
         </div>
         <main className="min-w-0 flex-1 pt-12 md:pt-0">

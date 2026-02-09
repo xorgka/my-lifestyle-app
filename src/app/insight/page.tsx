@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -27,11 +28,9 @@ type UnifiedItem =
 function InsightPageContent() {
   const searchParams = useSearchParams();
   const [insightTab, setInsightTab] = useState<InsightTab>(() =>
-    searchParams.get("tab") === "system" ? "system" : "mine"
+    searchParams.get("tab") === "mine" ? "mine" : "system"
   );
 
-  const [input, setInput] = useState("");
-  const [authorInput, setAuthorInput] = useState("");
   const [insights, setInsights] = useState<InsightEntry[]>([]);
   const [insightLoading, setInsightLoading] = useState(true);
   /** 마지막 로드가 Supabase에서 성공했으면 true, 폴백(로컬)이면 false */
@@ -202,22 +201,6 @@ function InsightPageContent() {
     }
   };
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed) return;
-
-    const author = authorInput.trim();
-    setInput("");
-    setAuthorInput("");
-    try {
-      const item = await addInsightEntry(trimmed, author || undefined);
-      setInsights((prev) => [item, ...prev]);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     setInsights((prev) => prev.filter((item) => item.id !== id));
     try {
@@ -244,27 +227,18 @@ function InsightPageContent() {
         subtitle="요즘 마음에 남았던 한 문장을 조용히 모아두는 공간이에요."
       />
 
-      {/* 탭: 인사이트 저장 | 문장 관리, 오른쪽 끝에 검색·필터(문장 관리 탭일 때만) */}
+      {/* 상단: 일기장으로(인사이트 저장) + 문장 관리(현재) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setInsightTab("mine")}
-            className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-              insightTab === "mine" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-            }`}
+          <Link
+            href="/journal"
+            className="rounded-xl px-4 py-2.5 text-sm font-medium text-neutral-600 transition bg-neutral-100 hover:bg-neutral-200"
           >
             인사이트 저장
-          </button>
-          <button
-            type="button"
-            onClick={() => setInsightTab("system")}
-            className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-              insightTab === "system" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-            }`}
-          >
+          </Link>
+          <span className="rounded-xl px-4 py-2.5 text-sm font-medium bg-neutral-900 text-white">
             문장 관리
-          </button>
+          </span>
         </div>
         {insightTab === "system" && (
           <div className="flex w-full items-center gap-2">
@@ -305,98 +279,6 @@ function InsightPageContent() {
           </div>
         )}
       </div>
-
-      {insightTab === "mine" && (
-        <>
-      {/* 입력 영역 - 은은한 그라데이션으로 구분 */}
-      <Card className="relative min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300">
-        <h2 className="text-xl font-semibold text-neutral-900">
-          오늘 마음에 남은 문장
-        </h2>
-        <p className="text-sm text-neutral-500">
-          책, 영상, 대화, 우연히 떠오른 생각까지. 한 줄씩만 남겨두면,
-          나중에 다시 읽을 때 오늘의 나를 떠올릴 수 있어요.
-        </p>
-
-        <form onSubmit={handleAdd} className="mt-2 space-y-3">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            rows={3}
-            placeholder="감명받은 문장이나 오늘의 인사이트를 한 줄로 적어보세요."
-            className="w-full resize-none rounded-2xl border border-soft-border bg-white px-3.5 py-3 text-base text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 hover:border-neutral-400"
-          />
-          <input
-            type="text"
-            value={authorInput}
-            onChange={(e) => setAuthorInput(e.target.value)}
-            placeholder="출처(인물명)"
-            className="w-full rounded-2xl border border-soft-border bg-white px-3.5 py-2.5 text-base text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 hover:border-neutral-400"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-500">
-            <span>
-              {input.trim().length > 0 ? `${input.trim().length} 글자` : ""}
-            </span>
-            <button
-              type="submit"
-              className="w-full shrink-0 rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] sm:w-auto"
-            >
-              인사이트 저장하기
-            </button>
-          </div>
-        </form>
-      </Card>
-
-      {insightLoading && (
-        <p className="text-sm text-neutral-500">인사이트 불러오는 중…</p>
-      )}
-
-      {!insightLoading && insights.length === 0 && (
-        <Card className="min-w-0">
-          {!isSupabaseConfigured ? (
-            <p className="text-sm text-neutral-600">
-              기기 간 동기화를 사용하려면 Supabase가 필요합니다. 프로젝트 루트의 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 다시 빌드해 주세요.
-            </p>
-          ) : lastLoadFromSupabase === false ? (
-            <>
-              <p className="text-sm text-neutral-600">
-                동기화에 실패했을 수 있습니다. 네트워크 연결을 확인한 뒤 아래 버튼으로 다시 불러오기 해 보세요.
-              </p>
-              {lastLoadError && (
-                <p className="mt-2 text-xs text-neutral-500" title="개발자 도구에서도 확인 가능">
-                  오류: {lastLoadError}
-                </p>
-              )}
-              <p className="mt-2 text-xs text-neutral-500">
-                모바일에서 계속 실패하면, Supabase 대시보드 → Settings → API에서 이 사이트 주소가 허용 목록에 있는지 확인해 보세요.
-              </p>
-              <button
-                type="button"
-                onClick={refetchInsights}
-                className="mt-3 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-              >
-                다시 불러오기
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-neutral-600">
-                아직 저장한 문장이 없어요. 위에서 문장을 추가해 보세요.
-              </p>
-              <button
-                type="button"
-                onClick={refetchInsights}
-                className="mt-3 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-              >
-                다시 불러오기
-              </button>
-            </>
-          )}
-        </Card>
-      )}
-
-        </>
-      )}
 
       {insightTab === "system" && (
         <>

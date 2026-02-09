@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { localDateStr } from "@/lib/dateUtil";
@@ -11,6 +12,7 @@ import {
   saveJournalEntries,
   deleteJournalEntry,
 } from "@/lib/journal";
+import { addInsightEntry } from "@/lib/insightDb";
 
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
 
@@ -145,6 +147,9 @@ export default function JournalPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   /** 드로어 슬라이드 인 애니메이션용 */
   const [drawerAnimated, setDrawerAnimated] = useState(false);
+  /** 오늘 마음에 남은 문장 (인사이트) 입력 */
+  const [insightInput, setInsightInput] = useState("");
+  const [insightAuthorInput, setInsightAuthorInput] = useState("");
   const load = useCallback(async () => {
     setJournalLoading(true);
     try {
@@ -237,6 +242,19 @@ export default function JournalPage() {
     setDraft("");
     setDraftImportant(false);
     deleteJournalEntry(selectedDate).catch(console.error);
+  };
+
+  const handleInsightAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = insightInput.trim();
+    if (!trimmed) return;
+    setInsightInput("");
+    setInsightAuthorInput("");
+    try {
+      await addInsightEntry(trimmed, insightAuthorInput.trim() || undefined);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const [year, month] = selectedDate.split("-").map(Number);
@@ -607,8 +625,8 @@ export default function JournalPage() {
                       }
                     }}
                     placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
-                    className="min-h-[420px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
-                    rows={16}
+                    className="min-h-[560px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
+                    rows={20}
                   />
                 ) : (
                   <div
@@ -625,7 +643,7 @@ export default function JournalPage() {
                         setTimeout(() => textareaRef.current?.focus(), 0);
                       }
                     }}
-                    className="min-h-[420px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
+                    className="min-h-[560px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
                     title="클릭하면 글쓰기 모드로 전환"
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >
@@ -700,6 +718,52 @@ export default function JournalPage() {
               </button>
             )}
           </div>
+        </Card>
+
+        {/* 오늘 마음에 남은 문장 (인사이트): 기본 흐림, 호버·포커스 시 선명 */}
+        <Card className="relative mt-10 min-w-0 space-y-4 bg-gradient-to-br from-white via-[#f5f5f7] to-white shadow-[0_18px_45px_rgba(0,0,0,0.08)] ring-1 ring-neutral-300 opacity-40 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100 md:mt-12">
+          <h2 className="text-xl font-semibold text-neutral-900">
+            오늘 마음에 남은 문장
+          </h2>
+          <p className="text-sm text-neutral-500">
+            책, 영상, 대화, 우연히 떠오른 생각까지. 한 줄씩만 남겨두면,
+            나중에 다시 읽을 때 오늘의 나를 떠올릴 수 있어요.
+          </p>
+          <form onSubmit={handleInsightAdd} className="mt-2 space-y-3">
+            <textarea
+              value={insightInput}
+              onChange={(e) => setInsightInput(e.target.value)}
+              rows={3}
+              placeholder=""
+              className="w-full resize-none rounded-2xl border border-soft-border bg-white px-3.5 py-3 text-base text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 hover:border-neutral-400"
+            />
+            <input
+              type="text"
+              value={insightAuthorInput}
+              onChange={(e) => setInsightAuthorInput(e.target.value)}
+              placeholder="출처(인물명)"
+              className="w-full rounded-2xl border border-soft-border bg-white px-3.5 py-2.5 text-base text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 hover:border-neutral-400"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-500">
+              <span>
+                {insightInput.trim().length > 0 ? `${insightInput.trim().length} 글자` : ""}
+              </span>
+              <div className="flex flex-nowrap items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="submit"
+                  className="min-w-0 flex-[6] sm:flex-none sm:min-w-[10rem] rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]"
+                >
+                  인사이트 저장
+                </button>
+                <Link
+                  href="/insight?tab=system"
+                  className="min-w-0 flex-[4] sm:flex-none rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 text-center"
+                >
+                  문장 관리
+                </Link>
+              </div>
+            </div>
+          </form>
         </Card>
 
         {/* 드로어: 달력·검색·내보내기 (body에 포탈 → 화면 전체 어둡게, 오른쪽에서 슬라이드) */}

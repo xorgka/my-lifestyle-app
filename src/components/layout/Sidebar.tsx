@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { SettingsModal } from "./SettingsModal";
 import { SnippetsModal } from "./SnippetsModal";
+import { YoutubePlayerBar } from "./YoutubePlayerBar";
 import { loadScheduleEntries, getTodayCount } from "@/lib/scheduleDb";
 
 const menuItems = [
@@ -14,7 +15,6 @@ const menuItems = [
   { href: "/routine", label: "루틴" },
   { href: "/memo", label: "메모" },
   { href: "/journal", label: "일기장" },
-  { href: "/insight", label: "인사이트" },
   { href: "/youtube", label: "유튜브" },
   { href: "/finance", label: "가계부" },
   { href: "/income", label: "수입" },
@@ -97,6 +97,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         })}
       </nav>
 
+      <YoutubePlayerBar />
       <div className="mt-auto flex items-center justify-between border-t border-neutral-100 pt-4">
         <button
           type="button"
