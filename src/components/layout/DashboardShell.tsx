@@ -35,7 +35,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <ShowerReminderPopup />
       <MorningFaceReminderPopup />
       <GymReminderPopup />
-      <YoutubeUploadReminderPopup forceShow />
+      <YoutubeUploadReminderPopup />
       <WakeTimePopup forceShow={forceShowWakePopup} />
       {/* 모바일: 상단 바 (홈 + 메뉴) */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 md:hidden">
