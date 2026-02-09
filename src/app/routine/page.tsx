@@ -153,9 +153,10 @@ export default function RoutinePage() {
     }
   }, [addOpen]);
 
+  /** 상단 달성률: 보고 있는 날짜(listViewDateKey) 기준으로 연동 */
   const completedCount = useMemo(
-    () => items.filter((item) => completedToday.has(item.id)).length,
-    [items, completedToday]
+    () => items.filter((item) => completedForListViewDate.has(item.id)).length,
+    [items, completedForListViewDate]
   );
   const progress = useMemo(
     () => (items.length === 0 ? 0 : Math.round((completedCount / items.length) * 100)),
