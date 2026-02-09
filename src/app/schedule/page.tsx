@@ -172,7 +172,7 @@ export default function SchedulePage() {
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   const [builtinDeletedVersion, setBuiltinDeletedVersion] = useState(0);
   const [completions, setCompletions] = useState<Set<string>>(new Set());
-  const [scheduleOrder, setScheduleOrder] = useState<Record<string, string[]>>(() => loadScheduleOrder());
+  const [scheduleOrder, setScheduleOrder] = useState<Record<string, string[]>>({});
   const [isDesktop, setIsDesktop] = useState(false);
   const [dragOrderKey, setDragOrderKey] = useState<string | null>(null);
   const [dragDateStr, setDragDateStr] = useState<string | null>(null);
@@ -221,6 +221,9 @@ export default function SchedulePage() {
 
   useEffect(() => {
     loadScheduleCompletions().then(setCompletions);
+  }, []);
+  useEffect(() => {
+    loadScheduleOrder().then(setScheduleOrder);
   }, []);
 
   useEffect(() => {

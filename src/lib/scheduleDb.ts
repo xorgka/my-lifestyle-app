@@ -518,7 +518,7 @@ export function getScheduleItemOrderKey(item: ScheduleItem, dateStr: string): st
 
 const ORDER_STORAGE_KEY = "my-lifestyle-schedule-order";
 
-export function loadScheduleOrder(): Record<string, string[]> {
+function loadOrderFromStorage(): Record<string, string[]> {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(ORDER_STORAGE_KEY);
@@ -531,9 +531,46 @@ export function loadScheduleOrder(): Record<string, string[]> {
   }
 }
 
-export function saveScheduleOrder(order: Record<string, string[]>): void {
+function saveOrderToStorage(order: Record<string, string[]>): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
   } catch {}
+}
+
+/** 스케줄 날짜별 항목 순서 로드. Supabase 연결 시 기기 동기화 */
+export async function loadScheduleOrder(): Promise<Record<string, string[]>> {
+  if (supabase) {
+    const { data: rows, error } = await supabase.from("schedule_order").select("date, order_keys");
+    if (error) {
+      console.warn("[schedule] loadScheduleOrder (Supabase)", error.message, "- localStorage 사용");
+      return loadOrderFromStorage();
+    }
+    const out: Record<string, string[]> = {};
+    (rows ?? []).forEach((r) => {
+      const date = r.date;
+      if (date) {
+        const keys = r.order_keys;
+        out[date] = Array.isArray(keys) ? keys.map(String) : [];
+      }
+    });
+    return out;
+  }
+  return loadOrderFromStorage();
+}
+
+/** 스케줄 날짜별 항목 순서 저장. Supabase 연결 시 기기 동기화 */
+export async function saveScheduleOrder(order: Record<string, string[]>): Promise<void> {
+  if (typeof window === "undefined") return;
+  saveOrderToStorage(order);
+  if (supabase) {
+    const entries = Object.entries(order);
+    for (const [date, order_keys] of entries) {
+      if (!date || !Array.isArray(order_keys)) continue;
+      const { error } = await supabase
+        .from("schedule_order")
+        .upsert({ date, order_keys }, { onConflict: "date" });
+      if (error) console.warn("[schedule] saveScheduleOrder", date, error.message);
+    }
+  }
 }
