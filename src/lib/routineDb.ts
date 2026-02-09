@@ -198,7 +198,8 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
     }
     const out: Record<string, number[]> = {};
     (data ?? []).forEach((row) => {
-      const d = row.date;
+      const raw = row.date;
+      const d = typeof raw === "string" ? raw.slice(0, 10) : String(raw).slice(0, 10);
       const id = Number(row.item_id);
       if (!out[d]) out[d] = [];
       out[d].push(id);
