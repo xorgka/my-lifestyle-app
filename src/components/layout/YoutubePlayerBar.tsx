@@ -203,6 +203,42 @@ export function YoutubePlayerBar() {
 
   const isEmpty = playlistEntries.length === 0;
 
+  /** 전역 단축키: 1 = 재생/정지. 입력 필드에 포커스 있을 때는 무시 */
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "1") return;
+      const active = document.activeElement;
+      if (
+        active &&
+        (active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement ||
+          (active instanceof HTMLElement && active.isContentEditable))
+      ) {
+        return;
+      }
+      if (isEmpty || !current) return;
+      e.preventDefault();
+      if (isMobile) {
+        const { videoId: v, startSeconds: s } = parseYoutubeUrl(current.url);
+        window.open(youtubeWatchUrl(v!, s), "_blank", "noopener");
+        return;
+      }
+      const p = playerRef.current;
+      if (!p || typeof p.playVideo !== "function") return;
+      if (isPlayingRef.current) {
+        p.pauseVideo();
+        setIsPlaying(false);
+      } else {
+        p.playVideo();
+        setIsPlaying(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isEmpty, current, isMobile]);
+
   return (
     <>
       <div className="mt-auto pt-4">
