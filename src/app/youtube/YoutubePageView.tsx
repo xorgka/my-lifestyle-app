@@ -184,6 +184,25 @@ export function YoutubePageView(props: Record<string, unknown>) {
     (actualDeposits[`국민6954-${prevYyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${prevYyyyMm}`] ?? 0);
   const totalActualDepositKrw = Object.values(actualDeposits).reduce((a, b) => a + b, 0);
 
+  /** 첫 카드·채널리스트 공통 "보는 달" 기준 값 */
+  const viewedMonthAggregateUsd = channels.reduce(
+    (s, c) => s + channelMonthRevenue(c, channelListViewYearMonth),
+    0
+  );
+  const [viewY, viewM] = channelListViewYearMonth.split("-").map(Number);
+  const prevOfViewedDate = new Date(viewY, viewM - 2, 1);
+  const prevOfViewedYyyyMm = `${prevOfViewedDate.getFullYear()}-${String(prevOfViewedDate.getMonth() + 1).padStart(2, "0")}`;
+  const prevMonthDepositKrwForViewed =
+    (actualDeposits[`국민6954-${prevOfViewedYyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${prevOfViewedYyyyMm}`] ?? 0);
+  const cumulativeDepositKrwUpToViewed = Object.entries(actualDeposits).reduce((sum, [key, amount]) => {
+    const parts = key.split("-");
+    if (parts.length >= 3) {
+      const yyyyMm = `${parts[1]}-${parts[2]}`;
+      if (yyyyMm <= channelListViewYearMonth) return sum + amount;
+    }
+    return sum;
+  }, 0);
+
   return (
     <div className="min-w-0 space-y-4">
       {channelsLoading || channels.length === 0 ? (
@@ -257,16 +276,52 @@ export function YoutubePageView(props: Record<string, unknown>) {
       ) : (
         <>
           <Card className="bg-gradient-to-br from-white via-neutral-50 to-white ring-1 ring-neutral-100">
-            <h2 className="text-xl font-semibold text-neutral-900 md:text-2xl">
-              {currentMonthLabel} 수익
-            </h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold text-neutral-900 md:text-2xl">
+                {Number(channelListViewYearMonth.slice(5, 7))}월 수익
+              </h2>
+              <span className="inline-flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const [y, m] = channelListViewYearMonth.split("-").map(Number);
+                    const d = new Date(y, m - 2, 1);
+                    setChannelListViewYearMonth(
+                      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+                    );
+                  }}
+                  className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                  aria-label="이전 달"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const [y, m] = channelListViewYearMonth.split("-").map(Number);
+                    const d = new Date(y, m, 1);
+                    setChannelListViewYearMonth(
+                      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+                    );
+                  }}
+                  className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                  aria-label="다음 달"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </span>
+            </div>
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-xl border border-red-400/50 bg-gradient-to-br from-[#E62117] to-[#b91c1c] px-5 py-4 shadow-sm">
                 <div className="text-sm font-medium text-white/85">
                   유튜브 집계
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-white">
-                  <AmountToggle amount={totals.thisMonth} usdToKrw={usdToKrw} defaultShowUsd className="text-2xl font-bold text-white hover:bg-white/10" />
+                  <AmountToggle amount={viewedMonthAggregateUsd} usdToKrw={usdToKrw} defaultShowUsd className="text-2xl font-bold text-white hover:bg-white/10" />
                 </div>
               </div>
               <div className="rounded-xl border border-emerald-400/50 bg-gradient-to-br from-emerald-600 to-teal-700 px-5 py-4 shadow-sm">
@@ -274,7 +329,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   이전달 입금액
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-white">
-                  {formatAmountShort(prevMonthDepositKrw)}
+                  {formatAmountShort(prevMonthDepositKrwForViewed)}
                 </div>
               </div>
               <div className="rounded-xl border border-neutral-500/50 bg-gradient-to-br from-neutral-600 via-neutral-800 to-neutral-950 px-5 py-4 shadow-sm">
@@ -282,7 +337,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   누적 수익
                 </div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-white">
-                  {formatAmountShort(totalActualDepositKrw)}
+                  {formatAmountShort(cumulativeDepositKrwUpToViewed)}
                 </div>
               </div>
             </div>
@@ -505,48 +560,14 @@ export function YoutubePageView(props: Record<string, unknown>) {
                     <th className="px-5 py-3 font-semibold text-neutral-700">카테고리</th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">계정정보</th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">
-                      <span className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const [y, m] = channelListViewYearMonth.split("-").map(Number);
-                            const d = new Date(y, m - 2, 1);
-                            setChannelListViewYearMonth(
-                              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-                            );
-                          }}
-                          className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
-                          aria-label="이전 달"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setMonthColumnShowUsd((v) => !v)}
-                          className="rounded px-1 py-0.5 hover:bg-neutral-200"
-                          title={monthColumnShowUsd ? "클릭 시 이 열 전부 원화로" : "클릭 시 이 열 전부 달러로"}
-                        >
-                          {Number(channelListViewYearMonth.slice(5, 7))}월 수익
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const [y, m] = channelListViewYearMonth.split("-").map(Number);
-                            const d = new Date(y, m, 1);
-                            setChannelListViewYearMonth(
-                              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-                            );
-                          }}
-                          className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
-                          aria-label="다음 달"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMonthColumnShowUsd((v) => !v)}
+                        className="rounded px-1 py-0.5 hover:bg-neutral-200"
+                        title={monthColumnShowUsd ? "클릭 시 이 열 전부 원화로" : "클릭 시 이 열 전부 달러로"}
+                      >
+                        {Number(channelListViewYearMonth.slice(5, 7))}월 수익
+                      </button>
                     </th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">
                       <button
