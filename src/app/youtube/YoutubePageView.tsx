@@ -60,6 +60,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const saveQuickRevenue = p.saveQuickRevenue as () => void;
   const currentYearMonth = p.currentYearMonth as string;
   const currentMonthLabel = p.currentMonthLabel as string;
+  const channelListViewYearMonth = (p.channelListViewYearMonth as string) ?? currentYearMonth;
+  const setChannelListViewYearMonth = p.setChannelListViewYearMonth as React.Dispatch<React.SetStateAction<string>>;
   const totals = p.totals as { thisMonth: number; total: number };
   const monthlyAggregate = p.monthlyAggregate as Record<string, number>;
   const saveMonthlyRevenue = p.saveMonthlyRevenue as () => void;
@@ -498,7 +500,45 @@ export function YoutubePageView(props: Record<string, unknown>) {
                     <th className="px-5 py-3 font-semibold text-neutral-700">채널명</th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">카테고리</th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">계정정보</th>
-                    <th className="px-5 py-3 font-semibold text-neutral-700">{currentMonthLabel} 수익</th>
+                    <th className="px-5 py-3 font-semibold text-neutral-700">
+                      <span className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const [y, m] = channelListViewYearMonth.split("-").map(Number);
+                            const d = new Date(y, m - 2, 1);
+                            setChannelListViewYearMonth(
+                              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+                            );
+                          }}
+                          className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+                          aria-label="이전 달"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <span>
+                          {channelListViewYearMonth.slice(0, 4)}년 {Number(channelListViewYearMonth.slice(5, 7))}월 수익
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const [y, m] = channelListViewYearMonth.split("-").map(Number);
+                            const d = new Date(y, m, 1);
+                            setChannelListViewYearMonth(
+                              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+                            );
+                          }}
+                          className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+                          aria-label="다음 달"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </span>
+                    </th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">누적 수익</th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">메모</th>
                     <th className="min-w-[6rem] px-5 py-3 font-semibold text-neutral-700">작업</th>
@@ -545,7 +585,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                       </td>
                       <td className="px-5 py-3 font-medium text-neutral-900">
                         <AmountToggle
-                          amount={channelMonthRevenue(ch, currentYearMonth)}
+                          amount={channelMonthRevenue(ch, channelListViewYearMonth)}
                           usdToKrw={usdToKrw}
                           defaultShowUsd
                           className="font-medium"

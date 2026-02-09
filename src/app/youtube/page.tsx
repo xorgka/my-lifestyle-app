@@ -178,6 +178,10 @@ export default function YoutubePage() {
 
   const currentYearMonth = getCurrentYearMonth();
   const currentMonthLabel = `${new Date().getMonth() + 1}월`;
+
+  /** 채널 LIST 테이블에서 보는 월 (이전/다음으로 변경 가능) */
+  const [channelListViewYearMonth, setChannelListViewYearMonth] = useState(getCurrentYearMonth);
+
   const totals = channels.reduce(
     (acc, c) => ({
       thisMonth: acc.thisMonth + channelMonthRevenue(c, currentYearMonth),
@@ -349,6 +353,8 @@ export default function YoutubePage() {
     saveQuickRevenue,
     currentYearMonth,
     currentMonthLabel,
+    channelListViewYearMonth,
+    setChannelListViewYearMonth,
     totals,
     monthlyAggregate,
     saveMonthlyRevenue,
