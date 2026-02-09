@@ -216,12 +216,15 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
                   <span className="font-medium">{benefitLineWithBold(item.text, item.bold)}</span>
                 </li>
               ))}
-              <li>
+              <li
+                className="benefit-item"
+                style={{ animationDelay: `${BENEFITS.length * 0.38}s` }}
+              >
                 <a
                   href={ANTI_VISION_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="benefit-item flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-100/80 px-3 py-2 transition-colors hover:bg-red-50 hover:border-red-200 hover:shadow-md hover:shadow-red-100"
+                  className="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-100/80 px-3 py-2 transition-colors hover:bg-red-50 hover:border-red-200 hover:shadow-md hover:shadow-red-100"
                 >
                   <span className="shrink-0 text-xl font-bold text-neutral-500 md:text-2xl" aria-hidden>
                     ✓
