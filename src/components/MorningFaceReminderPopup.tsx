@@ -50,7 +50,7 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
   const checkAndShow = useCallback(async () => {
     const today = todayStr();
     const [items, completions] = await Promise.all([loadRoutineItems(), loadRoutineCompletions()]);
-    const faceItem = items.find((i) => i.title.trim() === MORNING_FACE_ITEM_TITLE);
+    const faceItem = items.find((i) => i.title.trim().includes(MORNING_FACE_ITEM_TITLE));
     if (forceShow) {
       setItemId(faceItem?.id ?? null);
       setStep("ask");
