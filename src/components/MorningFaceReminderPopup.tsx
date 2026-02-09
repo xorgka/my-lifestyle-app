@@ -8,8 +8,8 @@ import { todayStr } from "@/lib/dateUtil";
 
 const MORNING_FACE_ITEM_TITLE = "아침 세안";
 const THROTTLE_MS = 30 * 60 * 1000; // 30분
-/** 첫 체크 지연(10분). 샤워 0분, 헬스장 20분과 간격 유지 */
-const INITIAL_DELAY_MS = 10 * 60 * 1000;
+/** 첫 체크 지연(1분). 페이지 들어온 뒤 1분 뒤에 첫 검사, 이후 30분마다 */
+const INITIAL_DELAY_MS = 1 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
 
 const BENEFITS: { text: string; bold: string[] }[] = [
@@ -88,6 +88,11 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
       clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
     };
+  }, [forceShow, checkAndShow]);
+
+  // 페이지 진입 후 곧바로 한 번 검사 (첫 체크를 기다리지 않고 바로 조건 확인)
+  useEffect(() => {
+    if (!forceShow) checkAndShow();
   }, [forceShow, checkAndShow]);
 
   const handleYes = useCallback(async () => {
