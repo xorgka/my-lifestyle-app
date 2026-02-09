@@ -189,8 +189,9 @@ export async function savePlaylistEntry(entry: PlaylistEntry): Promise<void> {
       { onConflict: "id" }
     );
     if (error) {
-      console.warn("[youtubePlaylist] save (Supabase 실패, 로컬에 저장)", entry.id, error.message);
+      console.warn("[youtubePlaylist] save (Supabase 실패)", entry.id, error.message);
       mergeIntoLocal();
+      throw new Error(`저장 실패: ${error.message}`);
     }
     return;
   }

@@ -12,7 +12,7 @@ import {
   type PlaylistEntry,
   type PlaylistTags,
 } from "@/lib/youtubePlaylistDb";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 
@@ -32,6 +32,7 @@ export default function YoutubePlaylistPage() {
   const [entries, setEntries] = useState<PlaylistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [filterTags, setFilterTags] = useState<PlaylistTags>({});
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
@@ -46,15 +47,31 @@ export default function YoutubePlaylistPage() {
 
   const load = useCallback(() => {
     setLoading(true);
+    setDbError(null);
     loadPlaylistEntries()
       .then(setEntries)
-      .catch(console.error)
+      .catch((e) => {
+        console.error(e);
+        setDbError(e instanceof Error ? e.message : "불러오기 실패");
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Supabase 연동 가능 여부 확인 (다른 브라우저에서 DB 오류 원인 파악용) */
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    supabase
+      .from("youtube_playlist")
+      .select("id")
+      .limit(1)
+      .then(({ error }) => {
+        if (error) setDbError((prev) => prev || `DB: ${error.message}`);
+      });
+  }, []);
 
   const filtered = entries.filter((e) => {
     for (const k of TAG_KEYS) {
@@ -105,9 +122,11 @@ export default function YoutubePlaylistPage() {
       await savePlaylistEntries(entries);
       await load();
       if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("youtube-playlist-changed"));
+      if (typeof window !== "undefined") window.alert("클라우드에 저장했습니다. 다른 브라우저에서 새로고침(F5) 해 보세요.");
     } catch (e) {
       console.error(e);
-      if (typeof window !== "undefined") window.alert("클라우드 저장에 실패했어요. 콘솔을 확인해 주세요.");
+      const msg = e instanceof Error ? e.message : "알 수 없는 오류";
+      if (typeof window !== "undefined") window.alert("클라우드 저장 실패: " + msg + "\n\nSupabase 대시보드에서 youtube_playlist 테이블과 favorite 컬럼, RLS 정책을 확인해 주세요.");
     } finally {
       setSyncing(false);
     }
@@ -192,7 +211,15 @@ export default function YoutubePlaylistPage() {
         </Card>
       )}
 
-      {isSupabaseConfigured && entries.length > 0 && (
+      {dbError && (
+        <Card className="border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-800">
+          <strong>DB 연동 실패</strong> — 이 브라우저는 로컬만 사용 중이에요. 다른 기기와 목록이 맞지 않을 수 있어요.
+          <br />
+          <span className="font-mono text-xs text-red-700">{dbError}</span>
+        </Card>
+      )}
+
+      {isSupabaseConfigured && entries.length > 0 && !dbError && (
         <Card className="flex flex-wrap items-center justify-between gap-3 border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-sky-800">
           <span>다른 브라우저에서 목록이 안 보이면, 지금 목록을 클라우드에 저장해 보세요.</span>
           <button
