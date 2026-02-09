@@ -190,7 +190,7 @@ export function YoutubePlayerBar() {
     if (!drawerOpen || !listButtonRef.current) return;
     const rect = listButtonRef.current.getBoundingClientRect();
     setListPanelPos({
-      top: isMobile ? rect.top : 24,
+      top: isMobile ? rect.top : Math.max(16, rect.top - 48),
       left: rect.right + 8,
     });
     return () => setListPanelPos(null);
