@@ -12,6 +12,7 @@ import {
   type PlaylistEntry,
   type PlaylistTags,
 } from "@/lib/youtubePlaylistDb";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 
@@ -30,6 +31,7 @@ function getUniqueTagValues(entries: PlaylistEntry[], key: keyof PlaylistTags): 
 export default function YoutubePlaylistPage() {
   const [entries, setEntries] = useState<PlaylistEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [filterTags, setFilterTags] = useState<PlaylistTags>({});
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
@@ -93,6 +95,22 @@ export default function YoutubePlaylistPage() {
     const next = { ...entry, favorite: !entry.favorite };
     await savePlaylistEntry(next);
     setEntries((prev) => prev.map((e) => (e.id === entry.id ? next : e)));
+  };
+
+  /** 지금 보이는 목록을 Supabase에 올려서 다른 브라우저/기기에서도 보이게 함 */
+  const syncToCloud = async () => {
+    if (entries.length === 0) return;
+    setSyncing(true);
+    try {
+      await savePlaylistEntries(entries);
+      await load();
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("youtube-playlist-changed"));
+    } catch (e) {
+      console.error(e);
+      if (typeof window !== "undefined") window.alert("클라우드 저장에 실패했어요. 콘솔을 확인해 주세요.");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const saveEntry = () => {
@@ -165,6 +183,28 @@ export default function YoutubePlaylistPage() {
         title="재생목록 관리"
         subtitle="유튜브 플레이리스트를 관리할 수 있어요."
       />
+
+      {!isSupabaseConfigured && (
+        <Card className="border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
+          <strong>다른 브라우저·기기와 연동</strong>하려면 Supabase를 설정하세요. 지금은 이 브라우저에만 저장됩니다.
+          <br />
+          <span className="text-amber-700">.env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 넣고 서버를 다시 실행하세요.</span>
+        </Card>
+      )}
+
+      {isSupabaseConfigured && entries.length > 0 && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-sky-800">
+          <span>다른 브라우저에서 목록이 안 보이면, 지금 목록을 클라우드에 저장해 보세요.</span>
+          <button
+            type="button"
+            onClick={syncToCloud}
+            disabled={syncing}
+            className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 font-medium text-white hover:bg-sky-700 disabled:opacity-60"
+          >
+            {syncing ? "저장 중…" : "클라우드에 저장"}
+          </button>
+        </Card>
+      )}
 
       {/* 태그로 보기: 한 줄에 가수·분위기 오른쪽 정렬 */}
       <Card className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:py-3">
