@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
+import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { todayStr } from "@/lib/dateUtil";
 
 const GYM_ITEM_TITLE = "헬스장";
@@ -57,6 +58,7 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
     if (forceShow) {
       setItemId(gymItem?.id ?? null);
       setStep("ask");
+      dispatchReminderOpen("gym");
       setOpen(true);
       return;
     }
@@ -73,9 +75,14 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
 
     setItemId(gymItem.id);
     setStep("ask");
+    dispatchReminderOpen("gym");
     setOpen(true);
     await setReminderLastShown("gym");
   }, [forceShow]);
+
+  useEffect(() => {
+    return subscribeReminderOpen("gym", () => setOpen(false));
+  }, []);
 
   useEffect(() => {
     if (forceShow) {
@@ -132,7 +139,8 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/30"
+        className="fixed inset-0 flex items-center justify-center bg-black/30"
+        style={{ zIndex: REMINDER_POPUP_Z_INDEX }}
         aria-hidden
       >
         <div className="shower-goodbye-icon text-[240px]">
@@ -147,8 +155,8 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="gym-reminder-title"

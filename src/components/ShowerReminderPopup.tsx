@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
+import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { todayStr } from "@/lib/dateUtil";
 
 const SHOWER_ITEM_TITLE = "기상 후 샤워";
@@ -58,6 +59,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
     if (forceShow) {
       setItemId(showerItem?.id ?? null);
       setStep("ask");
+      dispatchReminderOpen("shower");
       setOpen(true);
       return;
     }
@@ -74,9 +76,14 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
 
     setItemId(showerItem.id);
     setStep("ask");
+    dispatchReminderOpen("shower");
     setOpen(true);
     await setReminderLastShown("shower");
   }, [forceShow]);
+
+  useEffect(() => {
+    return subscribeReminderOpen("shower", () => setOpen(false));
+  }, []);
 
   useEffect(() => {
     if (forceShow) {
@@ -133,7 +140,8 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30"
+        className="fixed inset-0 flex items-center justify-center bg-black/30"
+        style={{ zIndex: REMINDER_POPUP_Z_INDEX }}
         aria-hidden
       >
         <div className="shower-goodbye-icon text-[240px]">
@@ -148,8 +156,8 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="shower-reminder-title"

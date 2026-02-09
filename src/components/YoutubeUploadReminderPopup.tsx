@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
+import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { todayStr } from "@/lib/dateUtil";
 
 const YOUTUBE_ITEM_TITLE = "유튜브 업로드";
@@ -17,7 +18,6 @@ const BENEFITS: { text: string; bold: string[] }[] = [
   { text: "사실 소재가 전부다!", bold: ["소재"] },
   { text: "텍홀님은 매일 8개 올렸다", bold: ["매일 8개"] },
   { text: "월억남님은 술 먹고 와서도 했다.", bold: ["술 먹고"] },
-  { text: "디하클에 월억이 5명 넘는다.", bold: ["월억"] },
   { text: "홈피 할래? 유튜브 할래?", bold: ["유튜브"] },
 ];
 
@@ -58,6 +58,7 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
     if (forceShow) {
       setItemId(youtubeItem?.id ?? null);
       setStep("ask");
+      dispatchReminderOpen("youtube");
       setOpen(true);
       return;
     }
@@ -72,9 +73,14 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
 
     setItemId(youtubeItem.id);
     setStep("ask");
+    dispatchReminderOpen("youtube");
     setOpen(true);
     await setReminderLastShown("youtube");
   }, [forceShow]);
+
+  useEffect(() => {
+    return subscribeReminderOpen("youtube", () => setOpen(false));
+  }, []);
 
   useEffect(() => {
     if (forceShow) {
@@ -125,7 +131,8 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[9997] flex items-center justify-center bg-black/30"
+        className="fixed inset-0 flex items-center justify-center bg-black/30"
+        style={{ zIndex: REMINDER_POPUP_Z_INDEX }}
         aria-hidden
       >
         <div className="shower-goodbye-icon text-[240px]">
@@ -140,8 +147,8 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9997] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="youtube-upload-reminder-title"

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
+import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { todayStr } from "@/lib/dateUtil";
 
 const MORNING_FACE_ITEM_TITLE = "아침 세안";
@@ -54,6 +55,7 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
     if (forceShow) {
       setItemId(faceItem?.id ?? null);
       setStep("ask");
+      dispatchReminderOpen("morning_face");
       setOpen(true);
       return;
     }
@@ -70,9 +72,14 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
 
     setItemId(faceItem.id);
     setStep("ask");
+    dispatchReminderOpen("morning_face");
     setOpen(true);
     await setReminderLastShown("morning_face");
   }, [forceShow]);
+
+  useEffect(() => {
+    return subscribeReminderOpen("morning_face", () => setOpen(false));
+  }, []);
 
   useEffect(() => {
     if (forceShow) {
@@ -134,7 +141,8 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30"
+        className="fixed inset-0 flex items-center justify-center bg-black/30"
+        style={{ zIndex: REMINDER_POPUP_Z_INDEX }}
         aria-hidden
       >
         <div className="text-[240px]">
@@ -149,8 +157,8 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="morning-face-reminder-title"

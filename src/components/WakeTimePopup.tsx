@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadSleepData, saveSleepRecord } from "@/lib/sleepDb";
+import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { todayStr } from "@/lib/dateUtil";
 import { TimeInputWithAmPm } from "@/components/ui/TimeInputWithAmPm";
 
@@ -26,6 +27,7 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
 
   const checkAndShow = useCallback(async () => {
     if (forceShow) {
+      dispatchReminderOpen("wake");
       setOpen(true);
       return;
     }
@@ -33,8 +35,13 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
     const today = todayStr();
     const { data } = await loadSleepData();
     if (data[today]?.wakeTime) return;
+    dispatchReminderOpen("wake");
     setOpen(true);
   }, [forceShow]);
+
+  useEffect(() => {
+    return subscribeReminderOpen("wake", () => setOpen(false));
+  }, []);
 
   useEffect(() => {
     checkAndShow();
@@ -50,8 +57,8 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="wake-time-title"
