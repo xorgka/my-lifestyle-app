@@ -63,6 +63,10 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const channelListViewYearMonth = (p.channelListViewYearMonth as string) ?? currentYearMonth;
   const setChannelListViewYearMonth = p.setChannelListViewYearMonth as React.Dispatch<React.SetStateAction<string>>;
   const totals = p.totals as { thisMonth: number; total: number };
+  /** 채널 테이블: N월 수익 열 전체 USD/원 토글 (헤더 클릭) */
+  const [monthColumnShowUsd, setMonthColumnShowUsd] = useState(true);
+  /** 채널 테이블: 누적 수익 열 전체 USD/원 토글 (헤더 클릭) */
+  const [cumulativeColumnShowUsd, setCumulativeColumnShowUsd] = useState(true);
   const monthlyAggregate = p.monthlyAggregate as Record<string, number>;
   const saveMonthlyRevenue = p.saveMonthlyRevenue as () => void;
   const deleteMonthRevenue = p.deleteMonthRevenue as (channelId: number, yyyyMm: string) => void;
@@ -518,9 +522,14 @@ export function YoutubePageView(props: Record<string, unknown>) {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                           </svg>
                         </button>
-                        <span>
-                          {channelListViewYearMonth.slice(0, 4)}년 {Number(channelListViewYearMonth.slice(5, 7))}월 수익
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMonthColumnShowUsd((v) => !v)}
+                          className="rounded px-1 py-0.5 hover:bg-neutral-200"
+                          title={monthColumnShowUsd ? "클릭 시 이 열 전부 원화로" : "클릭 시 이 열 전부 달러로"}
+                        >
+                          {Number(channelListViewYearMonth.slice(5, 7))}월 수익
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -539,7 +548,16 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         </button>
                       </span>
                     </th>
-                    <th className="px-5 py-3 font-semibold text-neutral-700">누적 수익</th>
+                    <th className="px-5 py-3 font-semibold text-neutral-700">
+                      <button
+                        type="button"
+                        onClick={() => setCumulativeColumnShowUsd((v) => !v)}
+                        className="rounded px-1 py-0.5 hover:bg-neutral-200"
+                        title={cumulativeColumnShowUsd ? "클릭 시 이 열 전부 원화로" : "클릭 시 이 열 전부 달러로"}
+                      >
+                        누적 수익
+                      </button>
+                    </th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">메모</th>
                     <th className="min-w-[6rem] px-5 py-3 font-semibold text-neutral-700">작업</th>
                   </tr>
@@ -584,21 +602,25 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         </button>
                       </td>
                       <td className="px-5 py-3 font-medium text-neutral-900">
-                        <AmountToggle
-                          amount={channelMonthRevenue(ch, channelListViewYearMonth)}
-                          usdToKrw={usdToKrw}
-                          defaultShowUsd
-                          className="font-medium"
-                        />
+                        <span className="font-medium">
+                          {monthColumnShowUsd
+                            ? `$${channelMonthRevenue(ch, channelListViewYearMonth).toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+                            : (() => {
+                                const krw = channelMonthRevenue(ch, channelListViewYearMonth) * usdToKrw;
+                                return krw >= 10_000 ? formatAmountShort(krw) : `${Math.round(krw).toLocaleString("ko-KR")}원`;
+                              })()}
+                        </span>
                       </td>
                       <td className="px-5 py-3">
                         <span className="inline-flex items-center gap-1.5">
-                          <AmountToggle
-                            amount={channelTotalRevenue(ch)}
-                            usdToKrw={usdToKrw}
-                            defaultShowUsd
-                            className="font-medium"
-                          />
+                          <span className="font-medium">
+                            {cumulativeColumnShowUsd
+                              ? `$${channelTotalRevenue(ch).toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+                              : (() => {
+                                  const krw = channelTotalRevenue(ch) * usdToKrw;
+                                  return krw >= 10_000 ? formatAmountShort(krw) : `${Math.round(krw).toLocaleString("ko-KR")}원`;
+                                })()}
+                          </span>
                           <button
                             type="button"
                             onClick={() => {
@@ -676,39 +698,41 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   ))}
                 </select>
               </div>
-              <div className="min-w-0">
-                <select
-                  value={quickRevenue.year}
-                  onChange={(e) =>
-                    setQuickRevenue((q) => ({
-                      ...q,
-                      year: Number(e.target.value),
-                    }))
-                  }
-                  aria-label="연도"
-                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
-                >
-                  <option value={2026}>2026년</option>
-                </select>
-              </div>
-              <div className="min-w-0">
-                <select
-                  value={quickRevenue.month}
-                  onChange={(e) =>
-                    setQuickRevenue((q) => ({
-                      ...q,
-                      month: Number(e.target.value),
-                    }))
-                  }
-                  aria-label="월"
-                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
-                >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>
-                      {m}월
-                    </option>
-                  ))}
-                </select>
+              <div className="flex min-w-0 gap-2 sm:contents">
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <select
+                    value={quickRevenue.year}
+                    onChange={(e) =>
+                      setQuickRevenue((q) => ({
+                        ...q,
+                        year: Number(e.target.value),
+                      }))
+                    }
+                    aria-label="연도"
+                    className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
+                  >
+                    <option value={2026}>2026년</option>
+                  </select>
+                </div>
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <select
+                    value={quickRevenue.month}
+                    onChange={(e) =>
+                      setQuickRevenue((q) => ({
+                        ...q,
+                        month: Number(e.target.value),
+                      }))
+                    }
+                    aria-label="월"
+                    className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <option key={m} value={m}>
+                        {m}월
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -767,34 +791,36 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   <option value="국민 8189">국민 8189</option>
                 </select>
               </div>
-              <div className="min-w-0">
-                <select
-                  value={actualDepositForm.year}
-                  onChange={(e) =>
-                    setActualDepositForm((f) => ({ ...f, year: Number(e.target.value) }))
-                  }
-                  aria-label="연도"
-                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
-                >
-                  <option value={2026}>2026년</option>
-                  <option value={2027}>2027년</option>
-                </select>
-              </div>
-              <div className="min-w-0">
-                <select
-                  value={actualDepositForm.month}
-                  onChange={(e) =>
-                    setActualDepositForm((f) => ({ ...f, month: Number(e.target.value) }))
-                  }
-                  aria-label="월"
-                  className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
-                >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>
-                      {m}월
-                    </option>
-                  ))}
-                </select>
+              <div className="flex min-w-0 gap-2 sm:contents">
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <select
+                    value={actualDepositForm.year}
+                    onChange={(e) =>
+                      setActualDepositForm((f) => ({ ...f, year: Number(e.target.value) }))
+                    }
+                    aria-label="연도"
+                    className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
+                  >
+                    <option value={2026}>2026년</option>
+                    <option value={2027}>2027년</option>
+                  </select>
+                </div>
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <select
+                    value={actualDepositForm.month}
+                    onChange={(e) =>
+                      setActualDepositForm((f) => ({ ...f, month: Number(e.target.value) }))
+                    }
+                    aria-label="월"
+                    className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <option key={m} value={m}>
+                        {m}월
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
