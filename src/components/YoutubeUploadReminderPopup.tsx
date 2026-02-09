@@ -14,14 +14,16 @@ const INITIAL_DELAY_MS = 40 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
 
 const BENEFITS: { text: string; bold: string[] }[] = [
-  { text: "삽질하는게 겁난다? 그냥 해야한다!", bold: [] },
+  { text: "삽질하는게 겁난다? 그냥 해야한다!", bold: ["그냥 해야한다!"] },
   { text: "쇼츠는 물량을 퍼부어야 한다.", bold: ["물량"] },
   { text: "사실 소재가 전부다!", bold: ["소재"] },
   { text: "텍홀님은 매일 8개 올렸다", bold: ["매일 8개"] },
-  { text: "월억남님은 술 먹고 와서도 했다.", bold: ["술 먹고", "월억"] },
+  { text: "월억남님은 술 먹고 와서도 했다.", bold: ["술 먹고"] },
   { text: "디하클에 월억이 5명 넘는다.", bold: ["월억"] },
-  { text: "홈피 할래? 유튜브 할래?", bold: [] },
+  { text: "홈피 할래? 유튜브 할래?", bold: ["유튜브"] },
 ];
+
+const ANTI_VISION_LINK = "https://wagle.imweb.me/87?preview_mode=1";
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
   if (boldWords.length === 0) return text;
@@ -215,7 +217,7 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
               {BENEFITS.map((item, i) => (
                 <li
                   key={item.text}
-                  className="benefit-item flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-amber-100 hover:shadow-md hover:border-amber-200/90"
+                  className="benefit-item flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-amber-100 hover:shadow-md hover:border-amber-200/90 border border-transparent"
                   style={{ animationDelay: `${i * 0.38}s` }}
                 >
                   <span className="shrink-0 text-xl font-bold text-amber-500 md:text-2xl" aria-hidden>
@@ -224,6 +226,19 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
                   <span className="font-medium">{benefitLineWithBold(item.text, item.bold)}</span>
                 </li>
               ))}
+              <li>
+                <a
+                  href={ANTI_VISION_LINK}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="benefit-item flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-100/80 px-3 py-2 transition-colors hover:bg-red-50 hover:border-red-200 hover:shadow-md hover:shadow-red-100"
+                >
+                  <span className="shrink-0 text-xl font-bold text-neutral-500 md:text-2xl" aria-hidden>
+                    ✓
+                  </span>
+                  <span className="font-medium text-neutral-700">그래도 안해? ANTI-VISION →</span>
+                </a>
+              </li>
             </ul>
             <button
               type="button"
