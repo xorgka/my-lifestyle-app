@@ -243,3 +243,13 @@ body {
   border-color: rgba(251, 191, 36, 0.5) !important;
 }
 
+/* 순서 등장만 필요할 때: 노란 박스 없이 opacity만 */
+.benefit-item-fade {
+  opacity: 0;
+  animation: benefit-item-fade-enter 0.5s ease-out forwards;
+}
+@keyframes benefit-item-fade-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+

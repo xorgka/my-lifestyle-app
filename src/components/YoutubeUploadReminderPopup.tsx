@@ -201,7 +201,7 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
         {step === "benefits" && (
           <>
             <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700">
-              지금 유튜브 업로드 하면,
+              미루지말고 하나라도 더 올리세요!
             </p>
             <ul className="space-y-2.5 text-lg leading-relaxed text-neutral-800 md:text-xl">
               {BENEFITS.map((item, i) => (
@@ -217,19 +217,19 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
                 </li>
               ))}
               <li
-                className="benefit-item"
+                className="benefit-item-fade"
                 style={{ animationDelay: `${BENEFITS.length * 0.38}s` }}
               >
                 <a
                   href={ANTI_VISION_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-100/80 px-3 py-2 transition-colors hover:bg-red-50 hover:border-red-200 hover:shadow-md hover:shadow-red-100"
+                  className="flex items-center gap-3 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 font-semibold text-red-700 shadow-md shadow-red-200/50 transition-all hover:border-red-500 hover:bg-red-100 hover:shadow-lg hover:shadow-red-300/40"
                 >
-                  <span className="shrink-0 text-xl font-bold text-neutral-500 md:text-2xl" aria-hidden>
+                  <span className="shrink-0 text-2xl font-bold text-red-500 md:text-3xl" aria-hidden>
                     ✓
                   </span>
-                  <span className="font-medium text-neutral-700">그래도 안해? ANTI-VISION →</span>
+                  <span className="text-lg md:text-xl">그래도 안해? ANTI-VISION →</span>
                 </a>
               </li>
             </ul>
