@@ -253,8 +253,20 @@ function InsightPageContent() {
                 value={systemSearchQuery}
                 onChange={(e) => setSystemSearchQuery(e.target.value)}
                 placeholder="문장·출처 검색"
-                className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-8 pr-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-8 pr-7 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
               />
+              {systemSearchQuery.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSystemSearchQuery("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                  aria-label="검색어 지우기"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
             <select
               value={systemFilterYear === "all" ? "all" : systemFilterYear}
