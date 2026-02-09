@@ -171,7 +171,7 @@ export default function SchedulePage() {
   const [weekItemModal, setWeekItemModal] = useState<ScheduleItem & { dateStr: string } | null>(null);
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   const [builtinDeletedVersion, setBuiltinDeletedVersion] = useState(0);
-  const [completions, setCompletions] = useState<Set<string>>(() => loadScheduleCompletions());
+  const [completions, setCompletions] = useState<Set<string>>(new Set());
   const [scheduleOrder, setScheduleOrder] = useState<Record<string, string[]>>(() => loadScheduleOrder());
   const [isDesktop, setIsDesktop] = useState(false);
   const [dragOrderKey, setDragOrderKey] = useState<string | null>(null);
@@ -217,6 +217,10 @@ export default function SchedulePage() {
 
   const refresh = useCallback(() => {
     loadScheduleEntries().then(setEntries);
+  }, []);
+
+  useEffect(() => {
+    loadScheduleCompletions().then(setCompletions);
   }, []);
 
   useEffect(() => {

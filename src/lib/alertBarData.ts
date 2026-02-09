@@ -81,6 +81,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
 
   const [
     scheduleEntries,
+    scheduleCompletions,
     routineItems,
     routineCompletions,
     journalEntries,
@@ -89,6 +90,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     monthExtras,
   ] = await Promise.all([
     loadScheduleEntries(),
+    loadScheduleCompletions(),
     loadRoutineItems(),
     loadRoutineCompletions(),
     loadJournalEntries(),
@@ -137,7 +139,6 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
 
   // --- 스케줄 (오늘/내일). 시간 있는 오늘 일정은 지난 건 제외. 완료 체크한 항목 제외 ---
   const scheduleItems = getScheduleItemsInRange(today, tomorrow, scheduleEntries);
-  const scheduleCompletions = loadScheduleCompletions();
   const nowMs = now.getTime();
   for (const item of scheduleItems) {
     const completionKey = getScheduleCompletionKey(item, item.date);

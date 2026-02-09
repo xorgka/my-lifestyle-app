@@ -457,7 +457,7 @@ export function getScheduleCompletionKey(item: ScheduleItem, dateStr: string): s
 
 const COMPLETIONS_STORAGE_KEY = "my-lifestyle-schedule-completions";
 
-export function loadScheduleCompletions(): Set<string> {
+function loadCompletionsFromStorage(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
     const raw = window.localStorage.getItem(COMPLETIONS_STORAGE_KEY);
@@ -469,11 +469,44 @@ export function loadScheduleCompletions(): Set<string> {
   }
 }
 
-export function saveScheduleCompletions(set: Set<string>): void {
+function saveCompletionsToStorage(set: Set<string>): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(COMPLETIONS_STORAGE_KEY, JSON.stringify([...set]));
   } catch {}
+}
+
+/** 스케줄 완료 체크 목록 로드. Supabase 연결 시 기기 동기화 */
+export async function loadScheduleCompletions(): Promise<Set<string>> {
+  if (supabase) {
+    const { data: rows, error } = await supabase.from("schedule_completions").select("completion_key");
+    if (error) {
+      console.warn("[schedule] loadScheduleCompletions (Supabase)", error.message, "- localStorage 사용");
+      return loadCompletionsFromStorage();
+    }
+    const keys = (rows ?? []).map((r) => String(r.completion_key ?? "")).filter(Boolean);
+    return new Set(keys);
+  }
+  return loadCompletionsFromStorage();
+}
+
+/** 스케줄 완료 체크 목록 저장. Supabase 연결 시 기기 동기화 */
+export async function saveScheduleCompletions(set: Set<string>): Promise<void> {
+  if (typeof window === "undefined") return;
+  saveCompletionsToStorage(set);
+  if (supabase) {
+    const { error: delErr } = await supabase.from("schedule_completions").delete().neq("completion_key", "");
+    if (delErr) {
+      console.warn("[schedule] saveScheduleCompletions delete", delErr.message);
+      return;
+    }
+    const keys = [...set];
+    if (keys.length > 0) {
+      const rows = keys.map((completion_key) => ({ completion_key }));
+      const { error: insErr } = await supabase.from("schedule_completions").insert(rows);
+      if (insErr) console.warn("[schedule] saveScheduleCompletions insert", insErr.message);
+    }
+  }
 }
 
 /** 항목별 정렬용 고유 키 (PC 드래그 순서 저장에 사용) */
