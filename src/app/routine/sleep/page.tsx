@@ -83,10 +83,11 @@ function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPerce
   const bed = timeToMinutes(bedTime);
   let wake = timeToMinutes(wakeTime);
   if (wake <= bed) wake += 1440;
-  const wakePercent = timeToChartPercent(wake > 1440 ? wake - 1440 : wake);
   const bedPercent = timeToChartPercent(bed);
-  const topPercent = wakePercent;
-  const heightPercent = Math.max(2, wakePercent - bedPercent);
+  const wakePercent = timeToChartPercent(wake > 1440 ? wake - 1440 : wake);
+  // 막대 위 = 취침(수면 시작), 막대 아래 = 기상(수면 끝). Y축 20→23→02→05… 이므로 작은 %가 위쪽
+  const topPercent = Math.min(bedPercent, wakePercent);
+  const heightPercent = Math.max(2, Math.abs(wakePercent - bedPercent));
   return { topPercent, heightPercent };
 }
 
