@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -82,15 +82,20 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const usdToKrw = (p.usdToKrw as number) ?? 1350;
   const actualDeposits = (p.actualDeposits as Record<string, number>) ?? {};
   const setActualDeposits = p.setActualDeposits as React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  const actualDepositBanks = (p.actualDepositBanks as string[]) ?? ["국민 6954", "국민 8189"];
+  const setActualDepositBanks = p.setActualDepositBanks as React.Dispatch<React.SetStateAction<string[]>>;
   const actualDepositForm = p.actualDepositForm as {
-    bank: "국민 6954" | "국민 8189";
+    bank: string;
     year: number;
     month: number;
     amountKrw: number;
   };
   const setActualDepositForm = p.setActualDepositForm as React.Dispatch<
-    React.SetStateAction<{ bank: "국민 6954" | "국민 8189"; year: number; month: number; amountKrw: number }>
+    React.SetStateAction<{ bank: string; year: number; month: number; amountKrw: number }>
   >;
+  const bankKey = (bank: string) => bank.replace(/\s/g, "");
+  const getDepositForMonth = (yyyyMm: string) =>
+    actualDepositBanks.reduce((s, label) => s + (actualDeposits[`${bankKey(label)}-${yyyyMm}`] ?? 0), 0);
   const saveActualDeposit = p.saveActualDeposit as () => void;
   const statsTab = (p.statsTab as "월별" | "연도") ?? "월별";
   const setStatsTab = p.setStatsTab as React.Dispatch<React.SetStateAction<"월별" | "연도">>;
@@ -113,6 +118,18 @@ export function YoutubePageView(props: Record<string, unknown>) {
   );
   /** 통계 월별: 클릭한 월의 실제 입금 내역 모달 (year, month) */
   const [statsMonthModal, setStatsMonthModal] = useState<{ year: number; month: number } | null>(null);
+  const [depositSettingsOpen, setDepositSettingsOpen] = useState(false);
+  const [addBankModalOpen, setAddBankModalOpen] = useState(false);
+  const [addBankInput, setAddBankInput] = useState("");
+  const depositSettingsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!depositSettingsOpen) return;
+    const close = (e: MouseEvent) => {
+      if (depositSettingsRef.current && !depositSettingsRef.current.contains(e.target as Node)) setDepositSettingsOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [depositSettingsOpen]);
 
   const getFromTo = (): [string, string] => {
     if (exportRange === "month") {
@@ -150,10 +167,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
         .filter(([k]) => k.startsWith(String(y)) && k >= fromYm && k <= toYm)
         .reduce((a, [, v]) => a + v, 0);
       const yearTotalActual = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
-        (s, m) =>
-          s +
-          (actualDeposits[`국민6954-${y}-${String(m).padStart(2, "0")}`] ?? 0) +
-          (actualDeposits[`국민8189-${y}-${String(m).padStart(2, "0")}`] ?? 0),
+        (s, m) => s + getDepositForMonth(`${y}-${String(m).padStart(2, "0")}`),
         0
       );
       const rows: (string | number)[][] = [
@@ -161,7 +175,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
         ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
           const yyyyMm = `${y}-${String(m).padStart(2, "0")}`;
           const adSenseUsd = yyyyMm >= fromYm && yyyyMm <= toYm ? (monthlyAggregate[yyyyMm] ?? 0) : 0;
-          const actualKrw = (actualDeposits[`국민6954-${yyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${yyyyMm}`] ?? 0);
+          const actualKrw = getDepositForMonth(yyyyMm);
           return [`${m}월`, adSenseUsd ? fmtUsd(adSenseUsd) : "", actualKrw ? formatted(actualKrw) : ""];
         }),
         ["총합", fmtUsd(yearTotalUsd), formatted(yearTotalActual)],
@@ -183,8 +197,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const [currY, currM] = currentYearMonth.split("-").map(Number);
   const prevMonthDate = new Date(currY, currM - 2, 1);
   const prevYyyyMm = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
-  const prevMonthDepositKrw =
-    (actualDeposits[`국민6954-${prevYyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${prevYyyyMm}`] ?? 0);
+  const prevMonthDepositKrw = getDepositForMonth(prevYyyyMm);
   const totalActualDepositKrw = Object.values(actualDeposits).reduce((a, b) => a + b, 0);
 
   /** 첫 카드·채널리스트 공통 "보는 달" 기준 값 */
@@ -195,11 +208,11 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const [viewY, viewM] = channelListViewYearMonth.split("-").map(Number);
   const prevOfViewedDate = new Date(viewY, viewM - 2, 1);
   const prevOfViewedYyyyMm = `${prevOfViewedDate.getFullYear()}-${String(prevOfViewedDate.getMonth() + 1).padStart(2, "0")}`;
-  const prevMonthDepositKrwForViewed =
-    (actualDeposits[`국민6954-${prevOfViewedYyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${prevOfViewedYyyyMm}`] ?? 0);
+  const prevMonthDepositKrwForViewed = getDepositForMonth(prevOfViewedYyyyMm);
+  const bankKeysSet = new Set(actualDepositBanks.map(bankKey));
   const cumulativeDepositKrwUpToViewed = Object.entries(actualDeposits).reduce((sum, [key, amount]) => {
     const parts = key.split("-");
-    if (parts.length >= 3) {
+    if (parts.length >= 3 && bankKeysSet.has(parts[0])) {
       const yyyyMm = `${parts[1]}-${parts[2]}`;
       if (yyyyMm <= channelListViewYearMonth) return sum + amount;
     }
@@ -736,6 +749,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                     className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-2.5 pr-7 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.35rem_center] [background-repeat:no-repeat] [background-size:1rem]"
                   >
                     <option value={2026}>2026년</option>
+                    <option value={2027}>2027년</option>
                   </select>
                 </div>
                 <div className="min-w-0 flex-1 sm:flex-none">
@@ -794,10 +808,35 @@ export function YoutubePageView(props: Record<string, unknown>) {
           </Card>
 
           <Card className="overflow-hidden !bg-gradient-to-br !from-emerald-600 !to-teal-700 p-0 shadow-md ring-1 ring-emerald-500/30">
-            <h2 className="mb-4 px-4 pt-4 text-lg font-semibold text-white">
-              실제 입금 금액
-              <span className="ml-2 font-normal text-white/75">(전월 수익)</span>
-            </h2>
+            <div className="relative mb-4 flex items-start justify-between gap-2 px-4 pt-4" ref={depositSettingsRef}>
+              <h2 className="text-lg font-semibold text-white">
+                실제 입금 금액
+                <span className="ml-2 font-normal text-white/75">(전월 수익)</span>
+              </h2>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setDepositSettingsOpen((v) => !v); }}
+                className="shrink-0 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white/90"
+                aria-label="설정"
+              >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <circle cx="12" cy="6" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="12" cy="18" r="1.5" />
+                </svg>
+              </button>
+              {depositSettingsOpen && (
+                <div className="absolute right-0 top-full z-10 mt-1 min-w-[10rem] rounded-lg border border-white/20 bg-white/95 py-1 shadow-lg backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => { setAddBankModalOpen(true); setDepositSettingsOpen(false); setAddBankInput(""); }}
+                    className="w-full px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100"
+                  >
+                    계좌 추가
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="grid w-full grid-cols-1 gap-4 px-4 pb-4 sm:grid-cols-[1fr_6rem_6rem_1fr] sm:items-end">
               <div className="min-w-0">
                 <select
@@ -805,14 +844,17 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   onChange={(e) =>
                     setActualDepositForm((f) => ({
                       ...f,
-                      bank: e.target.value as "국민 6954" | "국민 8189",
+                      bank: e.target.value,
                     }))
                   }
                   aria-label="계좌 선택"
                   className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-3 pr-8 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 [appearance:none] [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%226b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.5rem_center] [background-repeat:no-repeat] [background-size:1.25rem]"
                 >
-                  <option value="국민 6954">국민 6954</option>
-                  <option value="국민 8189">국민 8189</option>
+                  {actualDepositBanks.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex min-w-0 gap-2 sm:contents">
@@ -932,8 +974,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
                     const yyyyMm = `${statsYear}-${String(m).padStart(2, "0")}`;
-                    const amountKrw =
-                      (actualDeposits[`국민6954-${yyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${yyyyMm}`] ?? 0);
+                    const amountKrw = getDepositForMonth(yyyyMm);
                     return (
                       <button
                         key={m}
@@ -953,10 +994,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   {statsYear}년 합계:{" "}
                   <AmountToggle
                     amount={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
-                      (s, m) =>
-                        s +
-                        (actualDeposits[`국민6954-${statsYear}-${String(m).padStart(2, "0")}`] ?? 0) +
-                        (actualDeposits[`국민8189-${statsYear}-${String(m).padStart(2, "0")}`] ?? 0),
+                      (s, m) => s + getDepositForMonth(`${statsYear}-${String(m).padStart(2, "0")}`),
                       0
                     )}
                     className="text-neutral-700"
@@ -971,12 +1009,10 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
                   {[2026, 2027].map((y) => {
-                    const yearTotalKrw = Object.entries(actualDeposits)
-                      .filter(
-                        ([k]) =>
-                          k.startsWith(`국민6954-${y}-`) || k.startsWith(`국민8189-${y}-`)
-                      )
-                      .reduce((a, [, v]) => a + v, 0);
+                    const yearTotalKrw = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+                      (s, m) => s + getDepositForMonth(`${y}-${String(m).padStart(2, "0")}`),
+                      0
+                    );
                     return (
                       <div
                         key={y}
@@ -1036,10 +1072,9 @@ export function YoutubePageView(props: Record<string, unknown>) {
                       </button>
                     </div>
                     <div className="mt-4 space-y-3">
-                      {(["국민 6954", "국민 8189"] as const).map((bankLabel) => {
-                        const bankKey = bankLabel.replace(/\s/g, "") as "국민6954" | "국민8189";
+                      {actualDepositBanks.map((bankLabel) => {
                         const yyyyMm = `${statsMonthModal.year}-${String(statsMonthModal.month).padStart(2, "0")}`;
-                        const key = `${bankKey}-${yyyyMm}`;
+                        const key = `${bankKey(bankLabel)}-${yyyyMm}`;
                         const amount = actualDeposits[key] ?? 0;
                         return (
                           <div key={key} className="flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50/50 px-4 py-3">
@@ -1065,6 +1100,71 @@ export function YoutubePageView(props: Record<string, unknown>) {
               </div>,
               document.body
             )}
+
+      {addBankModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto py-10 px-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="fixed inset-0 bg-black/40"
+              onClick={() => { setAddBankModalOpen(false); setAddBankInput(""); }}
+              aria-hidden
+            />
+            <Card
+              className="relative z-10 my-auto w-full max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-bold text-neutral-900">계좌 추가</h2>
+              <p className="mt-1 text-sm text-neutral-500">예: 국민 6954, 국민 8189</p>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  value={addBankInput}
+                  onChange={(e) => setAddBankInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const name = addBankInput.trim();
+                      if (name && !actualDepositBanks.includes(name)) {
+                        setActualDepositBanks((prev) => [...prev, name]);
+                        setAddBankModalOpen(false);
+                        setAddBankInput("");
+                      }
+                    }
+                  }}
+                  placeholder="계좌 이름"
+                  className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = addBankInput.trim();
+                    if (name && !actualDepositBanks.includes(name)) {
+                      setActualDepositBanks((prev) => [...prev, name]);
+                      setAddBankModalOpen(false);
+                      setAddBankInput("");
+                    }
+                  }}
+                  className="shrink-0 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+                >
+                  추가
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setAddBankModalOpen(false); setAddBankInput(""); }}
+                className="mt-3 text-sm text-neutral-500 underline hover:text-neutral-700"
+              >
+                취소
+              </button>
+            </Card>
+          </div>,
+          document.body
+        )}
         </>
       )}
 
