@@ -91,7 +91,15 @@ function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPerce
   return { topPercent, heightPercent };
 }
 
-const CHART_TIME_LABELS = ["20", "23", "02", "05", "08", "11", "14", "17", "20"];
+/** 시간축 눈금: 위 20, 아래 17·20 제외 (선·라벨 공통) */
+const CHART_TIME_TICKS = [
+  { label: "23", topPercent: 12.5 },
+  { label: "02", topPercent: 25 },
+  { label: "05", topPercent: 37.5 },
+  { label: "08", topPercent: 50 },
+  { label: "11", topPercent: 62.5 },
+  { label: "14", topPercent: 75 },
+];
 
 export default function SleepPage() {
   const [data, setData] = useState<SleepData>({});
@@ -607,12 +615,12 @@ export default function SleepPage() {
               {/* 1열: 막대 차트 + 날짜 (동일 너비로 세로 정렬) */}
               <div className="min-w-0 flex flex-col">
                 <div className="relative flex h-[160px] sm:h-[300px] gap-0">
-                  {CHART_TIME_LABELS.map((label, i) => (
+                  {CHART_TIME_TICKS.map((tick) => (
                     <div
-                      key={label}
+                      key={tick.label}
                       className="pointer-events-none absolute left-0 right-0 h-px"
                       style={{
-                        top: `${(i / 8) * 100}%`,
+                        top: `${tick.topPercent}%`,
                         background: "repeating-linear-gradient(90deg, rgba(255,255,255,0.12) 0px, rgba(255,255,255,0.12) 3px, transparent 3px, transparent 8px)",
                       }}
                     />
@@ -680,13 +688,13 @@ export default function SleepPage() {
               </div>
               {/* 2열: 시간 */}
               <div className="hidden sm:block relative w-12 shrink-0 pl-3 self-start" style={{ height: "300px" }}>
-                {CHART_TIME_LABELS.map((label, i) => (
+                {CHART_TIME_TICKS.map((tick) => (
                   <span
-                    key={label}
+                    key={tick.label}
                     className="absolute text-xs font-medium tabular-nums text-white/35 text-right"
-                    style={{ top: `${(i / 8) * 100}%`, transform: "translateY(-50%)" }}
+                    style={{ top: `${tick.topPercent}%`, transform: "translateY(-50%)" }}
                   >
-                    {label}
+                    {tick.label}
                   </span>
                 ))}
               </div>
