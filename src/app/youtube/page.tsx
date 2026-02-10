@@ -370,6 +370,7 @@ export default function YoutubePage() {
     channelTotalRevenue,
     usdToKrw: USD_TO_KRW,
     actualDeposits,
+    setActualDeposits,
     actualDepositForm,
     setActualDepositForm,
     saveActualDeposit,

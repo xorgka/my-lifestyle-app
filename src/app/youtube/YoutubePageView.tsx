@@ -81,6 +81,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const channelTotalRevenue = p.channelTotalRevenue as (c: ChannelRecord) => number;
   const usdToKrw = (p.usdToKrw as number) ?? 1350;
   const actualDeposits = (p.actualDeposits as Record<string, number>) ?? {};
+  const setActualDeposits = p.setActualDeposits as React.Dispatch<React.SetStateAction<Record<string, number>>>;
   const actualDepositForm = p.actualDepositForm as {
     bank: "국민 6954" | "국민 8189";
     year: number;
@@ -110,6 +111,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const [exportRangeTo, setExportRangeTo] = useState(() =>
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
   );
+  /** 통계 월별: 클릭한 월의 실제 입금 내역 모달 (year, month) */
+  const [statsMonthModal, setStatsMonthModal] = useState<{ year: number; month: number } | null>(null);
 
   const getFromTo = (): [string, string] => {
     if (exportRange === "month") {
@@ -879,7 +882,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
 
           <Card className="overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-50/90 to-neutral-100/80 p-0 shadow-sm">
             <h2 className="mb-4 px-4 pt-4 text-lg font-semibold text-neutral-900">
-              통계
+              통계 <span className="font-normal text-neutral-400">(실제 입금 금액)</span>
             </h2>
             <div className="flex gap-2 px-4">
               <button
@@ -924,7 +927,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   ))}
                 </div>
                 <div className="text-base font-semibold text-neutral-800">
-                  {statsYear}년 1~12월 (실제 입금 원)
+                  {statsYear}년 1~12월
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
@@ -932,15 +935,17 @@ export function YoutubePageView(props: Record<string, unknown>) {
                     const amountKrw =
                       (actualDeposits[`국민6954-${yyyyMm}`] ?? 0) + (actualDeposits[`국민8189-${yyyyMm}`] ?? 0);
                     return (
-                      <div
+                      <button
                         key={m}
-                        className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center md:px-3 md:py-3"
+                        type="button"
+                        onClick={() => setStatsMonthModal({ year: statsYear, month: m })}
+                        className="rounded-lg border border-neutral-200 bg-white px-2 py-2.5 text-center transition hover:border-neutral-300 hover:bg-neutral-50 md:px-3 md:py-3"
                       >
                         <div className="text-xs text-neutral-500 md:text-sm">{m}월</div>
                         <div className="mt-0.5 text-sm font-semibold text-neutral-800 md:text-lg">
                           <AmountToggle amount={amountKrw} className="text-neutral-800" />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -991,6 +996,75 @@ export function YoutubePageView(props: Record<string, unknown>) {
               </div>
             )}
           </Card>
+
+          {/* 통계 월별: 해당 월 실제 입금 내역 모달 */}
+          {statsMonthModal &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto py-10 px-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="stats-month-modal-title"
+              >
+                <div
+                  className="fixed inset-0 bg-black/40"
+                  onClick={() => setStatsMonthModal(null)}
+                  aria-hidden
+                />
+                <div
+                  className="relative z-10 my-auto w-full max-w-md"
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <Card className="overflow-y-auto">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 id="stats-month-modal-title" className="text-lg font-semibold text-neutral-900">
+                        {statsMonthModal.year}년 {statsMonthModal.month}월 실제 입금 내역
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => setStatsMonthModal(null)}
+                        className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                        aria-label="닫기"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {(["국민 6954", "국민 8189"] as const).map((bankLabel) => {
+                        const bankKey = bankLabel.replace(/\s/g, "") as "국민6954" | "국민8189";
+                        const yyyyMm = `${statsMonthModal.year}-${String(statsMonthModal.month).padStart(2, "0")}`;
+                        const key = `${bankKey}-${yyyyMm}`;
+                        const amount = actualDeposits[key] ?? 0;
+                        return (
+                          <div key={key} className="flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50/50 px-4 py-3">
+                            <span className="w-24 shrink-0 text-sm font-medium text-neutral-700">{bankLabel}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={amount || ""}
+                              onChange={(e) => {
+                                const v = Number(e.target.value) || 0;
+                                setActualDeposits((prev) => ({ ...prev, [key]: v }));
+                              }}
+                              className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                            />
+                            <span className="shrink-0 text-sm text-neutral-500">원</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-3 text-xs text-neutral-500">변경 시 자동 저장됩니다.</p>
+                  </Card>
+                </div>
+              </div>,
+              document.body
+            )}
         </>
       )}
 
