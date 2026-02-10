@@ -68,22 +68,23 @@ function getSleepSegments(bedTime?: string, wakeTime?: string): { from: number; 
   return [{ from: bedR, to: wakeR }];
 }
 
-/** Y축 06:00(위)~05:00(아래) 기준. 막대 위=기상 시각, 막대 아래=취침 시각 (실제 시각 위치에 맞춤) */
+/** Y축 06:00(위)~05:00(아래) 기준. 막대 위=기상 시각, 막대 높이=실제 수면 시간에 비례 */
 const CHART_MIN_MINUTES = 6 * 60; // 06:00
 const CHART_MAX_MINUTES = 24 * 60 + 5 * 60; // 05:00 다음날 = 1740
 const CHART_SPAN_MINUTES = CHART_MAX_MINUTES - CHART_MIN_MINUTES; // 1380
 
 function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPercent: number; heightPercent: number } | null {
   if (!bedTime || !wakeTime) return null;
+  const durationMins = getSleepDurationMinutes(bedTime, wakeTime);
+  if (durationMins == null || durationMins <= 0) return null;
   const bed = timeToMinutes(bedTime);
   let wake = timeToMinutes(wakeTime);
   if (wake <= bed) wake += 1440;
-  const bedNorm = bed < CHART_MIN_MINUTES ? bed + 1440 : bed;
   const wakeNorm = wake > 1440 ? wake - 1440 : wake;
   const wakeNorm2 = wakeNorm < CHART_MIN_MINUTES ? wakeNorm + 1440 : wakeNorm;
   const topPercent = ((wakeNorm2 - CHART_MIN_MINUTES) / CHART_SPAN_MINUTES) * 100;
-  const bedPercent = ((bedNorm - CHART_MIN_MINUTES) / CHART_SPAN_MINUTES) * 100;
-  const heightPercent = Math.max(2, bedPercent - topPercent);
+  // 막대 높이는 실제 수면 시간(분)에 비례. Y축 시각 차가 아니라 duration 기준으로 하면 7시간이 9시간보다 짧게 표시됨
+  const heightPercent = Math.max(2, Math.min(100 - topPercent, (durationMins / CHART_SPAN_MINUTES) * 100));
   return { topPercent, heightPercent };
 }
 
