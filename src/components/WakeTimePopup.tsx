@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadSleepData, saveSleepRecord } from "@/lib/sleepDb";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
+import { getPopupConfig } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 import { TimeInputWithAmPm } from "@/components/ui/TimeInputWithAmPm";
 
@@ -31,6 +32,7 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
       setOpen(true);
       return;
     }
+    if (getPopupConfig("wake")?.enabled === false) return;
     if (!isMorningNow()) return;
     const today = todayStr();
     const { data } = await loadSleepData();
@@ -55,6 +57,12 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
 
   if (!open) return null;
 
+  const config = getPopupConfig("wake");
+  const title = config?.title ?? "오늘 몇 시에 깼나요?";
+  const cardStyle: React.CSSProperties = {};
+  if (config?.cardBgColor) cardStyle.backgroundColor = config.cardBgColor;
+  if (config?.textColor) cardStyle.color = config.textColor;
+
   const modal = (
     <div
       className="fixed inset-0 flex items-center justify-center p-4"
@@ -63,7 +71,7 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
       aria-modal="true"
       aria-labelledby="wake-time-title"
     >
-      <div className="relative w-full max-w-sm rounded-2xl bg-white px-6 py-10 shadow-xl">
+      <div className="relative w-full max-w-sm rounded-2xl px-6 py-10 shadow-xl" style={{ ...cardStyle, backgroundColor: cardStyle.backgroundColor ?? "#fff" }}>
         <div className="flex justify-center mb-4">
           <span
             className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#1e3a5f] via-[#152a47] to-[#0f172a] text-3xl"
@@ -73,8 +81,8 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
             🌙
           </span>
         </div>
-        <h2 id="wake-time-title" className="text-center text-lg font-semibold text-neutral-900">
-          오늘 몇 시에 깼나요?
+        <h2 id="wake-time-title" className="text-center text-lg font-semibold" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+          {title}
         </h2>
         <div className="mt-6 flex flex-col items-center gap-4">
           <TimeInputWithAmPm
@@ -87,7 +95,8 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
           <button
             type="button"
             onClick={handleSubmit}
-            className="w-full rounded-xl bg-neutral-800 py-4 text-lg font-semibold text-white transition hover:bg-[#1e3a5f]"
+            className="w-full rounded-xl py-4 text-lg font-semibold text-white transition hover:opacity-90"
+            style={config?.accentColor ? { backgroundColor: config.accentColor } : { backgroundColor: "#262626" }}
           >
             입력
           </button>

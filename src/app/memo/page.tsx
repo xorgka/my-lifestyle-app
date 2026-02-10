@@ -31,8 +31,6 @@ function formatMemoDate(iso: string): string {
 
 export default function MemoPage() {
   const [memos, setMemos] = useState<Memo[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectionMode, setSelectionMode] = useState(false);
   const [colorMenuId, setColorMenuId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -116,34 +114,6 @@ export default function MemoPage() {
     await moveMemoToTrash(id);
     await load();
     setTrashCount((c) => c + 1);
-    setSelectedIds((s) => {
-      const next = new Set(s);
-      next.delete(id);
-      return next;
-    });
-  };
-
-  const bulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    await Promise.all([...selectedIds].map((id) => moveMemoToTrash(id)));
-    await load();
-    setTrashCount((c) => c + selectedIds.size);
-    setSelectedIds(new Set());
-    setSelectionMode(false);
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    if (selectedIds.size === memos.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(memos.map((m) => m.id)));
   };
 
   /** 핀한 메모 먼저, 그 다음 최신순. 드래그/리사이즈 중인 카드는 맨 앞(위)에 */
@@ -249,15 +219,6 @@ export default function MemoPage() {
           subtitle="포스트잇처럼 메모를 추가하고 관리해요."
         />
         <div className="flex flex-wrap items-center gap-2">
-          {!trashOpen && memos.length > 0 && !selectionMode && (
-            <button
-              type="button"
-              onClick={() => setSelectionMode(true)}
-              className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
-            >
-              선택
-            </button>
-          )}
           <button
             type="button"
             onClick={async () => {
@@ -274,36 +235,6 @@ export default function MemoPage() {
           >
             휴지통{trashCount > 0 ? ` (${trashCount})` : ""}
           </button>
-          {memos.length > 0 && selectionMode && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectionMode(false);
-                  setSelectedIds(new Set());
-                }}
-                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={selectAll}
-                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
-              >
-                {selectedIds.size === memos.length ? "전체 해제" : "전체 선택"}
-              </button>
-              {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={bulkDelete}
-                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                >
-                  일괄 삭제 ({selectedIds.size}개)
-                </button>
-              )}
-            </>
-          )}
           <button
             type="button"
             onClick={addMemo}
@@ -383,7 +314,6 @@ export default function MemoPage() {
         style={isDesktop ? { minHeight: 600 } : undefined}
       >
         {sortedMemos.map((memo) => {
-          const isSelected = selectedIds.has(memo.id);
           const mx = memo.x ?? 20;
           const my = memo.y ?? 20;
           const mw = memo.width ?? MEMO_DEFAULT_WIDTH;
@@ -393,21 +323,8 @@ export default function MemoPage() {
           return (
             <div
               key={memo.id}
-              role={selectionMode ? "button" : undefined}
-              tabIndex={selectionMode ? 0 : undefined}
-              onClick={selectionMode ? () => toggleSelect(memo.id) : undefined}
-              onKeyDown={
-                selectionMode
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        toggleSelect(memo.id);
-                      }
-                    }
-                  : undefined
-              }
               onPointerDown={(e) => {
-                if (!isDesktop || selectionMode) return;
+                if (!isDesktop) return;
                 if (!(e.target as HTMLElement).closest("[data-memo-drag-handle]")) return;
                 if ((e.target as HTMLElement).closest("button")) return;
                 if ((e.target as HTMLElement).closest("input")) return;
@@ -422,15 +339,11 @@ export default function MemoPage() {
                 };
               }}
               className={`flex min-h-[280px] w-full cursor-default flex-col overflow-hidden rounded-xl shadow-lg transition-shadow md:absolute md:min-h-0 md:w-auto ${
-                selectionMode ? "cursor-pointer" : ""
-              } ${isSelected ? "ring-2 ring-neutral-800 ring-offset-2" : ""} ${
                 isDragging || isResizing ? "z-50 select-none" : "z-10"
               }`}
               style={{
                 ...(isDesktop ? { left: mx, top: my, width: mw, height: mh } : {}),
-                boxShadow: isSelected
-                  ? "0 4px 14px rgba(0,0,0,0.08), 0 0 0 3px rgba(0,0,0,0.2)"
-                  : "0 4px 14px rgba(0,0,0,0.08)",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
               }}
             >
               <MemoCard

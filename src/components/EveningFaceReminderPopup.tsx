@@ -8,12 +8,17 @@ import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, RE
 import { getPopupConfig } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
-const GYM_ITEM_TITLE = "헬스장";
-const THROTTLE_MS = 1 * 60 * 60 * 1000; // 1시간 (오후 6시 이후 1시간 단위)
-/** 첫 체크 지연(20분). 샤워 0분, 유튜브 40분과 20분 간격 유지 */
-const INITIAL_DELAY_MS = 20 * 60 * 1000;
-/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
+const EVENING_FACE_ITEM_TITLE = "저녁 세안";
+const THROTTLE_MS = 30 * 60 * 1000; // 30분
+/** 첫 체크 지연(1분). 페이지 들어온 뒤 1분 뒤에 첫 검사, 이후 30분마다 */
+const INITIAL_DELAY_MS = 1 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
+
+/** 저녁 10시 ~ 새벽 3시 */
+function isEveningFaceTime(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 22 || hour < 3;
+}
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
   if (boldWords.length === 0) return text;
@@ -32,11 +37,11 @@ function benefitLineWithBold(text: string, boldWords: string[]) {
   );
 }
 
-interface GymReminderPopupProps {
+interface EveningFaceReminderPopupProps {
   forceShow?: boolean;
 }
 
-export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
+export function EveningFaceReminderPopup({ forceShow }: EveningFaceReminderPopupProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"ask" | "benefits" | "goodbye">("ask");
   const [itemId, setItemId] = useState<number | null>(null);
@@ -46,35 +51,34 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
   const checkAndShow = useCallback(async () => {
     const today = todayStr();
     const [items, completions] = await Promise.all([loadRoutineItems(), loadRoutineCompletions()]);
-    const gymItem = items.find((i) => i.title.trim() === GYM_ITEM_TITLE);
+    const faceItem = items.find((i) => i.title.trim().includes(EVENING_FACE_ITEM_TITLE));
     if (forceShow) {
-      setItemId(gymItem?.id ?? null);
+      setItemId(faceItem?.id ?? null);
       setStep("ask");
-      dispatchReminderOpen("gym");
+      dispatchReminderOpen("evening_face");
       setOpen(true);
       return;
     }
-    if (getPopupConfig("gym")?.enabled === false) return;
-    const hour = new Date().getHours();
-    if (hour < 18) return; // 오후 6시(18:00) 이후에만 헬스장 알림
-    if (!gymItem) return;
+    if (getPopupConfig("evening_face")?.enabled === false) return;
+    if (!isEveningFaceTime()) return;
+    if (!faceItem) return;
     if (!TEST_ALWAYS_SHOW) {
-      const completedToday = (completions[today] ?? []).includes(gymItem.id);
+      const completedToday = (completions[today] ?? []).includes(faceItem.id);
       if (completedToday) return;
-      const last = await getReminderLastShown("gym");
+      const last = await getReminderLastShown("evening_face");
       const now = Date.now();
       if (last && last.date === today && now - last.time < THROTTLE_MS) return;
     }
 
-    setItemId(gymItem.id);
+    setItemId(faceItem.id);
     setStep("ask");
-    dispatchReminderOpen("gym");
+    dispatchReminderOpen("evening_face");
     setOpen(true);
-    await setReminderLastShown("gym");
+    await setReminderLastShown("evening_face");
   }, [forceShow]);
 
   useEffect(() => {
-    return subscribeReminderOpen("gym", () => setOpen(false));
+    return subscribeReminderOpen("evening_face", () => setOpen(false));
   }, []);
 
   useEffect(() => {
@@ -91,6 +95,10 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
       clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
     };
+  }, [forceShow, checkAndShow]);
+
+  useEffect(() => {
+    if (!forceShow) checkAndShow();
   }, [forceShow, checkAndShow]);
 
   const handleYes = useCallback(async () => {
@@ -120,16 +128,16 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
 
   if (!open && !showIcon && !showConfetti) return null;
 
-  const config = getPopupConfig("gym");
-  const title = config?.title ?? "오늘 헬스장 가셨나요?";
-  const benefitsSubtitle = config?.benefitsSubtitle ?? "헬스장에 가면,";
+  const config = getPopupConfig("evening_face");
+  const title = config?.title ?? "저녁 세안 하셨나요?";
+  const benefitsSubtitle = config?.benefitsSubtitle ?? "저녁 세안도 안하시게요?";
   const benefits = config?.benefits ?? [];
   const cardStyle: React.CSSProperties = {};
   if (config?.cardBgColor) cardStyle.backgroundColor = config.cardBgColor;
   if (config?.textColor) cardStyle.color = config.textColor;
   const accentStyle = config?.accentColor ? { color: config.accentColor } : undefined;
 
-  const CONFETTI_COLORS = ["#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#e879f9"];
+  const CONFETTI_COLORS = ["#a78bfa", "#67e8f9", "#fde047", "#86efac", "#f9a8d4", "#93c5fd", "#fdba74", "#c4b5fd"];
   const particleCount = 40;
   const confettiParticles = Array.from({ length: particleCount }, (_, i) => {
     const angle = (i / particleCount) * 360 + (i % 5) * 7;
@@ -145,7 +153,7 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
         style={{ zIndex: REMINDER_POPUP_Z_INDEX }}
         aria-hidden
       >
-        <div className="shower-goodbye-icon text-[240px]">
+        <div className="text-[240px]">
           <span className="inline-block" role="img" aria-label="좋아요">
             👍
           </span>
@@ -161,7 +169,7 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
       style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="gym-reminder-title"
+      aria-labelledby="evening-face-reminder-title"
     >
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
@@ -188,18 +196,18 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
         {step === "ask" && (
           <>
             <div className="flex justify-center mb-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-3xl" role="img" aria-label="알림">
-                💪
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-3xl" role="img" aria-label="저녁 세안">
+                🌙
               </span>
             </div>
-            <h2 id="gym-reminder-title" className="text-center text-lg font-semibold" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+            <h2 id="evening-face-reminder-title" className="text-center text-lg font-semibold" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
               {title}
             </h2>
             <div className="mt-10 flex flex-nowrap items-center justify-center gap-4 sm:gap-8">
               <button
                 type="button"
                 onClick={handleYes}
-                className="flex min-h-[72px] min-w-[80px] shrink-0 items-center justify-center rounded-3xl bg-neutral-800 px-8 py-6 text-4xl font-bold text-white hover:bg-red-500 hover:border-red-500 sm:min-w-[100px] sm:px-14"
+                className="flex min-h-[72px] min-w-[80px] shrink-0 items-center justify-center rounded-3xl bg-neutral-800 px-8 py-6 text-4xl font-bold text-white hover:bg-indigo-600 hover:border-indigo-600 sm:min-w-[100px] sm:px-14"
               >
                 O
               </button>
@@ -224,10 +232,10 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
               {benefits.map((item, i) => (
                 <li
                   key={i}
-                  className="benefit-item flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-amber-100 hover:shadow-md hover:border-amber-200/90"
+                  className="benefit-item flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-indigo-50 hover:shadow-md hover:border-indigo-200/90 border border-transparent"
                   style={{ animationDelay: `${i * 0.38}s` }}
                 >
-                  <span className="shrink-0 text-xl font-bold md:text-2xl" style={accentStyle ?? { color: "#f59e0b" }} aria-hidden>
+                  <span className="shrink-0 text-xl font-bold md:text-2xl" style={accentStyle ?? { color: "#6366f1" }} aria-hidden>
                     ✓
                   </span>
                   <span className="font-medium">{benefitLineWithBold(item.text, item.bold ?? [])}</span>
@@ -241,7 +249,7 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
               style={config?.accentColor ? { backgroundColor: config.accentColor } : { backgroundColor: "#262626" }}
             >
               <span className="inline group-hover:hidden">좋아!</span>
-              <span className="hidden group-hover:inline">JUST DO!</span>
+              <span className="hidden group-hover:inline">할게요!</span>
             </button>
           </>
         )}

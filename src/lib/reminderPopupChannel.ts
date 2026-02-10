@@ -8,20 +8,26 @@ export const REMINDER_POPUP_Z_INDEX = 9999;
 export const REMINDER_BACKDROP_OPACITY = 0.88;
 export const REMINDER_OPEN_EVENT = "reminderPopupOpen";
 
-export type ReminderPopupId = "shower" | "morning_face" | "gym" | "youtube" | "wake";
+export type ReminderPopupId = "shower" | "morning_face" | "evening_face" | "gym" | "youtube" | "wake";
 
 export function dispatchReminderOpen(id: ReminderPopupId): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(REMINDER_OPEN_EVENT, { detail: { id } }));
 }
 
+/** 커스텀 팝업 등 다른 id로 열 때 사용 */
+export function dispatchReminderOpenAny(id: string): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(REMINDER_OPEN_EVENT, { detail: { id } }));
+}
+
 export function subscribeReminderOpen(
-  myId: ReminderPopupId,
+  myId: ReminderPopupId | string,
   onOthersOpen: () => void
 ): () => void {
   if (typeof window === "undefined") return () => {};
   const handler = (e: Event) => {
-    const detail = (e as CustomEvent<{ id: ReminderPopupId }>).detail;
+    const detail = (e as CustomEvent<{ id: string }>).detail;
     if (detail?.id !== myId) onOthersOpen();
   };
   window.addEventListener(REMINDER_OPEN_EVENT, handler);

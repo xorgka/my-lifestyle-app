@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
+import { getPopupConfig } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
 const MORNING_FACE_ITEM_TITLE = "아침 세안";
@@ -12,13 +13,6 @@ const THROTTLE_MS = 30 * 60 * 1000; // 30분
 /** 첫 체크 지연(1분). 페이지 들어온 뒤 1분 뒤에 첫 검사, 이후 30분마다 */
 const INITIAL_DELAY_MS = 1 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
-
-const BENEFITS: { text: string; bold: string[] }[] = [
-  { text: "양치질 + 세안(스킨/로션)", bold: ["양치질", "세안", "스킨", "로션"] },
-  { text: "잠이 확 깰 거예요!", bold: ["잠이 확 깰"] },
-  { text: "자는동안 쌓인 구강 세균 제거", bold: ["구강 세균"] },
-  { text: "피부 보습 윤기 좔좔!", bold: ["피부", "보습", "윤기"] },
-];
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
   if (boldWords.length === 0) return text;
@@ -59,6 +53,7 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
       setOpen(true);
       return;
     }
+    if (getPopupConfig("morning_face")?.enabled === false) return;
     const hour = new Date().getHours();
     if (hour >= 0 && hour < 5) return;
     if (!faceItem) return;
@@ -129,6 +124,15 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
 
   if (!open && !showIcon && !showConfetti) return null;
 
+  const config = getPopupConfig("morning_face");
+  const title = config?.title ?? "아침 세안 하셨나요?";
+  const benefitsSubtitle = config?.benefitsSubtitle ?? "아침 세안도 안하시게요?";
+  const benefits = config?.benefits ?? [];
+  const cardStyle: React.CSSProperties = {};
+  if (config?.cardBgColor) cardStyle.backgroundColor = config.cardBgColor;
+  if (config?.textColor) cardStyle.color = config.textColor;
+  const accentStyle = config?.accentColor ? { color: config.accentColor } : undefined;
+
   const CONFETTI_COLORS = ["#a78bfa", "#67e8f9", "#fde047", "#86efac", "#f9a8d4", "#93c5fd", "#fdba74", "#c4b5fd"];
   const particleCount = 40;
   const confettiParticles = Array.from({ length: particleCount }, (_, i) => {
@@ -184,7 +188,7 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
           ))}
         </div>
       )}
-      <div className={`relative w-full max-w-sm rounded-2xl bg-white px-6 py-10 shadow-xl transition-opacity duration-300 ${showConfetti ? "opacity-0" : "opacity-100"}`}>
+      <div className={`relative w-full max-w-sm rounded-2xl px-6 py-10 shadow-xl transition-opacity duration-300 ${showConfetti ? "opacity-0" : "opacity-100"}`} style={{ ...cardStyle, backgroundColor: cardStyle.backgroundColor ?? "#fff" }}>
         {step === "ask" && (
           <>
             <div className="flex justify-center mb-4">
@@ -192,8 +196,8 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
                 🧴
               </span>
             </div>
-            <h2 id="morning-face-reminder-title" className="text-center text-lg font-semibold text-neutral-900">
-              아침 세안 하셨나요?
+            <h2 id="morning-face-reminder-title" className="text-center text-lg font-semibold" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+              {title}
             </h2>
             <div className="mt-10 flex flex-nowrap items-center justify-center gap-4 sm:gap-8">
               <button
@@ -215,27 +219,30 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
         )}
         {step === "benefits" && (
           <>
-            <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700">
-              아침 세안도 안하시게요?
-            </p>
-            <ul className="space-y-2.5 text-lg leading-relaxed text-neutral-800 md:text-xl">
-              {BENEFITS.map((item, i) => (
+            {benefitsSubtitle && (
+              <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+                {benefitsSubtitle}
+              </p>
+            )}
+            <ul className="space-y-2.5 text-lg leading-relaxed md:text-xl" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+              {benefits.map((item, i) => (
                 <li
-                  key={item.text}
+                  key={i}
                   className="benefit-item flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-sky-50 hover:shadow-md hover:border-sky-200/90 border border-transparent"
                   style={{ animationDelay: `${i * 0.38}s` }}
                 >
-                  <span className="shrink-0 text-xl font-bold text-sky-500 md:text-2xl" aria-hidden>
+                  <span className="shrink-0 text-xl font-bold md:text-2xl" style={accentStyle ?? { color: "#0ea5e9" }} aria-hidden>
                     ✓
                   </span>
-                  <span className="font-medium">{benefitLineWithBold(item.text, item.bold)}</span>
+                  <span className="font-medium">{benefitLineWithBold(item.text, item.bold ?? [])}</span>
                 </li>
               ))}
             </ul>
             <button
               type="button"
               onClick={handleGood}
-              className="group mt-8 w-full rounded-xl bg-neutral-800 py-4 text-lg font-semibold text-white shadow-none transition-all hover:bg-gradient-to-r hover:from-neutral-700 hover:to-neutral-800 hover:shadow-lg hover:shadow-neutral-800/35"
+              className="group mt-8 w-full rounded-xl py-4 text-lg font-semibold text-white shadow-none transition-all hover:bg-gradient-to-r hover:from-neutral-700 hover:to-neutral-800 hover:shadow-lg hover:shadow-neutral-800/35"
+              style={config?.accentColor ? { backgroundColor: config.accentColor } : { backgroundColor: "#262626" }}
             >
               <span className="inline group-hover:hidden">좋아!</span>
               <span className="hidden group-hover:inline">할게요!</span>

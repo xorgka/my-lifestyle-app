@@ -4,11 +4,14 @@ import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { EveningFaceReminderPopup } from "@/components/EveningFaceReminderPopup";
 import { GymReminderPopup } from "@/components/GymReminderPopup";
 import { MorningFaceReminderPopup } from "@/components/MorningFaceReminderPopup";
 import { ShowerReminderPopup } from "@/components/ShowerReminderPopup";
 import { WakeTimePopup } from "@/components/WakeTimePopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
+import { CustomReminderPopups } from "@/components/CustomReminderPopups";
+import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 const TEST_ALERTS_KEY = "testAlerts";
@@ -30,13 +33,20 @@ export function DashboardShell({ children }: DashboardShellProps) {
     }
   }, [pathname]);
 
+  // 팝업 설정 Supabase 동기화 (모바일·기기·브라우저 간 연동)
+  useEffect(() => {
+    syncPopupConfigFromSupabase();
+  }, []);
+
   return (
     <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-4 md:px-10 md:pt-10 md:pb-4 sm:px-4 sm:pt-4 sm:pb-5">
       <ShowerReminderPopup />
       <MorningFaceReminderPopup />
+      <EveningFaceReminderPopup />
       <GymReminderPopup />
       <YoutubeUploadReminderPopup />
       <WakeTimePopup forceShow={forceShowWakePopup} />
+      <CustomReminderPopups />
       {/* 모바일: 상단 바 (홈 + 메뉴) */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 md:hidden">
         <Link

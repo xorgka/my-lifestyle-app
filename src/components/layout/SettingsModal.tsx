@@ -1,7 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import {
+  loadCustomAlerts,
+  saveCustomAlerts,
+  loadSystemOverrides,
+  saveSystemOverrides,
+  SYSTEM_ALERT_DEFINITIONS,
+  SYSTEM_ALERT_CATEGORIES,
+  generateCustomAlertId,
+  type CustomAlertItem,
+  type SystemAlertOverride,
+  type TimePreset,
+  type SystemAlertCategoryId,
+} from "@/lib/alertBarSettings";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +32,17 @@ import {
 import { loadYoutubeChannels } from "@/lib/youtubeDb";
 import { todayStr } from "@/lib/dateUtil";
 import { loadIncomeEntries, type IncomeEntry } from "@/lib/income";
+import {
+  getAllPopupIds,
+  getPopupConfig,
+  savePopupConfig,
+  addCustomPopup,
+  removeCustomPopup,
+  SYSTEM_POPUP_LABELS,
+  SYSTEM_POPUP_IDS,
+  type PopupConfig,
+  type PopupBenefitItem,
+} from "@/lib/popupReminderConfig";
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -146,6 +170,8 @@ function downloadBlob(blob: Blob, filename: string) {
 
 type Props = { onClose: () => void };
 
+type SettingsTab = "export" | "alertbar" | "popup" | "account";
+
 export function SettingsModal({ onClose }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -155,6 +181,49 @@ export function SettingsModal({ onClose }: Props) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   })();
 
+  const [activeTab, setActiveTab] = useState<SettingsTab>("export");
+  const [systemAlertCategory, setSystemAlertCategory] = useState<SystemAlertCategoryId>("sleep");
+  const [systemOverrides, setSystemOverrides] = useState<Record<string, SystemAlertOverride>>({});
+  const [customAlerts, setCustomAlerts] = useState<CustomAlertItem[]>([]);
+
+  // 팝업 탭: 편집/추가 폼 상태
+  const [popupListVersion, setPopupListVersion] = useState(0);
+  const [editingPopupId, setEditingPopupId] = useState<string | null>(null);
+  const [addingNewPopup, setAddingNewPopup] = useState(false);
+  const [popupDraft, setPopupDraft] = useState<Partial<PopupConfig> | null>(null);
+
+  useEffect(() => {
+    if (activeTab === "alertbar") {
+      setSystemOverrides(loadSystemOverrides());
+      setCustomAlerts(loadCustomAlerts());
+    }
+  }, [activeTab]);
+
+  const updateSystemOverride = (key: string, patch: Partial<SystemAlertOverride>) => {
+    const next = { ...systemOverrides, [key]: { ...systemOverrides[key], ...patch } };
+    setSystemOverrides(next);
+    saveSystemOverrides(next);
+  };
+
+  const addCustomAlert = () => {
+    const item: CustomAlertItem = { id: generateCustomAlertId(), text: "", href: "/", timePreset: "always" };
+    const next = [...customAlerts, item];
+    setCustomAlerts(next);
+    saveCustomAlerts(next);
+  };
+
+  const updateCustomAlert = (id: string, patch: Partial<CustomAlertItem>) => {
+    const next = customAlerts.map((c) => (c.id === id ? { ...c, ...patch } : c));
+    setCustomAlerts(next);
+    saveCustomAlerts(next);
+  };
+
+  const removeCustomAlert = (id: string) => {
+    const next = customAlerts.filter((c) => c.id !== id);
+    setCustomAlerts(next);
+    saveCustomAlerts(next);
+  };
+
   type RangeType = "month" | "year" | "range" | "all";
   const [exporting, setExporting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +232,13 @@ export function SettingsModal({ onClose }: Props) {
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
   const [rangeFrom, setRangeFrom] = useState(defaultFrom);
   const [rangeTo, setRangeTo] = useState(defaultTo);
+
+  const tabs: { id: SettingsTab; label: string }[] = [
+    { id: "export", label: "내보내기" },
+    { id: "alertbar", label: "알림바" },
+    { id: "popup", label: "팝업" },
+    { id: "account", label: "계정" },
+  ];
 
   function getFromTo(): [string, string] {
     if (rangeType === "month") {
@@ -236,6 +312,665 @@ export function SettingsModal({ onClose }: Props) {
     }
   };
 
+  const renderMainContent = () => {
+    if (activeTab === "account") {
+      const accountItems = [
+        { title: "My Lifestyle", content: "xorgka25@naver.com" },
+        { title: "Vercel", content: "kailysoodal@gmail.com" },
+        { title: "Supabase", content: "kailysoodal@gmail.com" },
+        { title: "Cursor AI", content: "kailysoodal@gmail.com" },
+      ];
+      return (
+        <section>
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">계정</h3>
+          <ul className="mt-3 space-y-3">
+            {accountItems.map((item) => (
+              <li key={item.title} className="rounded-xl border border-neutral-100 bg-neutral-50/50 px-4 py-3">
+                <p className="text-xs font-medium text-neutral-500">{item.title}</p>
+                <p className="mt-0.5 text-sm text-neutral-800">{item.content}</p>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 rounded-xl border border-neutral-200 py-3 px-4 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+          >
+            로그아웃
+          </button>
+        </section>
+      );
+    }
+    if (activeTab === "alertbar") {
+      return (
+        <div className="space-y-8">
+          <section>
+            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">시스템 알림</h3>
+            <p className="mt-1 text-sm text-neutral-500">표시를 끄거나 문구를 바꿀 수 있어요. 문구를 비우면 기본 문구가 나와요. 일부 문구는 데이터에 따라 일부가 자동으로 채워져요.</p>
+            <div className="mt-3 flex flex-wrap gap-1 border-b border-neutral-200 pb-2">
+              {SYSTEM_ALERT_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSystemAlertCategory(cat.id)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    systemAlertCategory === cat.id
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+            <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-neutral-100 bg-neutral-50/50 p-2">
+              {SYSTEM_ALERT_DEFINITIONS.filter((def) => {
+                const cat = SYSTEM_ALERT_CATEGORIES.find((c) => c.id === systemAlertCategory);
+                return cat?.keys.includes(def.key);
+              }).map((def) => {
+                const ov = systemOverrides[def.key];
+                const disabled = ov?.disabled ?? false;
+                const customText = ov?.customText ?? "";
+                return (
+                  <li key={def.key} className="flex flex-col gap-1.5 rounded-lg bg-white p-2 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!disabled}
+                          onChange={(e) => updateSystemOverride(def.key, { disabled: !e.target.checked })}
+                          className="rounded border-neutral-300 text-neutral-700"
+                        />
+                        <span className="text-xs font-medium text-neutral-600">표시</span>
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      value={customText}
+                      onChange={(e) => updateSystemOverride(def.key, { customText: e.target.value })}
+                      placeholder={def.defaultLabel}
+                      className="w-full rounded border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400"
+                    />
+                    {def.variableHint && (
+                      <p className="text-xs text-neutral-400">{def.variableHint}</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">추가 문구</h3>
+            <p className="mt-1 text-sm text-neutral-500">원하는 문구를 추가해 보세요. 연결할 링크가 있으면 입력하면 탭 시 해당 경로로 이동해요. (비우면 홈)</p>
+            <ul className="mt-3 space-y-2">
+              {customAlerts.map((item) => (
+                <li key={item.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-neutral-200 bg-white p-3">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={item.text}
+                      onChange={(e) => updateCustomAlert(item.id, { text: e.target.value })}
+                      placeholder="표시할 문구"
+                      className="w-full rounded border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400"
+                    />
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div>
+                        <span className="mr-1 text-xs text-neutral-500">링크</span>
+                        <input
+                          type="text"
+                          value={item.href ?? ""}
+                          onChange={(e) => updateCustomAlert(item.id, { href: e.target.value || undefined })}
+                          placeholder="비우면 홈 (예: /routine)"
+                          className="w-36 rounded border border-neutral-200 px-2 py-1 text-xs text-neutral-800 placeholder:text-neutral-400"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-neutral-500">노출 시간</span>
+                        <label className="flex cursor-pointer items-center gap-1">
+                          <input
+                            type="radio"
+                            name={`time-${item.id}`}
+                            checked={(item.timePreset ?? "always") === "always"}
+                            onChange={() =>
+                              updateCustomAlert(item.id, { timePreset: "always", timeFrom: undefined, timeTo: undefined })
+                            }
+                            className="text-neutral-700"
+                          />
+                          <span className="text-xs">항상</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-1">
+                          <input
+                            type="radio"
+                            name={`time-${item.id}`}
+                            checked={(item.timePreset ?? "always") === "custom"}
+                            onChange={() =>
+                              updateCustomAlert(item.id, {
+                                timePreset: "custom",
+                                timeFrom: item.timeFrom ?? 22,
+                                timeTo: item.timeTo ?? 5,
+                              })
+                            }
+                            className="text-neutral-700"
+                          />
+                          <span className="text-xs">직접 설정</span>
+                        </label>
+                        {(item.timePreset ?? "always") === "custom" && (
+                          <>
+                            <input
+                              type="number"
+                              min={0}
+                              max={23}
+                              value={item.timeFrom ?? 22}
+                              onChange={(e) =>
+                                updateCustomAlert(item.id, { timeFrom: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                              }
+                              className="w-12 rounded border border-neutral-200 px-1.5 py-1 text-xs text-neutral-800"
+                            />
+                            <span className="text-xs text-neutral-400">시 ~</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={23}
+                              value={item.timeTo ?? 5}
+                              onChange={(e) =>
+                                updateCustomAlert(item.id, { timeTo: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                              }
+                              className="w-12 rounded border border-neutral-200 px-1.5 py-1 text-xs text-neutral-800"
+                            />
+                            <span className="text-xs text-neutral-400">시</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeCustomAlert(item.id)}
+                    className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    삭제
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={addCustomAlert}
+              className="mt-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100"
+            >
+              + 문구 추가
+            </button>
+          </section>
+        </div>
+      );
+    }
+    if (activeTab === "popup") {
+      const popupIds = getAllPopupIds();
+      const isSystemId = (id: string) => SYSTEM_POPUP_IDS.includes(id as typeof SYSTEM_POPUP_IDS[number]);
+
+      const openEdit = (id: string) => {
+        const c = getPopupConfig(id);
+        if (c) {
+          setEditingPopupId(id);
+          setAddingNewPopup(false);
+          setPopupDraft({ ...c });
+        }
+      };
+      const openAdd = () => {
+        setEditingPopupId(null);
+        setAddingNewPopup(true);
+        setPopupDraft({
+          title: "",
+          benefitsSubtitle: "",
+          benefits: [],
+          enabled: true,
+          routineTitle: "",
+          timeStart: 22,
+          timeEnd: 3,
+        });
+      };
+      const closePopupForm = () => {
+        setEditingPopupId(null);
+        setAddingNewPopup(false);
+        setPopupDraft(null);
+      };
+      const savePopupEdit = () => {
+        if (!editingPopupId || !popupDraft) return;
+        savePopupConfig(editingPopupId, popupDraft);
+        setPopupListVersion((v) => v + 1);
+        closePopupForm();
+      };
+      const savePopupAdd = () => {
+        if (!popupDraft || !popupDraft.title?.trim()) return;
+        addCustomPopup({
+          ...popupDraft,
+          title: popupDraft.title.trim(),
+          benefits: popupDraft.benefits ?? [],
+          routineTitle: popupDraft.routineTitle ?? "",
+          timeStart: popupDraft.timeStart ?? 22,
+          timeEnd: popupDraft.timeEnd ?? 3,
+        });
+        setPopupListVersion((v) => v + 1);
+        closePopupForm();
+      };
+      const removePopup = (id: string) => {
+        if (!isSystemId(id)) removeCustomPopup(id);
+        setPopupListVersion((v) => v + 1);
+        if (editingPopupId === id) closePopupForm();
+      };
+
+      const updateDraft = (patch: Partial<PopupConfig>) => {
+        setPopupDraft((d) => (d ? { ...d, ...patch } : null));
+      };
+      const updateBenefit = (index: number, patch: Partial<PopupBenefitItem>) => {
+        if (!popupDraft?.benefits) return;
+        const next = [...popupDraft.benefits];
+        next[index] = { ...next[index], ...patch };
+        updateDraft({ benefits: next });
+      };
+      const addBenefit = () => {
+        updateDraft({ benefits: [...(popupDraft?.benefits ?? []), { text: "", bold: [] }] });
+      };
+      const removeBenefit = (index: number) => {
+        const next = (popupDraft?.benefits ?? []).filter((_, i) => i !== index);
+        updateDraft({ benefits: next });
+      };
+
+      const renderPopupForm = (isAdd: boolean) => {
+        if (!popupDraft) return null;
+        const customOnly = isAdd || !editingPopupId || !isSystemId(editingPopupId);
+        return (
+          <div className="mb-6 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
+            <h4 className="text-sm font-semibold text-neutral-700">{isAdd ? "새 팝업 추가" : "팝업 편집"}</h4>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-neutral-500">제목</label>
+                <input
+                  type="text"
+                  value={popupDraft.title ?? ""}
+                  onChange={(e) => updateDraft({ title: e.target.value })}
+                  placeholder="예: 기상 후 샤워 하셨나요?"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
+                />
+              </div>
+              <>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-500">부제 (선택)</label>
+                    <input
+                      type="text"
+                      value={popupDraft.benefitsSubtitle ?? ""}
+                      onChange={(e) => updateDraft({ benefitsSubtitle: e.target.value })}
+                      placeholder="예: 지금 샤워를 하면,"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-medium text-neutral-500">장점 문구 (체크 항목)</label>
+                      <button type="button" onClick={addBenefit} className="text-xs text-neutral-600 hover:underline">
+                        + 항목 추가
+                      </button>
+                    </div>
+                    <ul className="mt-2 space-y-2">
+                      {(popupDraft.benefits ?? []).map((b, i) => (
+                        <li key={i} className="flex gap-2 rounded-lg border border-neutral-100 bg-white p-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <input
+                              type="text"
+                              value={b.text}
+                              onChange={(e) => updateBenefit(i, { text: e.target.value })}
+                              placeholder="문구"
+                              className="w-full rounded border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400"
+                            />
+                            <input
+                              type="text"
+                              value={(b.bold ?? []).join(", ")}
+                              onChange={(e) =>
+                                updateBenefit(i, {
+                                  bold: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                                })
+                              }
+                              placeholder="굵게 표시할 단어 (쉼표 구분)"
+                              className="w-full rounded border border-neutral-200 px-2 py-1 text-xs text-neutral-600 placeholder:text-neutral-400"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeBenefit(i)}
+                            className="shrink-0 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                          >
+                            삭제
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">카드 배경색</label>
+                  <input
+                    type="text"
+                    value={popupDraft.cardBgColor ?? ""}
+                    onChange={(e) => updateDraft({ cardBgColor: e.target.value || undefined })}
+                    placeholder="#ffffff 또는 비움"
+                    className="mt-1 w-32 rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">글자색</label>
+                  <input
+                    type="text"
+                    value={popupDraft.textColor ?? ""}
+                    onChange={(e) => updateDraft({ textColor: e.target.value || undefined })}
+                    placeholder="비우면 기본"
+                    className="mt-1 w-32 rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">강조색</label>
+                  <input
+                    type="text"
+                    value={popupDraft.accentColor ?? ""}
+                    onChange={(e) => updateDraft({ accentColor: e.target.value || undefined })}
+                    placeholder="비우면 기본"
+                    className="mt-1 w-32 rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-800 placeholder:text-neutral-400"
+                  />
+                </div>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={popupDraft.enabled !== false}
+                  onChange={(e) => updateDraft({ enabled: e.target.checked })}
+                  className="rounded border-neutral-300 text-neutral-700"
+                />
+                <span className="text-sm text-neutral-700">사용</span>
+              </label>
+              {customOnly && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-500">루틴 제목에 포함될 문자열</label>
+                    <input
+                      type="text"
+                      value={popupDraft.routineTitle ?? ""}
+                      onChange={(e) => updateDraft({ routineTitle: e.target.value })}
+                      placeholder="루틴 항목 제목에 이 글자가 있으면 이 팝업 표시"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-neutral-500">노출 시간</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={popupDraft.timeStart ?? 22}
+                      onChange={(e) =>
+                        updateDraft({ timeStart: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                      }
+                      className="w-14 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
+                    />
+                    <span className="text-xs text-neutral-400">시 ~</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={popupDraft.timeEnd ?? 3}
+                      onChange={(e) =>
+                        updateDraft({ timeEnd: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                      }
+                      className="w-14 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
+                    />
+                    <span className="text-xs text-neutral-400">시</span>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="mt-4 flex gap-2">
+              {isAdd ? (
+                <button
+                  type="button"
+                  onClick={savePopupAdd}
+                  disabled={!popupDraft.title?.trim()}
+                  className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+                >
+                  추가
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={savePopupEdit}
+                  className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                >
+                  저장
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={closePopupForm}
+                className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">팝업</h3>
+          <p className="text-sm text-neutral-500">
+            알림 팝업의 문구, 체크 항목, 배경/글자색을 수정하거나 끌 수 있어요. 커스텀 팝업을 추가할 수도 있어요.
+          </p>
+          {addingNewPopup && renderPopupForm(true)}
+          {editingPopupId && renderPopupForm(false)}
+          <ul className="space-y-2" key={popupListVersion}>
+            {popupIds.map((id) => {
+              const config = getPopupConfig(id);
+              const label =
+                config?.title?.trim() ||
+                (isSystemId(id) ? SYSTEM_POPUP_LABELS[id as typeof SYSTEM_POPUP_IDS[number]] : "커스텀 팝업");
+              const enabled = config?.enabled !== false;
+              return (
+                <li
+                  key={id}
+                  className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-100 bg-white p-3 shadow-sm"
+                >
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(e) => {
+                        savePopupConfig(id, { enabled: e.target.checked });
+                        setPopupListVersion((v) => v + 1);
+                      }}
+                      className="rounded border-neutral-300 text-neutral-700"
+                    />
+                    <span className="text-sm font-medium text-neutral-800">{label}</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(id)}
+                    className="ml-auto rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
+                  >
+                    편집
+                  </button>
+                  {!isSystemId(id) && (
+                    <button
+                      type="button"
+                      onClick={() => removePopup(id)}
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100"
+          >
+            + 팝업 추가
+          </button>
+        </section>
+      );
+    }
+    // export
+    return (
+      <section>
+        <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">내보내기</h3>
+        <p className="mt-1 text-sm text-neutral-500">
+          연도와 범위를 선택한 뒤 내보내기를 누르세요.
+        </p>
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-neutral-500">연도</label>
+            <select
+              value={exportYear}
+              onChange={(e) => setExportYear(Number(e.target.value))}
+              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+            >
+              {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <span className="block text-xs font-medium text-neutral-500">내보내기 범위</span>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="exportRange"
+                  checked={rangeType === "month"}
+                  onChange={() => setRangeType("month")}
+                  className="text-neutral-700"
+                />
+                <span className="text-sm">특정 월</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="exportRange"
+                  checked={rangeType === "year"}
+                  onChange={() => setRangeType("year")}
+                  className="text-neutral-700"
+                />
+                <span className="text-sm">특정 연도</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="exportRange"
+                  checked={rangeType === "range"}
+                  onChange={() => setRangeType("range")}
+                  className="text-neutral-700"
+                />
+                <span className="text-sm">특정 기간</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="exportRange"
+                  checked={rangeType === "all"}
+                  onChange={() => setRangeType("all")}
+                  className="text-neutral-700"
+                />
+                <span className="text-sm">전부</span>
+              </label>
+            </div>
+          </div>
+          {rangeType === "month" && (
+            <div>
+              <label className="block text-xs font-medium text-neutral-500">월</label>
+              <select
+                value={exportMonth}
+                onChange={(e) => setExportMonth(Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>{m}월</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {rangeType === "range" && (
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-neutral-500">시작일 ~ 종료일</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={rangeFrom}
+                  onChange={(e) => setRangeFrom(e.target.value)}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                />
+                <span className="text-neutral-400">~</span>
+                <input
+                  type="date"
+                  value={rangeTo}
+                  onChange={(e) => setRangeTo(e.target.value)}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+                />
+              </div>
+            </div>
+          )}
+          {rangeType === "all" && (
+            <p className="text-sm text-neutral-600">저장된 전체 데이터를 내보냅니다.</p>
+          )}
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => runExport("journal")}
+            disabled={!!exporting}
+            className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {exporting === "journal" ? "내보내는 중…" : "일기장"}
+          </button>
+          <button
+            type="button"
+            onClick={() => runExport("youtube")}
+            disabled={!!exporting}
+            className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {exporting === "youtube" ? "내보내는 중…" : "유튜브"}
+          </button>
+          <button
+            type="button"
+            onClick={() => runExport("budget")}
+            disabled={!!exporting}
+            className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {exporting === "budget" ? "내보내는 중…" : "가계부"}
+          </button>
+          <button
+            type="button"
+            onClick={() => runExport("income")}
+            disabled={!!exporting}
+            className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {exporting === "income" ? "내보내는 중…" : "수입"}
+          </button>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={runExportAll}
+            disabled={!!exporting}
+            className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+          >
+            {exporting === "all" ? "압축 중…" : "전체 한 번에 (ZIP)"}
+          </button>
+        </div>
+      </section>
+    );
+  };
+
   const modal = (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto py-10 px-4"
@@ -250,187 +985,68 @@ export function SettingsModal({ onClose }: Props) {
         aria-hidden
       />
       <div
-        className="relative z-10 my-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+        className="relative z-10 my-auto flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h2 id="settings-modal-title" className="text-xl font-bold text-neutral-900">
-            설정
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-            aria-label="닫기"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="mt-5">
-          <section className="pb-6">
-            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">계정</h3>
+        {/* PC: 왼쪽 탭 메뉴 (모바일에서 숨김) */}
+        <nav className="hidden w-44 shrink-0 flex-col border-r border-neutral-100 bg-neutral-50/80 py-4 sm:flex">
+          <div className="px-4 pb-3 font-semibold text-neutral-900">설정</div>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 text-left text-sm transition ${
+                activeTab === tab.id
+                  ? "border-r-2 border-neutral-800 bg-white font-medium text-neutral-900"
+                  : "text-neutral-600 hover:bg-neutral-100/80 hover:text-neutral-800"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        {/* 메인 영역 */}
+        <div className="min-w-0 flex-1 flex flex-col p-6">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+            <span className="font-semibold text-neutral-900 sm:hidden">설정</span>
+            <span className="hidden sm:inline" aria-hidden />
             <button
               type="button"
-              onClick={handleLogout}
-              className="mt-2 w-full rounded-xl border border-neutral-200 py-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+              onClick={onClose}
+              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+              aria-label="닫기"
             >
-              로그아웃
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
-          </section>
-
-          <section className="border-t border-neutral-200 pt-6">
-            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">내보내기</h3>
-            <p className="mt-1 text-sm text-neutral-500">
-              연도와 범위를 선택한 뒤 내보내기를 누르세요.
-            </p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-neutral-500">연도</label>
-                <select
-                  value={exportYear}
-                  onChange={(e) => setExportYear(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+          </div>
+          {/* 모바일: 상단 가로 스크롤 탭 */}
+          <div className="sm:hidden overflow-x-auto border-b border-neutral-100 -mx-6 px-6 scrollbar-hide">
+            <div className="flex gap-2 py-3 min-w-max">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    activeTab === tab.id
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-neutral-600"
+                  }`}
                 >
-                  {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
-                    <option key={y} value={y}>{y}년</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <span className="block text-xs font-medium text-neutral-500">내보내기 범위</span>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="exportRange"
-                      checked={rangeType === "month"}
-                      onChange={() => setRangeType("month")}
-                      className="text-neutral-700"
-                    />
-                    <span className="text-sm">특정 월</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="exportRange"
-                      checked={rangeType === "year"}
-                      onChange={() => setRangeType("year")}
-                      className="text-neutral-700"
-                    />
-                    <span className="text-sm">특정 연도</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="exportRange"
-                      checked={rangeType === "range"}
-                      onChange={() => setRangeType("range")}
-                      className="text-neutral-700"
-                    />
-                    <span className="text-sm">특정 기간</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="radio"
-                      name="exportRange"
-                      checked={rangeType === "all"}
-                      onChange={() => setRangeType("all")}
-                      className="text-neutral-700"
-                    />
-                    <span className="text-sm">전부</span>
-                  </label>
-                </div>
-              </div>
-              {rangeType === "month" && (
-                <div>
-                  <label className="block text-xs font-medium text-neutral-500">월</label>
-                  <select
-                    value={exportMonth}
-                    onChange={(e) => setExportMonth(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                      <option key={m} value={m}>{m}월</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {rangeType === "range" && (
-                <div className="space-y-2">
-                  <label className="block text-xs font-medium text-neutral-500">시작일 ~ 종료일</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="date"
-                      value={rangeFrom}
-                      onChange={(e) => setRangeFrom(e.target.value)}
-                      className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
-                    />
-                    <span className="text-neutral-400">~</span>
-                    <input
-                      type="date"
-                      value={rangeTo}
-                      onChange={(e) => setRangeTo(e.target.value)}
-                      className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
-                    />
-                  </div>
-                </div>
-              )}
-              {rangeType === "all" && (
-                <p className="text-sm text-neutral-600">저장된 전체 데이터를 내보냅니다.</p>
-              )}
+                  {tab.label}
+                </button>
+              ))}
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => runExport("journal")}
-                disabled={!!exporting}
-                className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                {exporting === "journal" ? "내보내는 중…" : "일기장"}
-              </button>
-              <button
-                type="button"
-                onClick={() => runExport("youtube")}
-                disabled={!!exporting}
-                className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                {exporting === "youtube" ? "내보내는 중…" : "유튜브"}
-              </button>
-              <button
-                type="button"
-                onClick={() => runExport("budget")}
-                disabled={!!exporting}
-                className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                {exporting === "budget" ? "내보내는 중…" : "가계부"}
-              </button>
-              <button
-                type="button"
-                onClick={() => runExport("income")}
-                disabled={!!exporting}
-                className="rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                {exporting === "income" ? "내보내는 중…" : "수입"}
-              </button>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={runExportAll}
-                disabled={!!exporting}
-                className="rounded-xl bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
-              >
-                {exporting === "all" ? "압축 중…" : "전체 한 번에 (ZIP)"}
-              </button>
-            </div>
-          </section>
-
-          {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          </div>
+          <div className="mt-5 min-h-0 flex-1">
+            {renderMainContent()}
+            {error && activeTab === "export" && (
+              <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

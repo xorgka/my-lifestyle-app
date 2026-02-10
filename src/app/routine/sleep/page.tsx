@@ -40,6 +40,12 @@ function formatSleepDuration(minutes: number): string {
   return `${h}시간 ${m}분`;
 }
 
+/** 수면 분 -> 소수 시간 "7.5시간", "7.8시간" (모바일용) */
+function formatSleepDurationDecimal(minutes: number): string {
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  return `${hours}시간`;
+}
+
 /** 0~1440 분을 0~1 비율로 (0:00=0, 24:00=1) */
 function minutesToRatio(min: number): number {
   return Math.max(0, Math.min(1, min / 1440));
@@ -62,9 +68,9 @@ function getSleepSegments(bedTime?: string, wakeTime?: string): { from: number; 
   return [{ from: bedR, to: wakeR }];
 }
 
-/** Y축 04:00(위)~03:00(아래) 기준 막대 위치. 0%=04:00, 100%=다음날 03:00 (총 23h) */
-const CHART_MIN_MINUTES = 4 * 60; // 04:00
-const CHART_MAX_MINUTES = 24 * 60 + 3 * 60; // 03:00 다음날 = 1620
+/** Y축 06:00(위)~05:00(아래) 기준. 막대 위=기상 시각, 막대 아래=취침 시각 (실제 시각 위치에 맞춤) */
+const CHART_MIN_MINUTES = 6 * 60; // 06:00
+const CHART_MAX_MINUTES = 24 * 60 + 5 * 60; // 05:00 다음날 = 1740
 const CHART_SPAN_MINUTES = CHART_MAX_MINUTES - CHART_MIN_MINUTES; // 1380
 
 function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPercent: number; heightPercent: number } | null {
@@ -81,7 +87,7 @@ function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPerce
   return { topPercent, heightPercent };
 }
 
-const CHART_TIME_LABELS = ["04:00", "07:00", "10:00", "13:00", "16:00", "19:00", "22:00", "01:00", "03:00"];
+const CHART_TIME_LABELS = ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "00:00", "03:00", "05:00"];
 
 export default function SleepPage() {
   const [data, setData] = useState<SleepData>({});
@@ -212,8 +218,11 @@ export default function SleepPage() {
     const wakeMinutes = (t: string) => timeToMinutes(t);
     const latestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) > wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
     const earliestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) < wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
-    const goldenTarget = 8 * 60; // 08:00
-    const goldenSuccess = weekRecords.filter((r) => r.wakeTime && wakeMinutes(r.wakeTime) <= goldenTarget).length;
+    const goldenMin = 7 * 60 + 30; // 07:30
+    const goldenMax = 8 * 60 + 30; // 08:30
+    const goldenSuccess = weekRecords.filter(
+      (r) => r.wakeTime && wakeMinutes(r.wakeTime) >= goldenMin && wakeMinutes(r.wakeTime) <= goldenMax
+    ).length;
     const goldenTimePct = Math.round((goldenSuccess / 7) * 100);
     return { avgSleepMins, latestWake, earliestWake, goldenTimePct };
   })();
@@ -231,8 +240,11 @@ export default function SleepPage() {
     const wakeMinutes = (t: string) => timeToMinutes(t);
     const latestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) > wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
     const earliestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) < wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
-    const goldenTarget = 8 * 60;
-    const goldenSuccess = monthRecords.filter((r) => r.wakeTime && wakeMinutes(r.wakeTime) <= goldenTarget).length;
+    const goldenMin = 7 * 60 + 30;
+    const goldenMax = 8 * 60 + 30;
+    const goldenSuccess = monthRecords.filter(
+      (r) => r.wakeTime && wakeMinutes(r.wakeTime) >= goldenMin && wakeMinutes(r.wakeTime) <= goldenMax
+    ).length;
     const daysInMonth = monthDateKeys.length;
     const goldenTimePct = daysInMonth ? Math.round((goldenSuccess / daysInMonth) * 100) : null;
     return { avgSleepMins, latestWake, earliestWake, goldenTimePct };
@@ -404,7 +416,11 @@ export default function SleepPage() {
                   <span className="text-base opacity-80" aria-hidden>💤</span>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">수면</p>
                   <p className="mt-1 text-base font-semibold tabular-nums text-neutral-800">
-                    {sleepMins != null ? formatSleepDuration(sleepMins) : "—"}
+                    {sleepMins != null
+                      ? isMobile
+                        ? formatSleepDurationDecimal(sleepMins)
+                        : formatSleepDuration(sleepMins)
+                      : "—"}
                   </p>
                 </div>
               </div>
@@ -571,7 +587,7 @@ export default function SleepPage() {
               </div>
               <div
                 className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-lg cursor-default"
-                onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">골든타임 준수율</span><span className="block">: 일주일 중 8시 기상 성공율</span></>, x: e.clientX, y: e.clientY })}
+                onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">골든타임 준수율</span><span className="block">: 일주일 중 7시30분~8시30분 기상 성공율</span></>, x: e.clientX, y: e.clientY })}
                 onMouseMove={(e) => setStatTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                 onMouseLeave={() => setStatTooltip(null)}
               >
@@ -771,12 +787,15 @@ export default function SleepPage() {
             const rec = data[cell.dateStr];
             const isCurrent = cell.isCurrentMonth;
             const isToday = cell.dateStr === todayKey;
+            const wakeMins = rec?.wakeTime ? timeToMinutes(rec.wakeTime) : null;
+            const isGolden =
+              wakeMins != null && wakeMins >= 7 * 60 + 30 && wakeMins <= 8 * 60 + 30;
             return (
               <button
                 key={cell.dateStr}
                 type="button"
                 onClick={() => openEditDayModal(cell.dateStr)}
-                className={`rounded-lg py-2 text-center transition hover:bg-slate-100 hover:ring-2 hover:ring-slate-300 ${!isCurrent ? "text-neutral-300" : ""} ${isToday ? "ring-2 ring-neutral-700 ring-offset-1" : ""}`}
+                className={`rounded-lg py-2 text-center transition hover:bg-slate-100 hover:ring-2 hover:ring-slate-300 ${!isCurrent ? "text-neutral-300" : ""} ${isToday ? "ring-2 ring-neutral-700 ring-offset-1" : ""} ${isCurrent && isGolden ? "bg-amber-100" : ""}`}
               >
                 <div className="font-semibold text-neutral-800">{cell.dayNum}</div>
                 {rec && (rec.wakeTime || rec.bedTime) && (
@@ -823,7 +842,7 @@ export default function SleepPage() {
           </div>
           <div
             className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-3 cursor-default shadow-sm transition duration-200 hover:bg-white/60 hover:border-neutral-300 hover:shadow-md"
-            onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">이번 달 골든타임 준수율</span><span className="block">: 8시 기상 성공 일수 ÷ 해당 월 일수</span></>, x: e.clientX, y: e.clientY })}
+            onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">이번 달 골든타임 준수율</span><span className="block">: 7시30분~8시30분 기상 성공 일수 ÷ 해당 월 일수</span></>, x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
             onMouseLeave={() => setStatTooltip(null)}
           >

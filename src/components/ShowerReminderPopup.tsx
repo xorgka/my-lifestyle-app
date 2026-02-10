@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
+import { getPopupConfig } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
 const SHOWER_ITEM_TITLE = "기상 후 샤워";
@@ -13,15 +14,6 @@ const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
 const INITIAL_DELAY_MS = 0;
 /** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시 (완료 여부·2시간 제한 무시). 테스트 후 false로 되돌리기 */
 const TEST_ALWAYS_SHOW = false;
-
-const BENEFITS: { text: string; bold: string[] }[] = [
-  { text: "뇌가 깨어나 인지기능 상승!", bold: ["인지기능"] },
-  { text: "창의적 사고 촉진", bold: ["창의적 사고"] },
-  { text: "문제 해결능력 UP", bold: ["문제 해결능력"] },
-  { text: "자는동안 쌓인 피지, 땀, 먼지 제거", bold: ["피지, 땀, 먼지"] },
-  { text: "혈액순환 촉진으로 붓기 완화", bold: ["혈액순환", "붓기"] },
-  { text: "하루 시작을 알리는 신호!", bold: ["하루 시작"] },
-];
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
   if (boldWords.length === 0) return text;
@@ -63,6 +55,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
       setOpen(true);
       return;
     }
+    if (getPopupConfig("shower")?.enabled === false) return;
     const hour = new Date().getHours();
     if (hour >= 0 && hour < 5) return;
     if (!showerItem) return;
@@ -128,6 +121,15 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
 
   if (!open && !showIcon && !showConfetti) return null;
 
+  const config = getPopupConfig("shower");
+  const title = config?.title ?? "기상 후 샤워 하셨나요?";
+  const benefitsSubtitle = config?.benefitsSubtitle ?? "지금 샤워를 하면,";
+  const benefits = config?.benefits ?? [];
+  const cardStyle: React.CSSProperties = {};
+  if (config?.cardBgColor) cardStyle.backgroundColor = config.cardBgColor;
+  if (config?.textColor) cardStyle.color = config.textColor;
+  const accentStyle = config?.accentColor ? { color: config.accentColor } : undefined;
+
   const CONFETTI_COLORS = ["#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#e879f9"];
   const particleCount = 40;
   const confettiParticles = Array.from({ length: particleCount }, (_, i) => {
@@ -183,7 +185,7 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
           ))}
         </div>
       )}
-      <div className={`relative w-full max-w-sm rounded-2xl bg-white px-6 py-10 shadow-xl transition-opacity duration-300 ${showConfetti ? "opacity-0" : "opacity-100"}`}>
+      <div className={`relative w-full max-w-sm rounded-2xl px-6 py-10 shadow-xl transition-opacity duration-300 ${showConfetti ? "opacity-0" : "opacity-100"}`} style={{ ...cardStyle, backgroundColor: cardStyle.backgroundColor ?? "#fff" }}>
         {step === "ask" && (
           <>
             <div className="flex justify-center mb-4">
@@ -191,8 +193,8 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
                 🔔
               </span>
             </div>
-            <h2 id="shower-reminder-title" className="text-center text-lg font-semibold text-neutral-900">
-              기상 후 샤워 하셨나요?
+            <h2 id="shower-reminder-title" className="text-center text-lg font-semibold" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+              {title}
             </h2>
             <div className="mt-10 flex flex-nowrap items-center justify-center gap-4 sm:gap-8">
               <button
@@ -214,27 +216,30 @@ export function ShowerReminderPopup({ forceShow }: ShowerReminderPopupProps) {
         )}
         {step === "benefits" && (
           <>
-            <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700">
-              지금 샤워를 하면,
-            </p>
-            <ul className="space-y-2.5 text-lg leading-relaxed text-neutral-800 md:text-xl">
-              {BENEFITS.map((item, i) => (
+            {benefitsSubtitle && (
+              <p className="benefits-subtitle mb-6 text-center text-lg font-semibold text-neutral-700" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+                {benefitsSubtitle}
+              </p>
+            )}
+            <ul className="space-y-2.5 text-lg leading-relaxed md:text-xl" style={cardStyle.color ? { color: cardStyle.color } : undefined}>
+              {benefits.map((item, i) => (
                 <li
-                  key={item.text}
+                  key={i}
                   className="benefit-item flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-amber-100 hover:shadow-md hover:border-amber-200/90"
                   style={{ animationDelay: `${i * 0.38}s` }}
                 >
-                  <span className="shrink-0 text-xl font-bold text-amber-500 md:text-2xl" aria-hidden>
+                  <span className="shrink-0 text-xl font-bold md:text-2xl" style={accentStyle ?? { color: "#f59e0b" }} aria-hidden>
                     ✓
                   </span>
-                  <span className="font-medium">{benefitLineWithBold(item.text, item.bold)}</span>
+                  <span className="font-medium">{benefitLineWithBold(item.text, item.bold ?? [])}</span>
                 </li>
               ))}
             </ul>
             <button
               type="button"
               onClick={handleGood}
-              className="group mt-8 w-full rounded-xl bg-neutral-800 py-4 text-lg font-semibold text-white shadow-none transition-all hover:bg-gradient-to-r hover:from-neutral-700 hover:to-neutral-800 hover:shadow-lg hover:shadow-neutral-800/35"
+              className="group mt-8 w-full rounded-xl py-4 text-lg font-semibold text-white shadow-none transition-all hover:bg-gradient-to-r hover:from-neutral-700 hover:to-neutral-800 hover:shadow-lg hover:shadow-neutral-800/35"
+              style={config?.accentColor ? { backgroundColor: config.accentColor } : { backgroundColor: "#262626" }}
             >
               <span className="inline group-hover:hidden">좋아!</span>
               <span className="hidden group-hover:inline">JUST DO!</span>

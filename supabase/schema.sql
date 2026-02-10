@@ -250,7 +250,19 @@ create table if not exists reminder_last_shown (
   reminder_type text primary key,
   last_shown_at timestamptz not null default now()
 );
-comment on table reminder_last_shown is '알림 팝업 마지막 표시 시각. shower | gym | youtube 등';
+comment on table reminder_last_shown is '알림 팝업 마지막 표시 시각. shower | gym | youtube | custom-xxx 등';
+
+-- ------------------------------------------------------------
+-- 13. 팝업 알림 설정 (기기/브라우저 동기화)
+-- ------------------------------------------------------------
+create table if not exists popup_reminder_config (
+  id text primary key default 'default',
+  overrides jsonb not null default '{}',
+  custom_ids jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+comment on table popup_reminder_config is '팝업 알림 설정. overrides: id별 오버라이드, custom_ids: 커스텀 팝업 id 배열';
+insert into popup_reminder_config (id, overrides, custom_ids) values ('default', '{}', '[]') on conflict (id) do nothing;
 
 -- ------------------------------------------------------------
 -- RLS (Row Level Security) - 현재는 anon 허용, 나중에 auth 붙이면 user_id로 제한
@@ -275,6 +287,7 @@ alter table income_entries enable row level security;
 alter table memos enable row level security;
 alter table sleep_records enable row level security;
 alter table reminder_last_shown enable row level security;
+alter table popup_reminder_config enable row level security;
 
 -- anon 키로 모든 작업 허용 (단일 사용자/비로그인 사용 가정)
 create policy "allow all budget_entries" on budget_entries for all using (true) with check (true);
@@ -296,6 +309,7 @@ create policy "allow all income_entries" on income_entries for all using (true) 
 create policy "allow all memos" on memos for all using (true) with check (true);
 create policy "allow all sleep_records" on sleep_records for all using (true) with check (true);
 create policy "allow all reminder_last_shown" on reminder_last_shown for all using (true) with check (true);
+create policy "allow all popup_reminder_config" on popup_reminder_config for all using (true) with check (true);
 
 -- updated_at 자동 갱신 (선택)
 create or replace function set_updated_at()

@@ -71,3 +71,47 @@ export async function setReminderLastShown(type: ReminderType): Promise<void> {
   }
   saveToStorage(type, date, now);
 }
+
+const STORAGE_PREFIX_ANY = "reminder-last-";
+
+/** 커스텀 팝업 등 임의 id의 마지막 표시 시각. Supabase에 있으면 동기화, 없으면 localStorage */
+export async function getReminderLastShownAny(type: string): Promise<{ date: string; time: number } | null> {
+  if (supabase) {
+    const { data: row, error } = await supabase
+      .from("reminder_last_shown")
+      .select("last_shown_at")
+      .eq("reminder_type", type)
+      .maybeSingle();
+    if (!error && row?.last_shown_at) {
+      const d = new Date(row.last_shown_at);
+      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return { date, time: d.getTime() };
+    }
+  }
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_PREFIX_ANY}${type}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { date: string; time: number };
+    return parsed?.date && typeof parsed.time === "number" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 커스텀 팝업 등 임의 id의 마지막 표시를 지금으로 기록 (기기 간 동기화) */
+export async function setReminderLastShownAny(type: string): Promise<void> {
+  const now = Date.now();
+  if (supabase) {
+    await supabase
+      .from("reminder_last_shown")
+      .upsert({ reminder_type: type, last_shown_at: new Date(now).toISOString() }, { onConflict: "reminder_type" });
+  }
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      `${STORAGE_PREFIX_ANY}${type}`,
+      JSON.stringify({ date: todayStr(), time: now })
+    );
+  } catch {}
+}

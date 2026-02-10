@@ -56,6 +56,13 @@ export function youtubeWatchUrl(videoId: string, startSeconds?: number): string 
   return u.toString();
 }
 
+/** 모바일에서 유튜브 앱으로 열기 위한 URL (vnd.youtube 스킴). 앱이 없으면 동작하지 않을 수 있음 */
+export function youtubeAppUrl(videoId: string, startSeconds?: number): string {
+  const q = new URLSearchParams({ v: videoId });
+  if (startSeconds != null && startSeconds > 0) q.set("t", String(startSeconds));
+  return `vnd.youtube://watch?${q.toString()}`;
+}
+
 function loadFromStorage(): PlaylistEntry[] {
   if (typeof window === "undefined") return [];
   try {

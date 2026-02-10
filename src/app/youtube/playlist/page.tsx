@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   loadPlaylistEntries,
@@ -43,6 +43,10 @@ export default function YoutubePlaylistPage() {
     startSeconds: undefined,
     tags: {},
   });
+  const [isMobile, setIsMobile] = useState(false);
+  const [openMoreId, setOpenMoreId] = useState<string | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -59,6 +63,25 @@ export default function YoutubePlaylistPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (openMoreId === null) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (moreButtonRef.current?.contains(t) || moreMenuRef.current?.contains(t)) return;
+      setOpenMoreId(null);
+    };
+    document.addEventListener("click", close, true);
+    return () => document.removeEventListener("click", close, true);
+  }, [openMoreId]);
 
   /** Supabase 연동 가능 여부 확인 (다른 브라우저에서 DB 오류 원인 파악용) */
   useEffect(() => {
@@ -279,19 +302,19 @@ export default function YoutubePlaylistPage() {
                 key={entry.id}
                 className="flex flex-wrap items-center gap-2 px-4 py-3 hover:bg-neutral-50/80"
               >
-                <span className="w-6 text-sm text-neutral-400">{filteredIndex + 1}</span>
+                <span className="w-6 text-xs text-neutral-400 sm:text-sm">{filteredIndex + 1}</span>
                 <div className="min-w-0 flex-1">
                   {entry.url ? (
                     <a
                       href={entry.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-neutral-900 truncate block hover:underline"
+                      className="block truncate text-xs font-medium text-neutral-900 hover:underline sm:text-sm"
                     >
                       {entry.title || "—"}
                     </a>
                   ) : (
-                    <div className="font-medium text-neutral-900 truncate">{entry.title || "—"}</div>
+                    <div className="truncate text-xs font-medium text-neutral-900 sm:text-sm">{entry.title || "—"}</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
@@ -311,42 +334,92 @@ export default function YoutubePlaylistPage() {
                       </svg>
                     )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => moveUp(filteredIndex)}
-                    disabled={filteredIndex <= 0}
-                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
-                    aria-label="위로"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveDown(filteredIndex)}
-                    disabled={filteredIndex >= filtered.length - 1 || filteredIndex < 0}
-                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
-                    aria-label="아래로"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(entry)}
-                    className="rounded-lg px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
-                  >
-                    수정
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(entry.id)}
-                    className="rounded-lg px-2 py-1 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    삭제
-                  </button>
+                  {isMobile ? (
+                    <>
+                      <div className="relative">
+                        <button
+                          ref={openMoreId === entry.id ? moreButtonRef : undefined}
+                          type="button"
+                          onClick={() => setOpenMoreId((id) => (id === entry.id ? null : entry.id))}
+                          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200"
+                          aria-label="더보기"
+                          aria-expanded={openMoreId === entry.id}
+                        >
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="5" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="12" cy="19" r="1.5" />
+                          </svg>
+                        </button>
+                        {openMoreId === entry.id && (
+                          <div
+                            ref={moreMenuRef}
+                            className="absolute right-0 top-full z-20 mt-0.5 min-w-[6rem] rounded-lg border border-neutral-200 bg-white py-1 shadow-lg"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openEdit(entry);
+                                setOpenMoreId(null);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
+                            >
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                remove(entry.id);
+                                setOpenMoreId(null);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => moveUp(filteredIndex)}
+                        disabled={filteredIndex <= 0}
+                        className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
+                        aria-label="위로"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveDown(filteredIndex)}
+                        disabled={filteredIndex >= filtered.length - 1 || filteredIndex < 0}
+                        className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
+                        aria-label="아래로"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(entry)}
+                        className="rounded-lg px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(entry.id)}
+                        className="rounded-lg px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        삭제
+                      </button>
+                    </>
+                  )}
                 </div>
               </li>
             );

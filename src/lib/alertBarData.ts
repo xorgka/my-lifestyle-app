@@ -20,12 +20,29 @@ import {
   isExcludedFromMonthTotal,
   toYearMonth,
 } from "./budget";
+import { loadSleepData } from "./sleepDb";
+import {
+  loadSystemOverrides,
+  loadCustomAlerts,
+  isCustomAlertInTimeWindow,
+} from "./alertBarSettings";
+
 export type AlertItem =
   | { type: "schedule"; prefix: string; bracketed: string; suffix: string; href: string }
   | { type: "plain"; text: string; href: string };
 
 function isToday(dateStr: string, today: string) {
   return dateStr === today;
+}
+
+/** "HH:mm" → "N시M분" (23:30 → 11시30분, 00:15 → 12시15분) */
+function formatBedTimeForAlert(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(":");
+  const h = parseInt(hStr ?? "0", 10);
+  const m = parseInt(mStr ?? "0", 10);
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const minPart = m > 0 ? `${m}분` : "";
+  return `${hour}시${minPart}`;
 }
 
 function scheduleToParts(item: ScheduleItem, today: string): { prefix: string; bracketed: string; suffix: string } {
@@ -100,6 +117,42 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   ]);
 
   const alerts: AlertItem[] = [];
+  const overrides = loadSystemOverrides();
+  const customList = loadCustomAlerts();
+  const currentHour = now.getHours();
+
+  /** customText에 {N}, {TIME} 등이 있으면 vars로 치환. 없으면 기본 문구 사용 */
+  const pushPlain = (
+    key: string,
+    defaultText: string,
+    href: string,
+    vars?: Record<string, string | number>
+  ) => {
+    if (overrides[key]?.disabled) return;
+    const custom = overrides[key]?.customText?.trim();
+    let text: string;
+    if (custom) {
+      text = vars
+        ? custom.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
+        : custom;
+    } else {
+      text = defaultText;
+    }
+    if (!text) text = defaultText;
+    alerts.push({ type: "plain", text, href });
+  };
+
+  // --- 수면: 저녁 10시 ~ 새벽 5시에만 "어제 N시M분에 잠에 들었어요.💤" (수면 페이지 데이터 기준) ---
+  const isSleepAlertTime = currentHour >= 22 || currentHour < 5;
+  if (isSleepAlertTime) {
+    const { data: sleepData } = await loadSleepData();
+    const todayRecord = sleepData[today];
+    const bedTime = todayRecord?.bedTime;
+    if (bedTime) {
+      const timeStr = formatBedTimeForAlert(bedTime);
+      pushPlain("sleep_bedtime", `어제 ${timeStr}에 잠에 들었어요.💤`, "/routine/sleep", { TIME: timeStr });
+    }
+  }
 
   // --- 다가오는 생일 (오늘=🎂, D-1/D-5=📅) ---
   const yearEnd = addDays(today, 365);
@@ -107,72 +160,66 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const birthdayItems = allUpcoming.filter(
     (i) => i.builtinKind === "birthday" || i.title.includes("생일")
   );
-  const fromToday = new Date(today + "T12:00:00").getTime();
-  for (const item of birthdayItems) {
-    if (item.date === today) {
-      alerts.push({
-        type: "plain",
-        text: `오늘 ${item.title}이에요! 🎂`,
-        href: "/schedule",
-      });
-      break;
-    }
-  }
-  for (const item of birthdayItems) {
-    if (item.date <= today) continue;
-    const to = new Date(item.date + "T12:00:00").getTime();
-    const daysLeft = Math.ceil((to - fromToday) / 86400000);
-    if (daysLeft === 1) {
-      alerts.push({
-        type: "plain",
-        text: `${item.title} D-1 📅`,
-        href: "/schedule",
-      });
-    } else if (daysLeft === 5) {
-      alerts.push({
-        type: "plain",
-        text: `${item.title} D-5 📅`,
-        href: "/schedule",
-      });
+  if (!overrides["birthday"]?.disabled) {
+    if (overrides["birthday"]?.customText?.trim()) {
+      pushPlain("birthday", overrides["birthday"].customText!.trim(), "/schedule");
+    } else {
+      const fromToday = new Date(today + "T12:00:00").getTime();
+      for (const item of birthdayItems) {
+        if (item.date === today) {
+          pushPlain("birthday", `오늘 ${item.title}이에요! 🎂`, "/schedule");
+          break;
+        }
+      }
+      for (const item of birthdayItems) {
+        if (item.date <= today) continue;
+        const to = new Date(item.date + "T12:00:00").getTime();
+        const daysLeft = Math.ceil((to - fromToday) / 86400000);
+        if (daysLeft === 1) {
+          pushPlain("birthday", `${item.title} D-1 📅`, "/schedule");
+        } else if (daysLeft === 5) {
+          pushPlain("birthday", `${item.title} D-5 📅`, "/schedule");
+        }
+      }
     }
   }
 
   // --- 스케줄 (오늘/내일). 시간 있는 오늘 일정은 지난 건 제외. 완료 체크한 항목 제외 ---
   const scheduleItems = getScheduleItemsInRange(today, tomorrow, scheduleEntries);
   const nowMs = now.getTime();
-  for (const item of scheduleItems) {
-    const completionKey = getScheduleCompletionKey(item, item.date);
-    if (completionKey !== null && scheduleCompletions.has(completionKey)) continue; // 완료한 항목은 알림 제외
-    if (item.date === today && item.time) {
-      const eventMs = new Date(item.date + "T" + item.time).getTime();
-      if (eventMs <= nowMs) continue; // 이미 지난 시간이면 알림 제외
-    }
-    const parts = scheduleToParts(item, today);
-    alerts.push({
-      type: "schedule",
-      ...parts,
-      href: "/schedule",
-    });
-  }
-
-  // --- 스케줄 다가오는 시간 (24시간 전, 3시간 전, 1시간 전, 30분 전). 완료한 항목 제외 ---
-  for (const item of scheduleItems) {
-    if (!item.time) continue;
-    const completionKeyForItem = getScheduleCompletionKey(item, item.date);
-    if (completionKeyForItem !== null && scheduleCompletions.has(completionKeyForItem)) continue;
-    const eventMs = new Date(item.date + "T" + item.time).getTime();
-    if (eventMs <= nowMs) continue;
-    const diffMs = eventMs - nowMs;
-    const diffHours = diffMs / (1000 * 60 * 60);
-    const title = item.title?.trim() || "일정";
-    if (diffHours >= 23.5 && diffHours < 24.5) {
-      alerts.push({ type: "plain", text: `${title} 24시간 전`, href: "/schedule" });
-    } else if (diffHours >= 2.5 && diffHours < 3.5) {
-      alerts.push({ type: "plain", text: `${title} 3시간 전`, href: "/schedule" });
-    } else if (diffHours >= 0.75 && diffHours < 1.25) {
-      alerts.push({ type: "plain", text: `${title} 1시간 전`, href: "/schedule" });
-    } else if (diffHours >= 0.25 && diffHours < 0.5) {
-      alerts.push({ type: "plain", text: `${title} 30분 전`, href: "/schedule" });
+  if (!overrides["schedule"]?.disabled) {
+    if (overrides["schedule"]?.customText?.trim()) {
+      alerts.push({ type: "plain", text: overrides["schedule"].customText!.trim(), href: "/schedule" });
+    } else {
+      for (const item of scheduleItems) {
+        const completionKey = getScheduleCompletionKey(item, item.date);
+        if (completionKey !== null && scheduleCompletions.has(completionKey)) continue;
+        if (item.date === today && item.time) {
+          const eventMs = new Date(item.date + "T" + item.time).getTime();
+          if (eventMs <= nowMs) continue;
+        }
+        const parts = scheduleToParts(item, today);
+        alerts.push({ type: "schedule", ...parts, href: "/schedule" });
+      }
+      for (const item of scheduleItems) {
+        if (!item.time) continue;
+        const completionKeyForItem = getScheduleCompletionKey(item, item.date);
+        if (completionKeyForItem !== null && scheduleCompletions.has(completionKeyForItem)) continue;
+        const eventMs = new Date(item.date + "T" + item.time).getTime();
+        if (eventMs <= nowMs) continue;
+        const diffMs = eventMs - nowMs;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        const title = item.title?.trim() || "일정";
+        if (diffHours >= 23.5 && diffHours < 24.5) {
+          alerts.push({ type: "plain", text: `${title} 24시간 전`, href: "/schedule" });
+        } else if (diffHours >= 2.5 && diffHours < 3.5) {
+          alerts.push({ type: "plain", text: `${title} 3시간 전`, href: "/schedule" });
+        } else if (diffHours >= 0.75 && diffHours < 1.25) {
+          alerts.push({ type: "plain", text: `${title} 1시간 전`, href: "/schedule" });
+        } else if (diffHours >= 0.25 && diffHours < 0.5) {
+          alerts.push({ type: "plain", text: `${title} 30분 전`, href: "/schedule" });
+        }
+      }
     }
   }
 
@@ -181,11 +228,12 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const completedToday = new Set(routineCompletions[today] ?? []);
   const incompleteToday = routineItems.filter((it) => !completedToday.has(it.id));
   if (incompleteToday.length > 0 && totalRoutine > 0) {
-    alerts.push({
-      type: "plain",
-      text: `오늘 루틴 ${incompleteToday.length}개 남았어요. (${incompleteToday.length}/${totalRoutine}) 📋`,
-      href: "/routine",
-    });
+    pushPlain(
+      "routine_incomplete",
+      `오늘 루틴 ${incompleteToday.length}개 남았어요. (${incompleteToday.length}/${totalRoutine}) 📋`,
+      "/routine",
+      { N: incompleteToday.length, total: totalRoutine }
+    );
   }
 
   // --- 루틴: 현재 시간 + 오늘 달성률 ---
@@ -195,39 +243,24 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const minute = now.getMinutes();
   const ampm = hour >= 12 ? "PM" : "AM";
   const timeLabel = `[${ampm} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}]`;
-  alerts.push({
-    type: "plain",
-    text: `${timeLabel} 루틴 달성률 ${rate}% 🕐`,
-    href: "/routine",
-  });
+  pushPlain("routine_rate", `${timeLabel} 루틴 달성률 ${rate}% 🕐`, "/routine", { TIME: timeLabel, N: rate });
 
   // --- 일기 연속 N일 ---
   const streak = getJournalStreak(journalEntries);
   if (streak > 0) {
-    alerts.push({
-      type: "plain",
-      text: `일기 연속 ${streak}일 작성 중이에요!`,
-      href: "/journal",
-    });
+    pushPlain("journal_streak", `일기 연속 ${streak}일 작성 중이에요!`, "/journal", { N: streak });
   }
 
   // --- 지출: 오늘 ---
-  const keywordsForMonth = getKeywordsForMonth(keywords, monthExtras, yearMonth);
   const hasAnyTodayEntry = (budgetEntries ?? []).some((e) => e.date === today);
   const todayEntries = (budgetEntries ?? []).filter((e) => e.date === today && !isExcludedFromMonthTotal(e.item));
   const todayTotal = todayEntries.reduce((s, e) => s + e.amount, 0);
   if (todayTotal > 0) {
-    alerts.push({
-      type: "plain",
-      text: `오늘의 지출은 ${formatAmount(todayTotal)}원이에요.`,
-      href: "/finance",
+    pushPlain("budget_today", `오늘의 지출은 ${formatAmount(todayTotal)}원이에요.`, "/finance", {
+      N: formatAmount(todayTotal),
     });
   } else if (!hasAnyTodayEntry) {
-    alerts.push({
-      type: "plain",
-      text: "오늘 가계부 작성하셨나요?",
-      href: "/finance",
-    });
+    pushPlain("budget_today_none", "오늘 가계부 작성하셨나요?", "/finance");
   }
 
   // --- 이번달 15일까지 vs 저번달 15일까지 ---
@@ -240,30 +273,16 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const dayNum = now.getDate();
   const thisBy15 = thisMonthEntries.filter((e) => parseInt(e.date.slice(8, 10), 10) <= 15).reduce((s, e) => s + e.amount, 0);
   const lastBy15 = lastMonthEntries.filter((e) => parseInt(e.date.slice(8, 10), 10) <= 15).reduce((s, e) => s + e.amount, 0);
-  if (dayNum >= 15 && (thisBy15 > 0 || lastBy15 > 0)) {
-    if (thisBy15 > lastBy15) {
-      alerts.push({
-        type: "plain",
-        text: `이번달 15일까지 쓴 지출이 저번달보다 많아요.`,
-        href: "/finance",
-      });
-    } else if (thisBy15 < lastBy15 && thisBy15 > 0) {
-      alerts.push({
-        type: "plain",
-        text: `이번달 15일까지 쓴 지출이 저번달보다 적어요.`,
-        href: "/finance",
-      });
-    }
+  if (dayNum >= 15 && thisBy15 > lastBy15 && thisBy15 > 0) {
+    pushPlain("budget_15_more", "이번달 지출이 좀 많아요.", "/finance");
   }
 
   // --- 이번달 총 지출 (월요일에만 표시) ---
   const isMonday = now.getDay() === 1;
   const monthTotal = thisMonthEntries.reduce((s, e) => s + e.amount, 0);
   if (monthTotal > 0 && isMonday) {
-    alerts.push({
-      type: "plain",
-      text: `이번달 총 지출은 ${formatAmountMan(monthTotal)}입니다.`,
-      href: "/finance",
+    pushPlain("budget_month_monday", `이번달 총 지출은 ${formatAmountMan(monthTotal)}입니다.`, "/finance", {
+      N: formatAmountMan(monthTotal),
     });
   }
 
@@ -286,10 +305,10 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
       const label = keyword === "헬스" ? "헬스장" : keyword;
       const verb = keyword === "헬스" ? "갔어요" : "했어요";
       const particle = label === "독서" ? "는" : "은";
-      alerts.push({
-        type: "plain",
-        text: `이번달 ${label}${particle} ${days}일 ${verb}. 🔥`,
-        href: "/routine",
+      pushPlain("routine_month", `이번달 ${label}${particle} ${days}일 ${verb}. 🔥`, "/routine", {
+        label,
+        N: days,
+        verb,
       });
     }
   }
@@ -298,22 +317,13 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const inAntivisionWindow = hour >= 8 && hour < 15;
   const antivisionSeed = (parseInt(today.replace(/-/g, ""), 10) + 1) % 3;
   if (inAntivisionWindow && antivisionSeed === 0) {
-    alerts.push({
-      type: "plain",
-      text: "지금 멍때리고 있다면 안티비젼에 답변해보세요.",
-      href: "/",
-    });
+    pushPlain("antivision", "지금 멍때리고 있다면 안티비젼에 답변해보세요.", "/");
   }
 
-  // --- 갓생 (저녁 9시 ~ 새벽 3시 사이에 랜덤으로 한 번) ---
+  // --- 갓생 (저녁 9시 ~ 새벽 3시 사이 매일) ---
   const inSleepWindow = hour >= 21 || hour < 3;
-  const sleepSeed = (parseInt(today.replace(/-/g, ""), 10) + 2) % 3;
-  if (inSleepWindow && sleepSeed === 0) {
-    alerts.push({
-      type: "plain",
-      text: "갓생의 시작은 일찍 자는 것부터입니다.",
-      href: "/",
-    });
+  if (inSleepWindow) {
+    pushPlain("godsae", "갓생의 시작은 일찍 자는 것부터입니다.", "/");
   }
 
   // --- 헬스장 루틴: 오늘 기준 어제부터 연속 미달성/달성 문구 ---
@@ -321,71 +331,58 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const gymItems = routineItems.filter((it) => it.title.includes("헬스"));
   const gymIds = new Set(gymItems.map((it) => it.id));
   const label = "헬스장";
-  if (gymItems.length > 0) {
+  if (gymItems.length > 0 && !overrides["gym"]?.disabled) {
     const didOnDate = (dateStr: string) =>
       (routineCompletions[dateStr] ?? []).some((id) => gymIds.has(id));
     const didYesterday = didOnDate(yesterday);
+    let gymN = 0;
     if (!didYesterday) {
-      // 연속 미달성: 어제부터 거슬러 올라가며 안 한 일수
-      let missDays = 0;
       for (let d = 1; d <= 365; d++) {
         const dateStr = addDays(today, -d);
         if (didOnDate(dateStr)) break;
-        missDays = d;
-      }
-      if (missDays === 1) {
-        alerts.push({
-          type: "plain",
-          text: "어제 헬스장 안 갔어요! ⚠️",
-          href: "/routine",
-        });
-      } else {
-        alerts.push({
-          type: "plain",
-          text: `${missDays}일째 ${label} 안 가고 있어요! ⚠️`,
-          href: "/routine",
-        });
+        gymN = d;
       }
     } else {
-      // 연속 달성: 어제부터 거슬러 올라가며 한 일수
-      let streak = 0;
       for (let d = 1; d <= 365; d++) {
         const dateStr = addDays(today, -d);
         if (!didOnDate(dateStr)) break;
-        streak = d;
+        gymN = d;
       }
-      if (streak === 1) {
-        alerts.push({
-          type: "plain",
-          text: "어제 헬스장 갔어요! 오늘도 도전? 💪",
-          href: "/routine",
-        });
-      } else {
-        // 신기록 여부: 현재 구간보다 이전 데이터만 보고 최대 연속 일수 계산
-        const firstDayOfCurrent = addDays(today, -streak);
-        const pastGymDates = (Object.keys(routineCompletions) as string[])
-          .filter((dateStr) => dateStr < firstDayOfCurrent && didOnDate(dateStr))
-          .sort();
-        let maxPastStreak = 0;
-        let run = 0;
-        let prev = "";
-        for (const d of pastGymDates) {
-          if (prev === "" || addDays(prev, 1) === d) {
-            run += 1;
-          } else {
-            run = 1;
-          }
-          if (run > maxPastStreak) maxPastStreak = run;
-          prev = d;
+    }
+    if (overrides["gym"]?.customText?.trim()) {
+      pushPlain("gym", overrides["gym"].customText!.trim(), "/routine", { N: gymN });
+    } else {
+      if (!didYesterday) {
+        if (gymN === 1) {
+          pushPlain("gym", "어제 헬스장 안 갔어요! ⚠️", "/routine");
+        } else {
+          pushPlain("gym", `${gymN}일째 ${label} 안 가고 있어요! ⚠️`, "/routine", { N: gymN });
         }
-        const isNewRecord = streak > maxPastStreak;
-        alerts.push({
-          type: "plain",
-          text: isNewRecord
-            ? `${streak}일 연속 ${label}! 신기록이에요! 🎉`
-            : `${streak}일째 ${label}에 나가고 있어요! 💪`,
-          href: "/routine",
-        });
+      } else {
+        if (gymN === 1) {
+          pushPlain("gym", "어제 헬스장 갔어요! 오늘도 도전? 💪", "/routine");
+        } else {
+          const firstDayOfCurrent = addDays(today, -gymN);
+          const pastGymDates = (Object.keys(routineCompletions) as string[])
+            .filter((dateStr) => dateStr < firstDayOfCurrent && didOnDate(dateStr))
+            .sort();
+          let maxPastStreak = 0;
+          let run = 0;
+          let prev = "";
+          for (const d of pastGymDates) {
+            if (prev === "" || addDays(prev, 1) === d) run += 1;
+            else run = 1;
+            if (run > maxPastStreak) maxPastStreak = run;
+            prev = d;
+          }
+          const isNewRecord = gymN > maxPastStreak;
+          pushPlain(
+            "gym",
+            isNewRecord ? `${gymN}일 연속 ${label}! 신기록이에요! 🎉` : `${gymN}일째 ${label}에 나가고 있어요! 💪`,
+            "/routine",
+            { N: gymN }
+          );
+        }
       }
     }
   }
@@ -395,30 +392,25 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const didGymYesterday = gymItems.some((it) => completedYesterday.has(it.id));
   const muscleSeed = (parseInt(today.replace(/-/g, ""), 10) + 3) % 2;
   if (gymItems.length > 0 && !didGymYesterday && muscleSeed === 0) {
-    alerts.push({
-      type: "plain",
-      text: "근육 1kg은 1500만원의 가치가 있다.",
-      href: "/routine",
-    });
+    pushPlain("muscle", "근육 1kg은 1500만원의 가치가 있다.", "/routine");
   }
 
   // --- 당신의 속도대로 (날짜 시드로 가끔 표시) ---
   const paceSeed = (parseInt(today.replace(/-/g, ""), 10) + 5) % 4;
   if (paceSeed === 0) {
-    alerts.push({
-      type: "plain",
-      text: "당신의 속도대로 천천히.",
-      href: "/",
-    });
+    pushPlain("pace", "당신의 속도대로 천천히.", "/");
   }
 
-  // --- 가만히 있으면 (날짜 시드로 가끔 표시) ---
-  const stillnessSeed = (parseInt(today.replace(/-/g, ""), 10) + 7) % 5;
-  if (stillnessSeed === 0) {
+  // --- 가만히 있으면 (매일 표시) ---
+  pushPlain("stillness", "가만히 있으면 아무 변화도 없다.", "/");
+
+  // --- 사용자 추가 문구 ---
+  for (const item of customList) {
+    if (!isCustomAlertInTimeWindow(item, currentHour)) continue;
     alerts.push({
       type: "plain",
-      text: "가만히 있으면 아무 변화도 없다.",
-      href: "/",
+      text: item.text.trim() || item.text,
+      href: item.href?.trim() || "/",
     });
   }
 

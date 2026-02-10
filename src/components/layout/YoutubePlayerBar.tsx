@@ -7,6 +7,7 @@ import {
   loadPlaylistEntries,
   parseYoutubeUrl,
   youtubeWatchUrl,
+  youtubeAppUrl,
   type PlaylistEntry,
 } from "@/lib/youtubePlaylistDb";
 
@@ -206,8 +207,8 @@ export function YoutubePlayerBar() {
 
   const togglePlay = () => {
     if (isMobile && current) {
-      const url = youtubeWatchUrl(videoId!, startSeconds);
-      window.open(url, "_blank", "noopener");
+      const url = youtubeAppUrl(videoId!, startSeconds);
+      window.location.href = url;
       return;
     }
     if (playerRef.current) {
@@ -259,7 +260,7 @@ export function YoutubePlayerBar() {
       e.preventDefault();
       if (isMobile) {
         const { videoId: v, startSeconds: s } = parseYoutubeUrl(current.url);
-        window.open(youtubeWatchUrl(v!, s), "_blank", "noopener");
+        window.location.href = youtubeAppUrl(v!, s);
         return;
       }
       const p = playerRef.current;
@@ -432,20 +433,16 @@ export function YoutubePlayerBar() {
                         }`}
                       >
                         <span
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums ${
-                            index === currentIndex ? "bg-white/20 text-white" : "bg-neutral-200/80 text-neutral-600"
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center ${
+                            index === currentIndex ? "text-white" : "text-neutral-500"
                           }`}
+                          aria-hidden
                         >
-                          {index + 1}
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
                         </span>
                         <span className="min-w-0 flex-1 truncate font-medium">{entry.title || "—"}</span>
-                        {index === currentIndex && (
-                          <span className="shrink-0 text-white/80" aria-hidden>
-                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </span>
-                        )}
                       </button>
                     </li>
                   ))
