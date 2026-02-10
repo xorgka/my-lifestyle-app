@@ -526,7 +526,7 @@ export default function SleepPage() {
           document.body
         )}
 
-      {/* 일주일: Y축 시간 차트 (막대 위=기상, 아래=취침) */}
+      {/* 일주일: Y축 시간 차트 (막대 위=취침, 아래=기상) */}
       <Card className="min-w-0 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-neutral-900">일주일</h2>
@@ -639,16 +639,16 @@ export default function SleepPage() {
                               <span
                                 className="absolute -left-4 -right-4 top-0 h-1/3 min-h-[14px] cursor-default"
                                 style={{ marginTop: "-7px" }}
-                                onMouseEnter={(e) => wakeTime && setBarTooltip({ text: `기상 ${wakeTime}`, x: e.clientX, y: e.clientY })}
-                                onMouseMove={(e) => wakeTime && setBarTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
+                                onMouseEnter={(e) => bedTime && setBarTooltip({ text: `취침 ${bedTime}`, x: e.clientX, y: e.clientY })}
+                                onMouseMove={(e) => bedTime && setBarTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                                 onMouseLeave={() => setBarTooltip(null)}
                                 onClick={(e) => e.stopPropagation()}
                               />
                               <span
                                 className="absolute -left-4 -right-4 bottom-0 h-1/3 min-h-[14px] cursor-default"
                                 style={{ marginBottom: "-7px" }}
-                                onMouseEnter={(e) => bedTime && setBarTooltip({ text: `취침 ${bedTime}`, x: e.clientX, y: e.clientY })}
-                                onMouseMove={(e) => bedTime && setBarTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
+                                onMouseEnter={(e) => wakeTime && setBarTooltip({ text: `기상 ${wakeTime}`, x: e.clientX, y: e.clientY })}
+                                onMouseMove={(e) => wakeTime && setBarTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                                 onMouseLeave={() => setBarTooltip(null)}
                                 onClick={(e) => e.stopPropagation()}
                               />
