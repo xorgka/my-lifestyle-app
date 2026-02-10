@@ -68,27 +68,29 @@ function getSleepSegments(bedTime?: string, wakeTime?: string): { from: number; 
   return [{ from: bedR, to: wakeR }];
 }
 
-/** Y축 06:00(위)~05:00(아래). 막대 위=기상 시각, 막대 아래=취침 시각 (Y축 시각과 정확히 일치) */
-const CHART_MIN_MINUTES = 6 * 60; // 06:00
-const CHART_MAX_MINUTES = 24 * 60 + 5 * 60; // 05:00 다음날 = 1740
-const CHART_SPAN_MINUTES = CHART_MAX_MINUTES - CHART_MIN_MINUTES; // 1380
+/** Y축 20시(위)~다음날 20시(아래) 24시간 한 바퀴. 시각 위치와 막대 길이(수면시간) 둘 다 맞음 */
+const CHART_START_MINUTES = 20 * 60; // 20:00 = 0%
+const CHART_SPAN_MINUTES = 24 * 60; // 1440
+
+/** 시각(분 0~1439)을 차트 Y 위치 %로. 20:00=0%, 23:00=12.5%, 02:00=25%, … 20:00=100% */
+function timeToChartPercent(minFromMidnight: number): number {
+  const t = minFromMidnight >= CHART_START_MINUTES ? minFromMidnight - CHART_START_MINUTES : minFromMidnight + (1440 - CHART_START_MINUTES);
+  return (t / CHART_SPAN_MINUTES) * 100;
+}
 
 function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPercent: number; heightPercent: number } | null {
   if (!bedTime || !wakeTime) return null;
   const bed = timeToMinutes(bedTime);
   let wake = timeToMinutes(wakeTime);
   if (wake <= bed) wake += 1440;
-  // 차트 구간(06:00~다음날 05:00) 기준으로 정규화: 06:00 이전이면 다음날로 간주
-  const bedNorm = bed < CHART_MIN_MINUTES ? bed + 1440 : bed;
-  const wakeNorm = wake > 1440 ? wake - 1440 : wake;
-  const wakeNorm2 = wakeNorm < CHART_MIN_MINUTES ? wakeNorm + 1440 : wakeNorm;
-  const topPercent = ((wakeNorm2 - CHART_MIN_MINUTES) / CHART_SPAN_MINUTES) * 100;
-  const bedPercent = ((bedNorm - CHART_MIN_MINUTES) / CHART_SPAN_MINUTES) * 100;
-  const heightPercent = Math.max(2, bedPercent - topPercent);
+  const wakePercent = timeToChartPercent(wake > 1440 ? wake - 1440 : wake);
+  const bedPercent = timeToChartPercent(bed);
+  const topPercent = wakePercent;
+  const heightPercent = Math.max(2, wakePercent - bedPercent);
   return { topPercent, heightPercent };
 }
 
-const CHART_TIME_LABELS = ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "00:00", "03:00", "05:00"];
+const CHART_TIME_LABELS = ["20", "23", "02", "05", "08", "11", "14", "17", "20"];
 
 export default function SleepPage() {
   const [data, setData] = useState<SleepData>({});
