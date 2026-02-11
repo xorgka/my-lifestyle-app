@@ -21,7 +21,6 @@ import {
   permanentDeleteNote,
   resetNoteLocalData,
 } from "@/lib/noteDb";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 export default function NotePage() {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
@@ -36,7 +35,6 @@ export default function NotePage() {
     confirmLabel?: string;
   } | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     if (typeof window !== "undefined" && !window.localStorage.getItem("my-lifestyle-note-reset-done-v1")) {
@@ -64,16 +62,11 @@ export default function NotePage() {
     setNotes(noteList);
     setTrashNotes(trashList);
     setSelectedNoteId((prev) => {
+      if (typeof window !== "undefined" && window.innerWidth < 768) return null;
       if (prev && (noteList.some((n) => n.id === prev) || trashList.some((n) => n.id === prev))) return prev;
       return noteList[0]?.id ?? trashList[0]?.id ?? null;
     });
-    setSyncing(false);
   }, []);
-
-  const refreshSync = useCallback(() => {
-    setSyncing(true);
-    load();
-  }, [load]);
 
   useEffect(() => {
     load();
@@ -229,30 +222,6 @@ export default function NotePage() {
         title="노트"
         subtitle="긴글을 적고, 노트북으로 묶어서 볼 수 있어요."
       />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-neutral-500">
-          {isSupabaseConfigured ? (
-            <>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-                기기·브라우저 연동됨
-              </span>
-              <button
-                type="button"
-                onClick={refreshSync}
-                disabled={syncing}
-                className="rounded-lg px-2 py-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50"
-              >
-                {syncing ? "동기화 중…" : "동기화 새로고침"}
-              </button>
-            </>
-          ) : (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
-              이 기기만 저장됨 (연동하려면 Supabase 설정 필요)
-            </span>
-          )}
-        </div>
-      </div>
       <MemoNoteTabs
         notesForSearch={notes}
         trashNotesForSearch={trashNotes}
