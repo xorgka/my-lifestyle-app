@@ -104,6 +104,17 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </>
       )}
 
+      {/* 모바일 전용: 우측 하단 타임테이블 플로팅 버튼 (햄버거와 동일 스타일) */}
+      <Link
+        href="/routine/timetable"
+        className="fixed bottom-6 right-4 z-40 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl bg-white/90 shadow-lg ring-1 ring-black/5 backdrop-blur-xl md:hidden [bottom:max(1.5rem,env(safe-area-inset-bottom))] [right:max(1rem,env(safe-area-inset-right))]"
+        aria-label="타임테이블"
+      >
+        <svg className="h-5 w-5 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        </svg>
+      </Link>
+
       <div className="mx-auto flex w-full max-w-7xl gap-7">
         {/* 데스크톱에만 사이드바 컬럼 (모바일은 드로어에 Sidebar 있음 → 플레이어 1개만) */}
         {!isMobile && (
