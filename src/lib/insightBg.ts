@@ -3,6 +3,8 @@
  * - auto: Picsum 자동 (12시간마다)
  * - single: URL 1개 고정
  * - list: 여러 URL 목록, 12시간마다 순환
+ * - 새로고침/탭 전환 후에도 유지됨
+ * - 기기 간 동기화를 원하면 Supabase user_settings 등에 저장하도록 연동 가능
  */
 
 const INSIGHT_BG_SETTINGS_KEY = "insight-bg-settings";

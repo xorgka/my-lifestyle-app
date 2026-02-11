@@ -529,7 +529,7 @@ export function TodayInsightHero({ title }: TodayInsightHeroProps) {
         </div>
       </div>
       <Link href="/insight?tab=system" className="mt-auto block min-w-0 no-underline" aria-label="문장 관리 페이지로 이동">
-        <div className="font-insight-serif insight-quote-wrap max-h-[50vh] min-w-0 cursor-pointer overflow-y-auto text-[1.0625rem] font-semibold leading-relaxed text-white md:text-[1.25rem] hover:text-white/95 [text-shadow:0_1px_3px_rgba(0,0,0,0.5),0_0_10px_rgba(0,0,0,0.4)]" lang="ko">
+        <div className="font-insight-serif insight-quote-wrap max-h-[40vh] min-h-0 min-w-0 cursor-pointer overflow-y-auto text-[1.0625rem] font-semibold leading-relaxed text-white md:max-h-[50vh] md:text-[1.25rem] hover:text-white/95 [text-shadow:0_1px_3px_rgba(0,0,0,0.5),0_0_10px_rgba(0,0,0,0.4)]" lang="ko">
           {lines.map((line, i) => (
             <span key={i} lang="ko">
               {i > 0 && <br />}

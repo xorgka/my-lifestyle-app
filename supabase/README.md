@@ -55,6 +55,19 @@ RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막�
 
 환경 변수 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`가 설정된 상태에서 사용하면 새로고침해도 데이터가 유지되고, 다른 기기에서도 동일하게 보입니다.
 
+### (선택) 날씨 박스·인사이트 배경 기기 간 동기화
+
+**날씨 박스 배경**과 **투데이 인사이트 배경** 설정은 기본적으로 **localStorage**에만 저장됩니다.  
+새로고침·탭 전환·다른 브라우저로 다시 열어도 **같은 기기/같은 브라우저**에서는 유지됩니다.
+
+**다른 기기(PC↔모바일)나 다른 브라우저 간에 설정을 맞추고 싶다면** 아래를 적용할 수 있습니다.
+
+1. **Supabase SQL Editor → New query**에서 **`migration-user-display-settings.sql`** 전체 내용을 붙여넣고 **Run** 실행  
+   → `user_display_settings` 테이블이 생성됩니다.
+2. 앱 코드에서 `weatherBg.ts` / `insightBg.ts`가 Supabase가 연결되어 있을 때 이 테이블을 읽고 쓰도록 연동하면, 기기·브라우저 간에 배경 설정이 동기화됩니다.
+
+(현재 앱은 이 테이블을 사용하지 않으며, **이 마이그레이션을 실행하지 않아도** 날씨·인사이트 배경 설정은 localStorage로 정상 동작합니다.)
+
 ### 유튜브 채널 테이블만 추가 (이미 schema.sql 실행한 경우)
 
 유튜브 페이지를 Supabase로 쓰려면 **SQL Editor**에서 아래를 실행해 주세요.

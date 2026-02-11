@@ -43,13 +43,21 @@ export function InsightPhotoCard() {
   }, []);
 
   useEffect(() => {
-    const onStorage = () => {
+    const reRead = () => {
       const next = getInsightBgDisplayUrl();
       setCustomUrl(next);
       if (next) setCustomUrlFailed(false);
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("storage", reRead);
+    window.addEventListener("visibilitychange", reRead);
+    window.addEventListener("pageshow", reRead);
+    window.addEventListener("focus", reRead);
+    return () => {
+      window.removeEventListener("storage", reRead);
+      window.removeEventListener("visibilitychange", reRead);
+      window.removeEventListener("pageshow", reRead);
+      window.removeEventListener("focus", reRead);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,9 +116,9 @@ export function InsightPhotoCard() {
         style={{ backgroundImage: `url(${displayUrl})` }}
         aria-hidden
       />
-      <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-5">
+      <div className="absolute inset-0 flex items-center justify-center overflow-auto p-4 sm:p-5">
         <div
-          className="relative flex min-h-[320px] max-h-full w-full max-w-[300px] flex-col rounded-2xl border border-white/30 px-5 py-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:min-h-[360px] sm:max-w-[340px] sm:px-5 sm:py-5 [background:rgba(0,0,0,0.11)]"
+          className="insight-glass relative flex min-h-0 max-h-full w-full max-w-[300px] flex-col rounded-2xl border border-white/30 px-5 py-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:min-h-[320px] sm:max-w-[340px] sm:px-5 sm:py-5 [background:rgba(0,0,0,0.11)]"
           data-insight-glass
         >
           <TodayInsightHero

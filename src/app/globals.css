@@ -68,6 +68,11 @@ body {
   z-index: 1;
 }
 
+/* 날씨 카드용 블루 배경 (다른 스타일 덮어쓰기 방지) */
+.weather-card-bg {
+  background-color: #5a9fd4 !important;
+}
+
 /* 날씨 카드용 블루 그라데이션 + 질감 */
 .weather-card-texture {
   position: relative;
@@ -83,9 +88,16 @@ body {
   pointer-events: none;
   mix-blend-mode: multiply;
 }
-.weather-card-texture > * {
+/* 콘텐츠만 위로 (배경 레이어는 z-index 인라인으로 0 유지) */
+.weather-card-texture > *:not([aria-hidden]) {
   position: relative;
   z-index: 1;
+}
+
+/* 글래스모피즘: Safari 등 구형 브라우저 호환 (-webkit-backdrop-filter) */
+.insight-glass {
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
 }
 
 /* 위젯 카드용 그레인 텍스처 */

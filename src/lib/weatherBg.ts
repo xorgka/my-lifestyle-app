@@ -1,6 +1,8 @@
 /**
  * 날씨 박스 배경: 날씨별 이미지 URL 목록 (localStorage)
  * 테마당 여러 URL 등록 가능, 표시 시 그중 하나 랜덤 선택
+ * - 새로고침/탭 전환 후에도 유지됨
+ * - 기기 간 동기화를 원하면 Supabase user_settings 등에 저장하도록 연동 가능
  */
 
 import type { WeatherThemeId } from "@/lib/weather";
@@ -14,6 +16,7 @@ function readRaw(): string | null {
   try {
     return window.localStorage.getItem(WEATHER_BG_SETTINGS_KEY);
   } catch {
+    /* 시크릿/일부 환경에서 localStorage 접근 불가 */
     return null;
   }
 }
