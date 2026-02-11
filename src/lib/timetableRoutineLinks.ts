@@ -6,6 +6,7 @@
 import { supabase } from "./supabase";
 
 const STORAGE_KEY = "timetable-routine-links";
+const TEMPLATE_STORAGE_KEY = "timetable-routine-template-links"; // (시간대\0텍스트) → 루틴 ID. 항목 구성이 다른 날에도 같은 시간·텍스트면 연동 적용
 const TABLE_NAME = "timetable_routine_links";
 
 function loadFromStorage(): Record<string, number> {
@@ -81,10 +82,52 @@ export async function loadTimetableRoutineLinks(): Promise<Record<string, number
   return merged;
 }
 
-/** 타임테이블 항목에 연동된 루틴 항목 ID. links는 loadTimetableRoutineLinks() 결과 */
-export function getRoutineIdByTimetableId(links: Record<string, number>, timetableItemId: string): number | null {
-  const id = links[timetableItemId];
-  return id != null ? id : null;
+function loadTemplateFromStorage(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    if (typeof parsed !== "object" || parsed === null) return {};
+    const out: Record<string, number> = {};
+    Object.entries(parsed).forEach(([k, v]) => {
+      const num = Number(v);
+      if (!Number.isNaN(num)) out[k] = num;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function saveTemplateToStorage(template: Record<string, number>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(template));
+  } catch {}
+}
+
+/** (시간대+텍스트) 템플릿 연동 로드. 항목 구성이 다른 날에도 같은 시간·텍스트면 연동 적용 */
+export function loadTimetableTemplateLinks(): Record<string, number> {
+  return loadTemplateFromStorage();
+}
+
+/** 타임테이블 항목에 연동된 루틴 항목 ID. links는 loadTimetableRoutineLinks() 결과. slotTime+itemText 있으면 템플릿 연동도 조회 */
+export function getRoutineIdByTimetableId(
+  links: Record<string, number>,
+  timetableItemId: string,
+  slotTime?: string,
+  itemText?: string,
+  templateLinks?: Record<string, number>
+): number | null {
+  const byId = links[timetableItemId];
+  if (byId != null) return byId;
+  if (slotTime != null && itemText != null && templateLinks) {
+    const key = `${slotTime}\0${itemText}`;
+    const byTemplate = templateLinks[key];
+    if (byTemplate != null) return byTemplate;
+  }
+  return null;
 }
 
 /** 루틴 항목과 연동된 타임테이블 항목 ID 목록. links는 loadTimetableRoutineLinks() 결과 */
@@ -94,11 +137,32 @@ export function getTimetableIdsByRoutineId(links: Record<string, number>, routin
     .map(([tid]) => tid);
 }
 
-/** 연동 설정/해제. routineItemId null이면 연동 해제. currentLinks 있으면 그걸 기준으로 갱신(기기 동기화 시 권장) */
+/** 해당 날짜(day)에서 이 루틴과 연동된 타임테이블 항목 ID 목록. item-id 연동 + (시간·텍스트) 템플릿 연동 포함 */
+export function getTimetableItemIdsForRoutineInDay(
+  day: { slots: { time: string; items: { id: string; text: string }[] }[] },
+  links: Record<string, number>,
+  templateLinks: Record<string, number>,
+  routineItemId: number
+): string[] {
+  const byId = getTimetableIdsByRoutineId(links, routineItemId);
+  const inDay = new Set(day.slots.flatMap((s) => s.items.map((i) => i.id)));
+  const fromIds = byId.filter((id) => inDay.has(id));
+  const fromTemplate: string[] = [];
+  day.slots.forEach((s) => {
+    s.items.forEach((i) => {
+      if (templateLinks[`${s.time}\0${i.text}`] === routineItemId) fromTemplate.push(i.id);
+    });
+  });
+  return [...new Set([...fromIds, ...fromTemplate])];
+}
+
+/** 연동 설정/해제. routineItemId null이면 연동 해제. slotTime+itemText 주면 템플릿에도 저장(다른 날 같은 시간·텍스트 항목에 적용) */
 export async function setTimetableRoutineLink(
   timetableItemId: string,
   routineItemId: number | null,
-  currentLinks?: Record<string, number>
+  currentLinks?: Record<string, number>,
+  slotTime?: string,
+  itemText?: string
 ): Promise<void> {
   const links = currentLinks != null ? { ...currentLinks } : loadFromStorage();
   if (routineItemId == null) {
@@ -108,6 +172,13 @@ export async function setTimetableRoutineLink(
   }
   saveToStorage(links);
   await saveToSupabase(links);
+  if (slotTime != null && itemText != null) {
+    const template = loadTemplateFromStorage();
+    const key = `${slotTime}\0${itemText}`;
+    if (routineItemId == null) delete template[key];
+    else template[key] = routineItemId;
+    saveTemplateToStorage(template);
+  }
 }
 
 /** 항목 삭제 시 해당 연동 제거. currentLinks 있으면 그걸 기준으로 갱신 */
@@ -118,7 +189,7 @@ export async function removeLinkByTimetableId(
   await setTimetableRoutineLink(timetableItemId, null, currentLinks);
 }
 
-/** 이전 날짜에서 복사된 날의 연동을 새 항목 ID로 복사. (시간대+텍스트)가 같은 항목끼리 매칭 */
+/** 이전 날짜에서 복사된 날의 연동을 새 항목 ID로 복사. (시간대+텍스트)가 같은 항목끼리 매칭. 기존 날짜들의 연동은 그대로 유지 */
 export async function copyLinksForCopiedDay(
   prevDay: { slots: { time: string; items: { id: string; text: string }[] }[] },
   newDay: { slots: { time: string; items: { id: string; text: string }[] }[] },
@@ -132,11 +203,7 @@ export async function copyLinksForCopiedDay(
   newDay.slots.forEach((s) => {
     s.items.forEach((i) => newKeyToId.set(`${s.time}\0${i.text}`, i.id));
   });
-  const oldIds = new Set(prevDay.slots.flatMap((s) => s.items.map((i) => i.id)));
-  const next: Record<string, number> = {};
-  Object.entries(currentLinks).forEach(([tid, rid]) => {
-    if (!oldIds.has(tid)) next[tid] = rid;
-  });
+  const next = { ...currentLinks };
   prevKeyToId.forEach((oldId, key) => {
     const routineId = currentLinks[oldId];
     if (routineId == null) return;

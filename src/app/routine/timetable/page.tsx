@@ -14,6 +14,7 @@ import {
 } from "@/lib/timetableDb";
 import {
   loadTimetableRoutineLinks,
+  loadTimetableTemplateLinks,
   getRoutineIdByTimetableId,
   setTimetableRoutineLink,
   removeLinkByTimetableId,
@@ -60,7 +61,18 @@ export default function TimetablePage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [routineItems, setRoutineItems] = useState<RoutineItem[]>([]);
   const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
+  const [templateLinks, setTemplateLinks] = useState<Record<string, number>>({});
   const [reorderState, setReorderState] = useState<{ slotId: string; itemId: string } | null>(null);
+
+  /** 항목 ID로 슬롯 시간·텍스트 찾기 (템플릿 연동 조회용) */
+  const getSlotTimeAndText = useCallback((d: DayTimetable | null, itemId: string): { time: string; text: string } | null => {
+    if (!d) return null;
+    for (const slot of d.slots) {
+      const item = slot.items.find((i) => i.id === itemId);
+      if (item) return { time: slot.time, text: item.text };
+    }
+    return null;
+  }, []);
   const timeInputRef = useRef<HTMLInputElement>(null);
   const itemInputRef = useRef<HTMLInputElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,6 +89,7 @@ export default function TimetablePage() {
   }, []);
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
+    setTemplateLinks(loadTimetableTemplateLinks());
   }, []);
 
   const load = useCallback(async (key: string) => {
@@ -139,13 +152,20 @@ export default function TimetablePage() {
       const next = { ...day, completedIds: Array.from(completed) };
       const isNowCompleted = completed.has(itemId);
       persist(next).then(() => {
-        const routineId = getRoutineIdByTimetableId(routineLinks, itemId);
+        const st = getSlotTimeAndText(day, itemId);
+        const routineId = getRoutineIdByTimetableId(
+          routineLinks,
+          itemId,
+          st?.time,
+          st?.text,
+          templateLinks
+        );
         if (routineId != null) {
           toggleRoutineCompletion(dateKey, routineId, isNowCompleted).catch(() => {});
         }
       });
     },
-    [day, persist, dateKey, routineLinks]
+    [day, persist, dateKey, routineLinks, templateLinks, getSlotTimeAndText]
   );
 
   const updateSlotTime = useCallback(
@@ -216,8 +236,10 @@ export default function TimetablePage() {
       routineIdsByIndex?.forEach((rid, i) => {
         if (newItems[i] && rid != null) {
           const tid = newItems[i].id;
-          setTimetableRoutineLink(tid, rid, { ...routineLinks, [tid]: rid }).then(() => {
+          const text = newItems[i].text;
+          setTimetableRoutineLink(tid, rid, { ...routineLinks, [tid]: rid }, t, text).then(() => {
             setRoutineLinks((prev) => ({ ...prev, [tid]: rid }));
+            setTemplateLinks(loadTimetableTemplateLinks());
           });
         }
       });
@@ -460,15 +482,23 @@ export default function TimetablePage() {
             {itemModal && (
               <ItemEditModal
                 initialText={itemModal.text}
-                initialRoutineId={getRoutineIdByTimetableId(routineLinks, itemModal.itemId)}
+                initialRoutineId={getRoutineIdByTimetableId(
+                  routineLinks,
+                  itemModal.itemId,
+                  day?.slots.find((s) => s.id === itemModal.slotId)?.time,
+                  itemModal.text,
+                  templateLinks
+                )}
                 routineItems={routineItems}
                 onSave={(text, routineId) => {
                   updateItemText(itemModal.slotId, itemModal.itemId, text);
+                  const slotTime = day?.slots.find((s) => s.id === itemModal.slotId)?.time;
                   const nextLinks = { ...routineLinks };
                   if (routineId == null) delete nextLinks[itemModal.itemId];
                   else nextLinks[itemModal.itemId] = routineId;
-                  setTimetableRoutineLink(itemModal.itemId, routineId ?? null, routineLinks).then(() => {
+                  setTimetableRoutineLink(itemModal.itemId, routineId ?? null, routineLinks, slotTime, text).then(() => {
                     setRoutineLinks(nextLinks);
+                    setTemplateLinks(loadTimetableTemplateLinks());
                   });
                   setItemModal(null);
                 }}

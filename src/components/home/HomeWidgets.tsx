@@ -5,7 +5,7 @@ import Link from "next/link";
 import { loadJournalEntries } from "@/lib/journal";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { loadTimetableForDate, saveTimetableForDate, getTodayKey, type DayTimetable, type TimetableSlot } from "@/lib/timetableDb";
-import { loadTimetableRoutineLinks, getRoutineIdByTimetableId } from "@/lib/timetableRoutineLinks";
+import { loadTimetableRoutineLinks, loadTimetableTemplateLinks, getRoutineIdByTimetableId } from "@/lib/timetableRoutineLinks";
 
 function todayStr(): string {
   const d = new Date();
@@ -56,6 +56,7 @@ export function HomeWidgets() {
   const [routineProgress, setRoutineProgress] = useState<number | null>(null);
   const [dayTimetable, setDayTimetable] = useState<DayTimetable | null>(null);
   const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
+  const [templateLinks, setTemplateLinks] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +95,7 @@ export function HomeWidgets() {
 
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
+    setTemplateLinks(loadTimetableTemplateLinks());
   }, []);
 
   const [now, setNow] = useState(() => new Date());
@@ -110,6 +112,16 @@ export function HomeWidgets() {
 
   const handleTimetableToggle = async (itemId: string) => {
     if (!dayTimetable) return;
+    let slotTime: string | undefined;
+    let itemText: string | undefined;
+    for (const slot of dayTimetable.slots) {
+      const item = slot.items.find((i) => i.id === itemId);
+      if (item) {
+        slotTime = slot.time;
+        itemText = item.text;
+        break;
+      }
+    }
     const completed = new Set(dayTimetable.completedIds);
     const isCompleted = completed.has(itemId);
     if (isCompleted) completed.delete(itemId);
@@ -118,7 +130,7 @@ export function HomeWidgets() {
     const next = { ...dayTimetable, completedIds };
     setDayTimetable(next);
     await saveTimetableForDate(getTodayKey(), next);
-    const routineId = getRoutineIdByTimetableId(routineLinks, itemId);
+    const routineId = getRoutineIdByTimetableId(routineLinks, itemId, slotTime, itemText, templateLinks);
     if (routineId != null) {
       toggleRoutineCompletion(getTodayKey(), routineId, !isCompleted).catch(() => {});
     }

@@ -13,7 +13,7 @@ import {
   saveRoutineCompletions,
   type RoutineItem,
 } from "@/lib/routineDb";
-import { loadTimetableRoutineLinks, getTimetableIdsByRoutineId } from "@/lib/timetableRoutineLinks";
+import { loadTimetableRoutineLinks, loadTimetableTemplateLinks, getTimetableItemIdsForRoutineInDay } from "@/lib/timetableRoutineLinks";
 import { loadTimetableForDate, saveTimetableForDate } from "@/lib/timetableDb";
 
 const KEEP_DAILY_MONTHS = 12; // 이 기간만 보관, 그 이전 데이터는 자동 삭제
@@ -96,9 +96,11 @@ export default function RoutinePage() {
   const [isNarrowView, setIsNarrowView] = useState(false);
   /** 타임테이블↔루틴 연동 (기기 동기화) */
   const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
+  const [templateLinks, setTemplateLinks] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
+    setTemplateLinks(loadTimetableTemplateLinks());
   }, []);
 
   useEffect(() => {
@@ -184,18 +186,17 @@ export default function RoutinePage() {
         return { ...prev, [dateKey]: next };
       });
       if (!isCompleted && dateKey === todayKey) fireConfetti();
-      const timetableIds = getTimetableIdsByRoutineId(routineLinks, id);
-      if (timetableIds.length > 0) {
-        loadTimetableForDate(dateKey).then((result) => {
+      loadTimetableForDate(dateKey).then((result) => {
           const day = result.day;
+          const timetableIds = getTimetableItemIdsForRoutineInDay(day, routineLinks, templateLinks, id);
+          if (timetableIds.length === 0) return;
           const completed = new Set(day.completedIds);
           if (newCompleted) timetableIds.forEach((tid) => completed.add(tid));
           else timetableIds.forEach((tid) => completed.delete(tid));
           saveTimetableForDate(dateKey, { ...day, completedIds: Array.from(completed) }).catch(() => {});
         });
-      }
     },
-    [listViewDateKey, dailyCompletions, todayKey, isDragging, routineLinks]
+    [listViewDateKey, dailyCompletions, todayKey, isDragging, routineLinks, templateLinks]
   );
 
   const startEdit = (item: RoutineItem) => {
