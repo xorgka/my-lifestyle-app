@@ -264,7 +264,13 @@ export async function restoreNote(noteId: string): Promise<void> {
 
 export async function permanentDeleteNote(noteId: string): Promise<void> {
   const all = await loadAllNotes();
-  await saveNotes(all.filter((n) => n.id !== noteId));
+  const next = all.filter((n) => n.id !== noteId);
+  await saveNotes(next);
+  if (supabase) {
+    try {
+      await supabase.from("note_notes").delete().eq("id", noteId);
+    } catch {}
+  }
 }
 
 const NOTE_RESET_KEY = "my-lifestyle-note-one-notebook-reset";
