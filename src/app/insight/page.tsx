@@ -92,8 +92,10 @@ function InsightPageContent() {
     if (!insightBgModalOpen) return;
     const s = getInsightBgSettings();
     setInsightBgMode(s.mode);
-    if (s.mode === "single") setInsightBgSingleUrl(s.url);
+    if (s.mode === "single") setInsightBgSingleUrl(s.url ?? "");
+    else if ("url" in s && s.url) setInsightBgSingleUrl(s.url);
     if (s.mode === "list") setInsightBgListUrls(s.urls.length > 0 ? s.urls : [""]);
+    else if ("urls" in s && Array.isArray(s.urls) && s.urls.length > 0) setInsightBgListUrls(s.urls);
     const w = getWeatherBgSettings();
     const themeIds: WeatherThemeId[] = ["clear", "partlyCloudy", "fog", "rain", "snow", "showers", "thunderstorm", "overcast"];
     setWeatherBgUrls((prev) => {
@@ -691,10 +693,10 @@ function InsightPageContent() {
               onClick={() => setInsightBgModalOpen(false)}
             />
             <div
-              className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+              className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="mb-4 flex items-center justify-between">
+              <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 p-4">
                 <h2 id="insight-bg-modal-title" className="text-base font-semibold text-neutral-800">
                   배경 설정
                 </h2>
@@ -709,7 +711,7 @@ function InsightPageContent() {
                   </svg>
                 </button>
               </div>
-              <div className="mb-4 flex gap-2 border-b border-neutral-200 pb-3">
+              <div className="flex shrink-0 gap-2 border-b border-neutral-200 px-4 pb-3">
                 <button
                   type="button"
                   onClick={() => setBgSettingTab("insight")}
@@ -725,6 +727,7 @@ function InsightPageContent() {
                   날씨 박스 배경
                 </button>
               </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {bgSettingTab === "insight" && (
               <>
               <p className="mb-4 text-xs text-neutral-500">
@@ -835,8 +838,6 @@ function InsightPageContent() {
                     onClick={() => {
                       setInsightBgSettings({ mode: "auto" });
                       setInsightBgMode("auto");
-                      setInsightBgSingleUrl("");
-                      setInsightBgListUrls([""]);
                       setInsightBgSaved(true);
                       setTimeout(() => setInsightBgSaved(false), 2000);
                     }}
@@ -856,7 +857,7 @@ function InsightPageContent() {
               <p className="mb-4 text-xs text-neutral-500">
                 날씨별로 이미지 URL을 여러 장씩 등록할 수 있어요. 해당 날씨일 때 그중 한 장이 랜덤으로 배경에 표시돼요.
               </p>
-              <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+              <div className="space-y-4 pr-1">
                 {(
                   [
                     ["clear", "맑음"],
@@ -938,6 +939,7 @@ function InsightPageContent() {
               </div>
               </>
               )}
+              </div>
             </div>
           </div>,
           document.body

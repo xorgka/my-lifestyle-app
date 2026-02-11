@@ -13,10 +13,11 @@ const INSIGHT_BG_LIST_INDEX_KEY = "insight-bg-list-index"; // list 모드에서 
 
 export type InsightBgMode = "auto" | "single" | "list";
 
+/** 저장/반환 타입. mode가 auto여도 이전 single/list 값은 보존됨(자동 전환 시 URL 안 사라짐) */
 export type InsightBgSettings =
-  | { mode: "auto" }
-  | { mode: "single"; url: string }
-  | { mode: "list"; urls: string[] };
+  | { mode: "auto"; url?: string; urls?: string[] }
+  | { mode: "single"; url: string; urls?: string[] }
+  | { mode: "list"; urls: string[]; url?: string };
 
 function readRaw(): string | null {
   if (typeof window === "undefined") return null;
@@ -42,17 +43,21 @@ function migrateFromLegacy(): InsightBgSettings | null {
   return null;
 }
 
+/** 저장된 전체 객체 (mode + url/urls 보존용) */
+type Stored = { mode: InsightBgMode; url?: string; urls?: string[] };
+
 export function getInsightBgSettings(): InsightBgSettings {
   const raw = readRaw();
   if (raw) {
     try {
-      const parsed = JSON.parse(raw) as InsightBgSettings;
-      if (parsed.mode === "auto") return { mode: "auto" };
+      const parsed = JSON.parse(raw) as Stored;
+      if (!parsed || typeof parsed.mode !== "string") return { mode: "auto" };
+      if (parsed.mode === "auto") return { mode: "auto", url: parsed.url, urls: parsed.urls };
       if (parsed.mode === "single" && typeof parsed.url === "string" && parsed.url.trim())
-        return { mode: "single", url: parsed.url.trim() };
+        return { mode: "single", url: parsed.url.trim(), urls: parsed.urls };
       if (parsed.mode === "list" && Array.isArray(parsed.urls)) {
         const urls = parsed.urls.filter((u): u is string => typeof u === "string" && u.trim() !== "").map((u) => u.trim());
-        if (urls.length > 0) return { mode: "list", urls };
+        if (urls.length > 0) return { mode: "list", urls, url: parsed.url };
       }
     } catch {
       // fall through
@@ -63,10 +68,26 @@ export function getInsightBgSettings(): InsightBgSettings {
   return { mode: "auto" };
 }
 
-export function setInsightBgSettings(settings: InsightBgSettings): void {
+export function setInsightBgSettings(settings: Partial<InsightBgSettings> | InsightBgSettings): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(INSIGHT_BG_SETTINGS_KEY, JSON.stringify(settings));
+    if (settings.mode === "auto" && Object.keys(settings).length <= 1) {
+      const current = getInsightBgSettings();
+      const merged: Stored = {
+        mode: "auto",
+        url: "url" in current ? current.url : undefined,
+        urls: "urls" in current ? current.urls : undefined,
+      };
+      window.localStorage.setItem(INSIGHT_BG_SETTINGS_KEY, JSON.stringify(merged));
+      return;
+    }
+    const toSave: Stored =
+      settings.mode === "single" && "url" in settings
+        ? { mode: "single", url: settings.url }
+        : settings.mode === "list" && "urls" in settings
+          ? { mode: "list", urls: settings.urls }
+          : { mode: settings.mode ?? "auto" };
+    window.localStorage.setItem(INSIGHT_BG_SETTINGS_KEY, JSON.stringify(toSave));
   } catch {
     // ignore
   }
