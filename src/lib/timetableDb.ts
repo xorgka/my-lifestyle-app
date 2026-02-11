@@ -59,6 +59,28 @@ function deepCopyDay(d: DayTimetable): DayTimetable {
   };
 }
 
+/** 해당 날짜에서 완료된 항목을 (시간\0텍스트) 집합으로 반환 */
+function getCompletedTimeTextSet(day: DayTimetable): Set<string> {
+  const set = new Set<string>();
+  day.slots.forEach((s) => {
+    s.items.forEach((i) => {
+      if (day.completedIds.includes(i.id)) set.add(`${s.time}\0${i.text}`);
+    });
+  });
+  return set;
+}
+
+/** (시간\0텍스트) 완료 집합을 새 day에 적용 */
+function applyCompletedSet(day: DayTimetable, completedSet: Set<string>): DayTimetable {
+  const completedIds: string[] = [];
+  day.slots.forEach((s) => {
+    s.items.forEach((i) => {
+      if (completedSet.has(`${s.time}\0${i.text}`)) completedIds.push(i.id);
+    });
+  });
+  return { ...day, completedIds };
+}
+
 function getDefaultDay(): DayTimetable {
   return deepCopyDay({ slots: DEFAULT_SLOTS, completedIds: [] });
 }
@@ -103,13 +125,27 @@ async function saveToSupabase(data: Record<string, DayTimetable>): Promise<void>
 /** 특정 날짜 타임테이블 로드 결과. copiedFrom이 있으면 어제 데이터를 복사한 것 */
 export type LoadTimetableResult = { day: DayTimetable; copiedFrom: string | null };
 
-/** 특정 날짜 타임테이블 로드. 없으면 어제 것 복사, 없으면 기본값 */
+/** 특정 날짜 타임테이블 로드. 오늘을 기준(템플릿)으로 모든 날짜 구조 통일. 다른 날은 오늘 구조 + 그날 완료만 유지 */
 export async function loadTimetableForDate(key: string): Promise<LoadTimetableResult> {
   const all = await loadAllTimetables();
-  if (all[key]) return { day: all[key], copiedFrom: null };
-  const prev = prevDateKey(key);
-  if (prev && all[prev]) return { day: deepCopyDay(all[prev]), copiedFrom: prev };
-  return { day: getDefaultDay(), copiedFrom: null };
+  const todayKey = getTodayKey();
+
+  if (key === todayKey) {
+    const day = all[key] ?? getDefaultDay();
+    return { day, copiedFrom: null };
+  }
+
+  const template = all[todayKey] ?? getDefaultDay();
+  let newDay = deepCopyDay(template);
+  const saved = all[key];
+  if (saved) {
+    const completedSet = getCompletedTimeTextSet(saved);
+    newDay = applyCompletedSet(newDay, completedSet);
+  }
+  const nextAll = { ...all, [key]: newDay };
+  saveToStorage(nextAll);
+  await saveToSupabase(nextAll);
+  return { day: newDay, copiedFrom: todayKey };
 }
 
 /** 전체 날짜별 데이터 로드 (Supabase 우선, 없으면 localStorage) */
