@@ -157,13 +157,13 @@ export function WeatherCard() {
 
       <div className="mt-7 flex flex-wrap gap-3 text-sm font-medium text-neutral-700">
         <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-soft-border/90">
-          🍃 바람 {Number(weather.windSpeed.toFixed(1))} m/s
+          🍃<span className="hidden md:inline"> 바람</span> {Number(weather.windSpeed.toFixed(1))} m/s
         </span>
         <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-soft-border/90">
-          ☔ 강수 {Number(weather.precipitation.toFixed(1))} mm
+          ☔<span className="hidden md:inline"> 강수</span> {Number(weather.precipitation.toFixed(1))} mm
         </span>
         <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-soft-border/90">
-          💧 습도 {weather.humidity}%
+          💧<span className="hidden md:inline"> 습도</span> {weather.humidity}%
         </span>
       </div>
     </Card>
