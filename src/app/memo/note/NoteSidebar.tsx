@@ -82,12 +82,16 @@ function NotebookSection({
         ) : (
           <button
             type="button"
-            onDoubleClick={() => setEditingNotebookId(nb.id)}
+            onClick={() => onToggleNotebook(nb.id)}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              setEditingNotebookId(nb.id);
+            }}
             onContextMenu={(e) => {
               e.preventDefault();
               onDeleteNotebook(nb.id);
             }}
-            className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-neutral-600"
+            className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-neutral-600 hover:bg-neutral-200/70 rounded"
           >
             {title}
           </button>

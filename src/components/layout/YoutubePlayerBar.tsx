@@ -280,7 +280,7 @@ export function YoutubePlayerBar() {
   return (
     <>
       <div className="mt-auto pt-4">
-        <div className="rounded-xl border border-neutral-200 border-b-0 bg-gradient-to-br from-white to-neutral-200 px-3 py-1 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 border-b-0 bg-gradient-to-br from-white to-neutral-200 px-3 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(0,0,0,0.2)]">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               <svg className="h-4 w-4 shrink-0 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
