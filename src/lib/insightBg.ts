@@ -35,7 +35,16 @@ function writeRaw(json: string): void {
   } catch {}
 }
 
-/** Supabase에서 인사이트 배경 설정을 가져와 localStorage에 반영. 앱 로드 시 호출하면 기기 간 동기화 */
+/** single/list에 실제 URL이 있으면 true. auto만 있으면 덮어쓰지 않기 위함 */
+function hasMeaningfulInsightBg(ib: Record<string, unknown>): boolean {
+  if (!ib || typeof ib !== "object") return false;
+  const mode = ib.mode as string | undefined;
+  if (mode === "single" && typeof ib.url === "string" && ib.url.trim() !== "") return true;
+  if (mode === "list" && Array.isArray(ib.urls) && ib.urls.some((u) => typeof u === "string" && (u as string).trim() !== "")) return true;
+  return false;
+}
+
+/** Supabase에서 인사이트 배경 설정을 가져와 localStorage에 반영. single/list URL이 있을 때만 덮어쓰고, 로컬에만 있으면 DB로 올림 */
 export async function syncInsightBgFromSupabase(): Promise<void> {
   if (!supabase) return;
   try {
@@ -46,7 +55,19 @@ export async function syncInsightBgFromSupabase(): Promise<void> {
       .maybeSingle();
     if (error || !row || !row.insight_bg) return;
     const ib = row.insight_bg as Record<string, unknown>;
-    if (ib && typeof ib === "object") writeRaw(JSON.stringify(ib));
+    if (hasMeaningfulInsightBg(ib)) {
+      writeRaw(JSON.stringify(ib));
+    } else {
+      const local = getInsightBgSettings();
+      const st: Stored =
+        local.mode === "single" && "url" in local
+          ? { mode: "single", url: local.url }
+          : local.mode === "list" && "urls" in local
+            ? { mode: "list", urls: local.urls }
+            : { mode: local.mode ?? "auto", url: "url" in local ? local.url : undefined, urls: "urls" in local ? local.urls : undefined };
+      if (st.mode === "single" && st.url?.trim()) saveInsightBgToSupabase(st);
+      else if (st.mode === "list" && st.urls?.length) saveInsightBgToSupabase(st);
+    }
   } catch {
     // ignore
   }

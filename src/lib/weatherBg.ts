@@ -27,7 +27,16 @@ function writeRaw(json: string): void {
   } catch {}
 }
 
-/** Supabase에서 날씨 배경 설정을 가져와 localStorage에 반영. 앱 로드 시 호출하면 기기 간 동기화 */
+/** DB에 URL이 하나라도 있으면 true (빈 객체면 덮어쓰지 않기 위함) */
+function hasAnyWeatherUrls(w: Record<string, unknown>): boolean {
+  if (!w || typeof w !== "object") return false;
+  for (const v of Object.values(w)) {
+    if (Array.isArray(v) && v.some((u) => typeof u === "string" && (u as string).trim() !== "")) return true;
+  }
+  return false;
+}
+
+/** Supabase에서 날씨 배경 설정을 가져와 localStorage에 반영. 빈 설정이면 덮어쓰지 않고, 로컬에만 있으면 DB로 올림 */
 export async function syncWeatherBgFromSupabase(): Promise<void> {
   if (!supabase) return;
   try {
@@ -38,7 +47,12 @@ export async function syncWeatherBgFromSupabase(): Promise<void> {
       .maybeSingle();
     if (error || !row || !row.weather_bg) return;
     const w = row.weather_bg as Record<string, unknown>;
-    if (w && typeof w === "object") writeRaw(JSON.stringify(w));
+    if (hasAnyWeatherUrls(w)) {
+      writeRaw(JSON.stringify(w));
+    } else {
+      const local = getWeatherBgSettings();
+      if (Object.keys(local).length > 0) saveWeatherBgToSupabase(local);
+    }
   } catch {
     // ignore
   }
