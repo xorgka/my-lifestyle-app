@@ -68,7 +68,7 @@ export function WeatherCard() {
     };
   }, [themeId]);
 
-  const sectionClass = "weather-card-texture relative flex h-full min-h-0 flex-col justify-between overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] md:p-9";
+  const sectionClass = "weather-card-texture relative flex h-full min-h-0 flex-col justify-between overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)] md:p-9";
   const blueLayer = (
     <div
       className="absolute inset-0 rounded-3xl"

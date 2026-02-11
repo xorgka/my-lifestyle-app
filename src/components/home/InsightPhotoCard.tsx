@@ -114,7 +114,7 @@ export function InsightPhotoCard() {
 
   return (
     <div
-      className="relative flex h-full min-h-0 min-w-0 overflow-hidden rounded-3xl bg-neutral-200"
+      className="relative flex h-full min-h-0 min-w-0 overflow-hidden rounded-3xl bg-neutral-200 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
       onDoubleClick={handleDoubleClick}
       title="배경 더블클릭 시 다음 사진"
     >

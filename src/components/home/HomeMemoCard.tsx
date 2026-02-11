@@ -28,7 +28,7 @@ export function HomeMemoCard() {
   const canNext = pinnedMemos.length > 1 && safeIndex < pinnedMemos.length - 1;
 
   return (
-    <div className="relative flex h-[280px] w-full flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-neutral-200 shadow-[0_4px_14px_rgba(0,0,0,0.08)]">
+    <div className="relative flex h-[280px] w-full flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-neutral-200 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
       {/* 헤더: #FBD149, 세로 높이 줄임, 글자 두껍게 */}
       <div
         className="flex-shrink-0 px-7 py-2.5"
