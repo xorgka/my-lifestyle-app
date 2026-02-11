@@ -49,7 +49,7 @@ export function TodayAlertBar() {
   const barClass =
     "alert-bar-texture flex min-w-0 items-center gap-2 rounded-full py-1.5 px-4 " +
     "bg-gradient-to-br from-neutral-500 via-neutral-800 to-neutral-950 " +
-    "shadow-[0_4px_12px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.08)]";
+    "shadow-[0_4px_14px_rgba(0,0,0,0.08)]";
 
   if (loading) {
     return (

@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { MemoCard } from "@/components/memo/MemoCard";
 import { loadMemos, type Memo } from "@/lib/memoDb";
-import { MEMO_COLORS } from "@/lib/memoDb";
 
 export function HomeMemoCard() {
   const [memos, setMemos] = useState<Memo[]>([]);
@@ -30,74 +28,75 @@ export function HomeMemoCard() {
   const canNext = pinnedMemos.length > 1 && safeIndex < pinnedMemos.length - 1;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-visible">
-      {pinnedMemos.length === 0 ? (
-        <div
-          className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border shadow-[0_6px_20px_rgba(0,0,0,0.12)]"
-          style={{
-            backgroundColor: MEMO_COLORS.black.bodyBg,
-            borderColor: "rgba(0,0,0,0.11)",
-          }}
+    <div className="relative flex h-[280px] w-full flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-neutral-200 shadow-[0_4px_14px_rgba(0,0,0,0.08)]">
+      {/* 헤더: #FBD149, 세로 높이 줄임, 글자 두껍게 */}
+      <div
+        className="flex-shrink-0 px-7 py-2.5"
+        style={{ backgroundColor: "#FBD149" }}
+      >
+        <Link
+          href="/memo"
+          className="block truncate text-lg font-bold no-underline hover:opacity-90"
+          style={{ color: "#3D3009" }}
+          aria-label="메모 페이지로 이동"
         >
-          <Link
-            href="/memo"
-            className="flex flex-shrink-0 items-center justify-between gap-2 rounded-t-[10px] border-b border-black/10 px-4 py-1 no-underline"
-            style={{ backgroundColor: MEMO_COLORS.black.headerBg, color: MEMO_COLORS.black.headerFg }}
-            aria-label="메모 페이지로 이동"
-          >
-            <span className="text-[17px] font-semibold opacity-0">제목</span>
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-25 [&_svg]:size-4" style={{ color: MEMO_COLORS.black.headerFg }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
-            </span>
-          </Link>
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
-            <p className="text-base text-neutral-600">고정한 메모가 없어요</p>
+          {currentMemo ? (currentMemo.title?.trim() || "메모") : "메모"}
+        </Link>
+      </div>
+
+      {/* 내용 영역: 하얀색, 메모지 가로선, 글자 두껍게 */}
+      <div
+        className="flex min-h-0 flex-1 flex-col bg-white px-7 py-5"
+        style={{
+          backgroundImage: "repeating-linear-gradient(transparent, transparent 0px, transparent 27px, rgba(0,0,0,0.08) 27px, rgba(0,0,0,0.08) 28px)",
+        }}
+      >
+        {pinnedMemos.length === 0 ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 py-8 text-center">
+            <p className="text-sm font-semibold text-neutral-600">고정한 메모가 없어요</p>
             <Link
               href="/memo"
-              className="text-sm font-medium text-neutral-700 underline underline-offset-2 hover:text-neutral-900"
+              className="text-sm font-semibold text-neutral-700 underline underline-offset-2 hover:text-black"
             >
               메모에서 별표로 고정하기
             </Link>
           </div>
-        </div>
-      ) : (
-        <div className="relative flex h-full min-h-0 flex-1 flex-row items-stretch gap-1 md:gap-3">
-          <button
-            type="button"
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            disabled={!canPrev}
-            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 shrink-0 self-center rounded-full bg-white/90 p-2 text-neutral-400 shadow-sm transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 md:static md:left-auto md:top-auto md:translate-y-0 md:bg-transparent md:p-2 md:shadow-none"
-            aria-label="이전 메모"
+        ) : currentMemo ? (
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden text-[15px] font-semibold text-black whitespace-pre-wrap break-words md:text-base scrollbar-hide"
+            style={{ lineHeight: "28px" }}
           >
-            <svg className="h-5 w-5 md:h-5 md:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex min-h-0 min-w-0 flex-1 overflow-visible w-full">
-            {currentMemo && (
-              <MemoCard
-                memo={currentMemo}
-                variant="preview"
-                className="h-full min-h-0 w-full flex-shrink-0"
-                headerHref="/memo"
-              />
-            )}
+            {currentMemo.content.trim() || "내용 없음"}
           </div>
-          <button
-            type="button"
-            onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
-            disabled={!canNext}
-            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 shrink-0 self-center rounded-full bg-white/90 p-2 text-neutral-400 shadow-sm transition hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 md:static md:right-auto md:top-auto md:translate-y-0 md:bg-transparent md:p-2 md:shadow-none"
-            aria-label="다음 메모"
-          >
-            <svg className="h-5 w-5 md:h-5 md:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      )}
+        ) : null}
+
+        {pinnedMemos.length > 1 && (
+          <div className="flex flex-shrink-0 justify-end gap-0.5 pt-3">
+            <button
+              type="button"
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+              disabled={!canPrev}
+              className="rounded p-1.5 text-neutral-600 transition hover:text-black disabled:opacity-30"
+              aria-label="이전 메모"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
+              disabled={!canNext}
+              className="rounded p-1.5 text-neutral-600 transition hover:text-black disabled:opacity-30"
+              aria-label="다음 메모"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

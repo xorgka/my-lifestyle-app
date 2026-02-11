@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { loadSystemInsights } from "@/lib/insights";
 import { loadInsightEntries } from "@/lib/insightDb";
 
@@ -419,7 +420,9 @@ function loadManagedQuotes(): Promise<QuoteEntry[]> {
   ]).then(([user, system]) => [...user, ...system]);
 }
 
-export function TodayInsightHero() {
+type TodayInsightHeroProps = { title?: React.ReactNode };
+
+export function TodayInsightHero({ title }: TodayInsightHeroProps) {
   const [list, setList] = useState<ListItem[]>([]);
   const [index, setIndex] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
@@ -462,9 +465,12 @@ export function TodayInsightHero() {
 
   if (list.length === 0) {
     return (
-      <p className="mt-6 min-w-0 text-[1.35rem] leading-relaxed text-neutral-500 md:text-[1.6rem]">
-        오늘의 인사이트를 불러오는 중이에요…
-      </p>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {title != null && <div className="flex flex-shrink-0 items-center justify-between gap-2 pb-3">{title}</div>}
+        <p className="min-w-0 text-base leading-relaxed text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+          오늘의 인사이트를 불러오는 중이에요…
+        </p>
+      </div>
     );
   }
 
@@ -485,57 +491,62 @@ export function TodayInsightHero() {
   };
 
   return (
-    <>
-      <div className="font-insight-serif insight-quote-wrap mt-6 max-h-[50vh] min-w-0 overflow-y-auto text-[1.15rem] font-semibold leading-relaxed text-neutral-800 md:text-[1.6rem] [text-shadow:0_1px_2px_rgba(0,0,0,0.06),0_0_1px_rgba(255,255,255,0.8)]" lang="ko">
-        {lines.map((line, i) => (
-          <span key={i} lang="ko">
-            {i > 0 && <br />}
-            {getQuoteSegments(line).map((seg, k) =>
-              typeof seg === "string" ? seg : <wbr key={`${i}-${k}`} />
-            )}
-          </span>
-        ))}
-        {author != null && (
-          <div className="mt-4 border-t border-neutral-200 pt-3 text-right">
-            <span className="text-sm font-normal not-italic text-neutral-500 md:text-lg">
-              {author}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex flex-shrink-0 items-center justify-between gap-2 pb-3">
+        {title != null ? title : null}
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); toggleFavorite(); }}
+            aria-label={isFav ? "즐겨찾기 해제" : "즐겨찾기"}
+            title={isFav ? "즐겨찾기 해제" : "즐겨찾기"}
+            className="rounded-lg p-1.5 text-white/90 transition hover:text-white hover:bg-white/10"
+          >
+            <svg className="h-4 w-4" fill={isFav ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); goPrev(); }}
+            aria-label="이전 인사이트"
+            className="rounded-lg p-1.5 text-white/90 transition hover:text-white hover:bg-white/10"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); goNext(); }}
+            aria-label="다음 인사이트"
+            className="rounded-lg p-1.5 text-white/90 transition hover:text-white hover:bg-white/10"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <Link href="/insight?tab=system" className="mt-auto block min-w-0 no-underline" aria-label="문장 관리 페이지로 이동">
+        <div className="font-insight-serif insight-quote-wrap max-h-[50vh] min-w-0 cursor-pointer overflow-y-auto text-[1.0625rem] font-semibold leading-relaxed text-white md:text-[1.25rem] hover:text-white/95 [text-shadow:0_1px_3px_rgba(0,0,0,0.5),0_0_10px_rgba(0,0,0,0.4)]" lang="ko">
+          {lines.map((line, i) => (
+            <span key={i} lang="ko">
+              {i > 0 && <br />}
+              {getQuoteSegments(line).map((seg, k) =>
+                typeof seg === "string" ? seg : <wbr key={`${i}-${k}`} />
+              )}
             </span>
-          </div>
-        )}
-      </div>
-      <div className="absolute right-0 top-0 flex gap-1">
-        <button
-          type="button"
-          onClick={toggleFavorite}
-          aria-label={isFav ? "즐겨찾기 해제" : "즐겨찾기"}
-          title={isFav ? "즐겨찾기 해제" : "즐겨찾기"}
-          className="rounded-xl p-2 text-neutral-400 transition hover:text-rose-500"
-        >
-          <svg className="h-5 w-5" fill={isFav ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={goPrev}
-          aria-label="이전 인사이트"
-          className="rounded-xl p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-800"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={goNext}
-          aria-label="다음 인사이트"
-          className="rounded-xl p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-800"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </>
+          ))}
+          {author != null && (
+            <div className="mt-3 border-t border-white/30 pt-2.5 text-right">
+              <span className="text-xs font-normal not-italic text-white/85 md:text-sm [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+                {author}
+              </span>
+            </div>
+          )}
+        </div>
+      </Link>
+    </div>
   );
 }
