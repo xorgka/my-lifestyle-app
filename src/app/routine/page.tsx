@@ -186,7 +186,8 @@ export default function RoutinePage() {
       if (!isCompleted && dateKey === todayKey) fireConfetti();
       const timetableIds = getTimetableIdsByRoutineId(routineLinks, id);
       if (timetableIds.length > 0) {
-        loadTimetableForDate(dateKey).then((day) => {
+        loadTimetableForDate(dateKey).then((result) => {
+          const day = result.day;
           const completed = new Set(day.completedIds);
           if (newCompleted) timetableIds.forEach((tid) => completed.add(tid));
           else timetableIds.forEach((tid) => completed.delete(tid));

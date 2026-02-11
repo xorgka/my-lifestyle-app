@@ -86,8 +86,8 @@ export function HomeWidgets() {
 
   useEffect(() => {
     let cancelled = false;
-    loadTimetableForDate(getTodayKey()).then((day) => {
-      if (!cancelled) setDayTimetable(day);
+    loadTimetableForDate(getTodayKey()).then((result) => {
+      if (!cancelled) setDayTimetable(result.day);
     });
     return () => { cancelled = true; };
   }, []);

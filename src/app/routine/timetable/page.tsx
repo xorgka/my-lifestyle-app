@@ -17,6 +17,7 @@ import {
   getRoutineIdByTimetableId,
   setTimetableRoutineLink,
   removeLinkByTimetableId,
+  copyLinksForCopiedDay,
 } from "@/lib/timetableRoutineLinks";
 import { loadRoutineItems, toggleRoutineCompletion } from "@/lib/routineDb";
 import type { RoutineItem } from "@/lib/routineDb";
@@ -79,9 +80,15 @@ export default function TimetablePage() {
   }, []);
 
   const load = useCallback(async (key: string) => {
-    const data = await loadTimetableForDate(key);
-    setDay(data);
+    const result = await loadTimetableForDate(key);
+    setDay(result.day);
     setHistory([]);
+    if (result.copiedFrom) {
+      const prevResult = await loadTimetableForDate(result.copiedFrom);
+      const currentLinks = await loadTimetableRoutineLinks();
+      const newLinks = await copyLinksForCopiedDay(prevResult.day, result.day, currentLinks);
+      setRoutineLinks(newLinks);
+    }
   }, []);
 
   useEffect(() => {

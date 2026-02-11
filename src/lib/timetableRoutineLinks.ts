@@ -117,3 +117,33 @@ export async function removeLinkByTimetableId(
 ): Promise<void> {
   await setTimetableRoutineLink(timetableItemId, null, currentLinks);
 }
+
+/** 이전 날짜에서 복사된 날의 연동을 새 항목 ID로 복사. (시간대+텍스트)가 같은 항목끼리 매칭 */
+export async function copyLinksForCopiedDay(
+  prevDay: { slots: { time: string; items: { id: string; text: string }[] }[] },
+  newDay: { slots: { time: string; items: { id: string; text: string }[] }[] },
+  currentLinks: Record<string, number>
+): Promise<Record<string, number>> {
+  const prevKeyToId = new Map<string, string>();
+  prevDay.slots.forEach((s) => {
+    s.items.forEach((i) => prevKeyToId.set(`${s.time}\0${i.text}`, i.id));
+  });
+  const newKeyToId = new Map<string, string>();
+  newDay.slots.forEach((s) => {
+    s.items.forEach((i) => newKeyToId.set(`${s.time}\0${i.text}`, i.id));
+  });
+  const oldIds = new Set(prevDay.slots.flatMap((s) => s.items.map((i) => i.id)));
+  const next: Record<string, number> = {};
+  Object.entries(currentLinks).forEach(([tid, rid]) => {
+    if (!oldIds.has(tid)) next[tid] = rid;
+  });
+  prevKeyToId.forEach((oldId, key) => {
+    const routineId = currentLinks[oldId];
+    if (routineId == null) return;
+    const newId = newKeyToId.get(key);
+    if (newId) next[newId] = routineId;
+  });
+  saveToStorage(next);
+  await saveToSupabase(next);
+  return next;
+}

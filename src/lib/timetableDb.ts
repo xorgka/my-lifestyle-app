@@ -100,13 +100,16 @@ async function saveToSupabase(data: Record<string, DayTimetable>): Promise<void>
 
 // --- Public API ---
 
+/** 특정 날짜 타임테이블 로드 결과. copiedFrom이 있으면 어제 데이터를 복사한 것 */
+export type LoadTimetableResult = { day: DayTimetable; copiedFrom: string | null };
+
 /** 특정 날짜 타임테이블 로드. 없으면 어제 것 복사, 없으면 기본값 */
-export async function loadTimetableForDate(key: string): Promise<DayTimetable> {
+export async function loadTimetableForDate(key: string): Promise<LoadTimetableResult> {
   const all = await loadAllTimetables();
-  if (all[key]) return all[key];
+  if (all[key]) return { day: all[key], copiedFrom: null };
   const prev = prevDateKey(key);
-  if (prev && all[prev]) return deepCopyDay(all[prev]);
-  return getDefaultDay();
+  if (prev && all[prev]) return { day: deepCopyDay(all[prev]), copiedFrom: prev };
+  return { day: getDefaultDay(), copiedFrom: null };
 }
 
 /** 전체 날짜별 데이터 로드 (Supabase 우선, 없으면 localStorage) */
