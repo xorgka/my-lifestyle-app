@@ -85,14 +85,6 @@ function getDefaultDay(): DayTimetable {
   return deepCopyDay({ slots: DEFAULT_SLOTS, completedIds: [] });
 }
 
-/** 이전 날짜 키 반환 (YYYY-MM-DD) */
-function prevDateKey(key: string): string | null {
-  const [y, m, d] = key.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setDate(date.getDate() - 1);
-  return dateKey(date);
-}
-
 // --- Supabase (optional) ---
 const TABLE_NAME = "timetable_days";
 
@@ -166,20 +158,6 @@ export async function saveTimetableForDate(key: string, day: DayTimetable): Prom
   all[key] = day;
   saveToStorage(all);
   await saveToSupabase(all);
-}
-
-/** 이 날짜를 어제 구조로 덮어쓰기. 어제 데이터가 있으면 복사 후 저장하고 { newDay, prevDay } 반환, 없으면 null */
-export async function copyDayFromPreviousAndSave(key: string): Promise<{ newDay: DayTimetable; prevDay: DayTimetable } | null> {
-  const prev = prevDateKey(key);
-  if (!prev) return null;
-  const all = await loadAllTimetables();
-  const prevDay = all[prev];
-  if (!prevDay) return null;
-  const newDay = deepCopyDay(prevDay);
-  const nextAll = { ...all, [key]: newDay };
-  saveToStorage(nextAll);
-  await saveToSupabase(nextAll);
-  return { newDay, prevDay };
 }
 
 export function getTodayKey(): string {
