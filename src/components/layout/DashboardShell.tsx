@@ -52,7 +52,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-2 pt-3 pb-4 md:px-10 md:pt-10 md:pb-4 sm:px-4 sm:pt-4 sm:pb-5">
+    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-5 md:px-10 md:pt-10 md:pb-4">
       <ShowerReminderPopup />
       <MorningFaceReminderPopup />
       <EveningFaceReminderPopup />
@@ -60,11 +60,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <YoutubeUploadReminderPopup />
       <WakeTimePopup forceShow={forceShowWakePopup} />
       <CustomReminderPopups />
-      {/* 모바일: 상단 바 (홈 + 메뉴) */}
-      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 md:hidden">
+      {/* 모바일: 상단 바 (홈 + 메뉴), safe-area·터치 영역 44px */}
+      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-2 md:hidden [padding-top:max(0.5rem,env(safe-area-inset-top))] [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
         <Link
           href="/"
-          className="flex h-10 w-10 items-center justify-center text-neutral-500/15 hover:text-neutral-500/40"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-neutral-500/15 hover:text-neutral-500/40"
           aria-label="홈"
         >
           <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -74,7 +74,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/90 shadow-lg ring-1 ring-black/5 backdrop-blur-xl"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl bg-white/90 shadow-lg ring-1 ring-black/5 backdrop-blur-xl"
           aria-label="메뉴 열기"
         >
           <svg className="h-5 w-5 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,7 +111,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <Sidebar />
           </div>
         )}
-        <main className="min-w-0 flex-1 pt-12 md:pt-0">
+        <main className="min-w-0 flex-1 pt-14 md:pt-0 [padding-bottom:env(safe-area-inset-bottom)]">
           {!isSupabaseConfigured && (
             <div className="mb-4 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-5 md:py-4">
               <p className="font-semibold">기기·브라우저 연동이 꺼져 있어요</p>
@@ -125,7 +125,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </p>
             </div>
           )}
-          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:px-8 md:pt-8 md:pb-4">
+          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:px-8 md:pt-8 md:pb-4 sm:p-5 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] md:[padding-bottom:1rem]">
             {children}
           </div>
         </main>

@@ -238,8 +238,8 @@ export default function SleepPage() {
     const wakeMinutes = (t: string) => timeToMinutes(t);
     const latestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) > wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
     const earliestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) < wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
-    const goldenMin = 7 * 60 + 30; // 07:30
-    const goldenMax = 8 * 60 + 30; // 08:30
+    const goldenMin = 8 * 60; // 08:00
+    const goldenMax = 9 * 60; // 09:00
     const goldenSuccess = weekRecords.filter(
       (r) => r.wakeTime && wakeMinutes(r.wakeTime) >= goldenMin && wakeMinutes(r.wakeTime) <= goldenMax
     ).length;
@@ -260,8 +260,8 @@ export default function SleepPage() {
     const wakeMinutes = (t: string) => timeToMinutes(t);
     const latestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) > wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
     const earliestWake = withWake.length ? withWake.reduce((a, r) => (wakeMinutes(r.wakeTime!) < wakeMinutes(a.wakeTime!) ? r : a)).wakeTime! : null;
-    const goldenMin = 7 * 60 + 30;
-    const goldenMax = 8 * 60 + 30;
+    const goldenMin = 8 * 60;
+    const goldenMax = 9 * 60;
     const goldenSuccess = monthRecords.filter(
       (r) => r.wakeTime && wakeMinutes(r.wakeTime) >= goldenMin && wakeMinutes(r.wakeTime) <= goldenMax
     ).length;
@@ -607,7 +607,7 @@ export default function SleepPage() {
               </div>
               <div
                 className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-lg cursor-default"
-                onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">골든타임 준수율</span><span className="block">: 일주일 중 7시30분~8시30분 기상 성공율</span></>, x: e.clientX, y: e.clientY })}
+                onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">골든타임 준수율</span><span className="block">: 일주일 중 8시~9시 기상 성공율</span></>, x: e.clientX, y: e.clientY })}
                 onMouseMove={(e) => setStatTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
                 onMouseLeave={() => setStatTooltip(null)}
               >
@@ -809,7 +809,7 @@ export default function SleepPage() {
             const isToday = cell.dateStr === todayKey;
             const wakeMins = rec?.wakeTime ? timeToMinutes(rec.wakeTime) : null;
             const isGolden =
-              wakeMins != null && wakeMins >= 7 * 60 + 30 && wakeMins <= 8 * 60 + 30;
+              wakeMins != null && wakeMins >= 8 * 60 && wakeMins <= 9 * 60;
             return (
               <button
                 key={cell.dateStr}
@@ -862,7 +862,7 @@ export default function SleepPage() {
           </div>
           <div
             className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-md px-3 py-3 cursor-default shadow-sm transition duration-200 hover:bg-white/60 hover:border-neutral-300 hover:shadow-md"
-            onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">이번 달 골든타임 준수율</span><span className="block">: 7시30분~8시30분 기상 성공 일수 ÷ 해당 월 일수</span></>, x: e.clientX, y: e.clientY })}
+            onMouseEnter={(e) => setStatTooltip({ content: <><span className="block">이번 달 골든타임 준수율</span><span className="block">: 8시~9시 기상 성공 일수 ÷ 해당 월 일수</span></>, x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => setStatTooltip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : null))}
             onMouseLeave={() => setStatTooltip(null)}
           >

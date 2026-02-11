@@ -13,6 +13,8 @@ import {
   saveRoutineCompletions,
   type RoutineItem,
 } from "@/lib/routineDb";
+import { loadTimetableRoutineLinks, getTimetableIdsByRoutineId } from "@/lib/timetableRoutineLinks";
+import { loadTimetableForDate, saveTimetableForDate } from "@/lib/timetableDb";
 
 const KEEP_DAILY_MONTHS = 12; // 이 기간만 보관, 그 이전 데이터는 자동 삭제
 
@@ -92,6 +94,12 @@ export default function RoutinePage() {
   const [listMenuOpen, setListMenuOpen] = useState(false);
   /** 모바일 뷰 여부 (연도 선택 라벨을 "연도"만 표시) */
   const [isNarrowView, setIsNarrowView] = useState(false);
+  /** 타임테이블↔루틴 연동 (기기 동기화) */
+  const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    loadTimetableRoutineLinks().then(setRoutineLinks);
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -169,14 +177,24 @@ export default function RoutinePage() {
       const dateKey = listViewDateKey;
       const completedSet = new Set(dailyCompletions[dateKey] ?? []);
       const isCompleted = completedSet.has(id);
+      const newCompleted = !isCompleted;
       setDailyCompletions((prev) => {
         const list = prev[dateKey] ?? [];
         const next = isCompleted ? list.filter((x) => x !== id) : [...list, id];
         return { ...prev, [dateKey]: next };
       });
       if (!isCompleted && dateKey === todayKey) fireConfetti();
+      const timetableIds = getTimetableIdsByRoutineId(routineLinks, id);
+      if (timetableIds.length > 0) {
+        loadTimetableForDate(dateKey).then((day) => {
+          const completed = new Set(day.completedIds);
+          if (newCompleted) timetableIds.forEach((tid) => completed.add(tid));
+          else timetableIds.forEach((tid) => completed.delete(tid));
+          saveTimetableForDate(dateKey, { ...day, completedIds: Array.from(completed) }).catch(() => {});
+        });
+      }
     },
-    [listViewDateKey, dailyCompletions, todayKey, isDragging]
+    [listViewDateKey, dailyCompletions, todayKey, isDragging, routineLinks]
   );
 
   const startEdit = (item: RoutineItem) => {
@@ -466,19 +484,31 @@ export default function RoutinePage() {
   }, [dailyCompletions, items.length, viewingYear, viewingMonth, selectedImportantItemId]);
 
   return (
-    <div className="min-w-0 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
         <SectionTitle
           title="루틴"
           subtitle="체크할수록 폭죽처럼 터지는, 오늘의 작은 승리들."
         />
-        <Link
-          href="/routine/sleep"
-          className="mt-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 shadow-sm transition hover:border-neutral-800 hover:bg-neutral-800 hover:text-white"
-          aria-label="수면 관리"
-        >
-          <span className="text-2xl" role="img" aria-hidden>🌙</span>
-        </Link>
+        <div className="mt-2 flex shrink-0 items-center gap-2 sm:mt-4">
+          <Link
+            href="/routine/timetable"
+            className="flex min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 shadow-sm transition hover:border-neutral-800 hover:bg-neutral-800 hover:text-white sm:h-14 sm:w-14 sm:min-h-0 sm:min-w-0"
+            aria-label="타임테이블"
+            title="타임테이블"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </Link>
+          <Link
+            href="/routine/sleep"
+            className="flex min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 shadow-sm transition hover:border-neutral-800 hover:bg-neutral-800 hover:text-white sm:h-14 sm:w-14 sm:min-h-0 sm:min-w-0"
+            aria-label="수면 관리"
+          >
+            <span className="text-2xl" role="img" aria-hidden>🌙</span>
+          </Link>
+        </div>
       </div>
 
       {/* 오늘의 진행률 - 가로 배치, 100%일 때 강조 */}

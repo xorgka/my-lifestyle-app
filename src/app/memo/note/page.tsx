@@ -228,7 +228,7 @@ export default function NotePage() {
         onSelectNoteFromSearch={(id) => setSelectedNoteId(id)}
       />
 
-      <div className="flex h-[calc(100vh-18rem)] min-h-[400px] overflow-hidden rounded-xl border border-neutral-200 bg-white pr-3 pb-3 shadow-sm md:pr-4 md:pb-4">
+      <div className="flex h-[calc(100vh-14rem)] min-h-[320px] overflow-hidden rounded-xl border border-neutral-200 bg-white pr-2 pb-2 shadow-sm sm:min-h-[400px] sm:pr-3 sm:pb-3 md:h-[calc(100vh-18rem)] md:min-h-[400px] md:pr-4 md:pb-4">
         {/* 모바일: 선택 전에는 목록만, 선택 시 숨김. 데스크톱: 항상 목록 표시 */}
         <div
           className={
@@ -267,7 +267,7 @@ export default function NotePage() {
               <button
                 type="button"
                 onClick={() => setSelectedNoteId(null)}
-                className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100"
                 aria-label="목록"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>

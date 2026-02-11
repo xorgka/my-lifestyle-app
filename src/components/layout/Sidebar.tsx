@@ -72,7 +72,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={clsx(
-                "group flex items-center justify-between gap-2 rounded-2xl px-6 py-3 text-[17px] font-medium tracking-tight transition-all",
+                "group flex min-h-[44px] items-center justify-between gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6",
                 active
                   ? "bg-neutral-900 text-white shadow-[0_14px_34px_rgba(0,0,0,0.35)]"
                   : "text-neutral-600 hover:bg-neutral-100 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]"

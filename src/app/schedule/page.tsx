@@ -293,7 +293,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="relative pr-12 md:pr-0">
         <SectionTitle
           title="스케줄"
@@ -303,7 +303,7 @@ export default function SchedulePage() {
         <button
           type="button"
           onClick={() => setViewMode("search")}
-          className={`absolute right-0 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 md:hidden ${
+          className={`absolute right-0 top-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 sm:top-4 md:hidden ${
             viewMode === "search" ? "bg-neutral-200 text-neutral-700" : ""
           }`}
           title="검색"

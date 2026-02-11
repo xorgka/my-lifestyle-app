@@ -458,7 +458,7 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-6 pb-4">
+    <div className="min-w-0 space-y-4 pb-4 sm:space-y-6">
       {/* 저장 토스트 */}
       {saveToast && (
         <div

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { loadIncomeEntries } from "@/lib/income";
 import { loadJournalEntries } from "@/lib/journal";
 import { loadRoutineItems, loadRoutineCompletions } from "@/lib/routineDb";
 
@@ -16,21 +15,12 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatNum(n: number): string {
-  return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
-}
-
-/** 이번달 수입: 만 단위 반올림 표기 (예: 155만원) */
-function formatMonthIncomeRounded(amount: number): string {
-  const man = Math.round(amount / 10000);
-  return `${man.toLocaleString("ko-KR")}만원`;
-}
-
 export function HomeWidgets() {
   const [journalWritten, setJournalWritten] = useState<boolean | null>(null);
   const [routineProgress, setRoutineProgress] = useState<number | null>(null);
-  const [monthIncome, setMonthIncome] = useState<number | null>(null);
-  const [showFullMonthIncome, setShowFullMonthIncome] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() =>
+    new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -60,15 +50,13 @@ export function HomeWidgets() {
   }, []);
 
   useEffect(() => {
-    loadIncomeEntries().then((entries) => {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = now.getMonth() + 1;
-      const sum = entries
-        .filter((e) => e.year === y && e.month === m)
-        .reduce((s, e) => s + e.amount, 0);
-      setMonthIncome(sum);
-    });
+    const tick = () =>
+      setCurrentTime(
+        new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
+      );
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
   }, []);
 
   const baseWidget =
@@ -109,32 +97,17 @@ export function HomeWidgets() {
         </div>
       </Link>
 
-      {/* 수입 - 오렌지 (쨍하게) */}
+      {/* 타임테이블 - 오렌지 (쨍하게) */}
       <Link
-        href="/income"
+        href="/routine/timetable"
         className={`${baseWidget} bg-gradient-to-br from-[#fb923c] via-[#f97316] to-[#ea580c]`}
       >
         <span className={iconPosition}>
-          <i className="fa-solid fa-wallet" aria-hidden />
+          <i className="fa-solid fa-table-cells" aria-hidden />
         </span>
         <div className="flex flex-1 flex-col justify-center pt-1">
-          <span className="text-sm font-medium text-white/90">이번달 수입</span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowFullMonthIncome((v) => !v);
-            }}
-            className="mt-1 text-left text-3xl font-bold text-white underline-offset-2 hover:underline"
-            title={monthIncome != null ? "클릭하면 원래 금액 표시" : undefined}
-          >
-            {monthIncome === null
-              ? "—"
-              : showFullMonthIncome
-                ? `${formatNum(monthIncome)}원`
-                : formatMonthIncomeRounded(monthIncome)}
-          </button>
+          <span className="text-sm font-medium text-white/90">타임테이블</span>
+          <span className="mt-1 text-3xl font-bold text-white tabular-nums">{currentTime}</span>
         </div>
       </Link>
     </div>

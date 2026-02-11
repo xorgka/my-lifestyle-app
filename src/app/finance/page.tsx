@@ -955,7 +955,7 @@ export default function FinancePage() {
   }, [incomeEntries, entries, keywords, monthExtras, seed2024Business, seed2025Business]);
 
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       <div className="relative pr-12 sm:pr-0">
         <SectionTitle
           title="가계부"
