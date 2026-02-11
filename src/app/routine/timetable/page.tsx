@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   loadTimetableForDate,
   saveTimetableForDate,
+  copyDayFromPreviousAndSave,
   getTodayKey,
   getDateKeyOffset,
   genId,
@@ -142,6 +143,22 @@ export default function TimetablePage() {
 
   const goPrev = () => setDateKey((k) => getDateKeyOffset(k, -1));
   const goNext = () => setDateKey((k) => getDateKeyOffset(k, 1));
+
+  /** 이 날짜를 어제와 같은 항목 구조로 덮어쓰기 (연동도 복사) */
+  const replaceWithYesterday = useCallback(async () => {
+    const result = await copyDayFromPreviousAndSave(dateKey);
+    if (!result) {
+      if (typeof window !== "undefined") window.alert("어제 날짜 데이터가 없어요. 어제를 먼저 만든 뒤 다시 시도해 주세요.");
+      return;
+    }
+    const { newDay, prevDay } = result;
+    const currentLinks = await loadTimetableRoutineLinks();
+    const newLinks = await copyLinksForCopiedDay(prevDay, newDay, currentLinks);
+    setRoutineLinks(newLinks);
+    setTemplateLinks(loadTimetableTemplateLinks());
+    setDay(newDay);
+    setHistory([]);
+  }, [dateKey]);
 
   const toggleComplete = useCallback(
     (itemId: string) => {
@@ -388,10 +405,20 @@ export default function TimetablePage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-        <div className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-600 sm:flex-initial sm:px-4 sm:py-3 sm:text-sm">
-          총 <span className="font-semibold text-neutral-800">{totalItems}</span>개 항목 중{" "}
-          <span className="font-semibold text-neutral-800">{completedCount}</span>개 완료
-          {saving && <span className="ml-1 text-neutral-400 sm:ml-2">· 저장 중</span>}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-initial sm:gap-3">
+          <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-600 sm:px-4 sm:py-3 sm:text-sm">
+            총 <span className="font-semibold text-neutral-800">{totalItems}</span>개 항목 중{" "}
+            <span className="font-semibold text-neutral-800">{completedCount}</span>개 완료
+            {saving && <span className="ml-1 text-neutral-400 sm:ml-2">· 저장 중</span>}
+          </div>
+          <button
+            type="button"
+            onClick={replaceWithYesterday}
+            className="shrink-0 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600 transition hover:bg-neutral-50 sm:px-4 sm:py-2.5 sm:text-sm"
+            title="이 날짜의 항목을 어제와 똑같이 맞춥니다. 연동 설정도 복사됩니다. (기존 완료 체크는 초기화)"
+          >
+            어제와 같은 항목으로 맞추기
+          </button>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button

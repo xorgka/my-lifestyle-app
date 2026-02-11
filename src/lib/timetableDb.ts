@@ -128,6 +128,20 @@ export async function saveTimetableForDate(key: string, day: DayTimetable): Prom
   await saveToSupabase(all);
 }
 
+/** 이 날짜를 어제 구조로 덮어쓰기. 어제 데이터가 있으면 복사 후 저장하고 { newDay, prevDay } 반환, 없으면 null */
+export async function copyDayFromPreviousAndSave(key: string): Promise<{ newDay: DayTimetable; prevDay: DayTimetable } | null> {
+  const prev = prevDateKey(key);
+  if (!prev) return null;
+  const all = await loadAllTimetables();
+  const prevDay = all[prev];
+  if (!prevDay) return null;
+  const newDay = deepCopyDay(prevDay);
+  const nextAll = { ...all, [key]: newDay };
+  saveToStorage(nextAll);
+  await saveToSupabase(nextAll);
+  return { newDay, prevDay };
+}
+
 export function getTodayKey(): string {
   return dateKey(new Date());
 }
