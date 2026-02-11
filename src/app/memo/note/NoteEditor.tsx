@@ -83,7 +83,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
     [emitContent]
   );
 
-  const toggleHighlight = () => {
+  const toggleHighlight = useCallback(() => {
     if (highlightOn) {
       exec("removeFormat");
       setHighlightOn(false);
@@ -91,6 +91,22 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
       exec("backColor", HIGHLIGHT_COLOR);
       setHighlightOn(true);
     }
+  }, [highlightOn]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (isTrashNote) return;
+      if (e.ctrlKey && e.shiftKey) {
+        if (e.key.toLowerCase() === "b") {
+          e.preventDefault();
+          exec("bold");
+        } else if (e.key.toLowerCase() === "h") {
+          e.preventDefault();
+          toggleHighlight();
+        }
+      }
+    },
+    [isTrashNote, toggleHighlight]
   };
 
   if (!note) {
@@ -230,6 +246,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         style={{ minHeight: 200, fontSize: "20px" }}
         onInput={emitContent}
         onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
       />
     </div>
   );

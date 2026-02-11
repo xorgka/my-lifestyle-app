@@ -4,6 +4,17 @@ import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const m = () => setMobile(typeof window !== "undefined" && window.innerWidth < 768);
+    m();
+    window.addEventListener("resize", m);
+    return () => window.removeEventListener("resize", m);
+  }, []);
+  return mobile;
+}
 import { EveningFaceReminderPopup } from "@/components/EveningFaceReminderPopup";
 import { GymReminderPopup } from "@/components/GymReminderPopup";
 import { MorningFaceReminderPopup } from "@/components/MorningFaceReminderPopup";
@@ -24,6 +35,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [forceShowWakePopup, setForceShowWakePopup] = useState(false);
   const pathname = usePathname();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (pathname !== "/" || typeof window === "undefined") return;
@@ -71,24 +83,34 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </button>
       </div>
 
-      {/* 모바일: 메뉴 드로어 (오버레이) */}
-      {mobileMenuOpen && (
+      {/* 모바일 전용: 메뉴 드로어. 닫아도 DOM 유지해 플레이리스트 재생이 끊기지 않게 함 (Sidebar는 1개만) */}
+      {isMobile && (
         <>
           <div
-            className="fixed inset-0 z-40 min-h-[100dvh] min-w-[100vw] bg-black/65 md:hidden"
+            className={`fixed inset-0 z-40 min-h-[100dvh] min-w-[100vw] bg-black/65 transition-opacity duration-200 ${
+              mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden
           />
-          <div className="fixed left-0 top-0 z-50 h-full w-[min(85vw,280px)] overflow-y-auto rounded-r-3xl bg-white/95 shadow-xl backdrop-blur-2xl md:hidden">
+          <div
+            className={`fixed left-0 top-0 z-50 h-full w-[min(85vw,280px)] overflow-y-auto rounded-r-3xl bg-white/95 shadow-xl backdrop-blur-2xl transition-transform duration-200 ease-out ${
+              mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+            aria-hidden={!mobileMenuOpen}
+          >
             <Sidebar onNavigate={() => setMobileMenuOpen(false)} />
           </div>
         </>
       )}
 
       <div className="mx-auto flex w-full max-w-7xl gap-7">
-        <div className="sticky top-6 hidden h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)] md:block md:w-64 md:self-start">
-          <Sidebar />
-        </div>
+        {/* 데스크톱에만 사이드바 컬럼 (모바일은 드로어에 Sidebar 있음 → 플레이어 1개만) */}
+        {!isMobile && (
+          <div className="sticky top-6 h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)] w-64 self-start">
+            <Sidebar />
+          </div>
+        )}
         <main className="min-w-0 flex-1 pt-12 md:pt-0">
           {!isSupabaseConfigured && (
             <div className="mb-4 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-5 md:py-4">

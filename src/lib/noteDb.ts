@@ -120,21 +120,24 @@ function rowToNote(row: Record<string, unknown>): Note {
 
 export async function loadNotebooks(): Promise<Notebook[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from("note_notebooks")
-      .select("*")
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (!error && Array.isArray(data)) {
-      const fromDb = data.map((r) => rowToNotebook(r));
-      if (fromDb.length === 0) {
-        const fromStorage = loadNotebooksFromStorage();
-        if (fromStorage.length > 0) {
-          await saveNotebooks(fromStorage);
-          return fromStorage;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase
+        .from("note_notebooks")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (!error && Array.isArray(data)) {
+        const fromDb = data.map((r) => rowToNotebook(r));
+        if (fromDb.length === 0) {
+          const fromStorage = loadNotebooksFromStorage();
+          if (fromStorage.length > 0) {
+            await saveNotebooks(fromStorage);
+            return fromStorage;
+          }
         }
+        return fromDb;
       }
-      return fromDb;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
     }
   }
   return loadNotebooksFromStorage();
@@ -171,20 +174,23 @@ export function createNotebook(title: string = ""): Notebook {
 
 export async function loadAllNotes(): Promise<Note[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from("note_notes")
-      .select("*")
-      .order("updated_at", { ascending: false });
-    if (!error && Array.isArray(data)) {
-      const fromDb = data.map((r) => rowToNote(r));
-      if (fromDb.length === 0) {
-        const fromStorage = loadNotesFromStorage();
-        if (fromStorage.length > 0) {
-          await saveNotes(fromStorage);
-          return fromStorage;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase
+        .from("note_notes")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (!error && Array.isArray(data)) {
+        const fromDb = data.map((r) => rowToNote(r));
+        if (fromDb.length === 0) {
+          const fromStorage = loadNotesFromStorage();
+          if (fromStorage.length > 0) {
+            await saveNotes(fromStorage);
+            return fromStorage;
+          }
         }
+        return fromDb;
       }
-      return fromDb;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
     }
   }
   return loadNotesFromStorage();
