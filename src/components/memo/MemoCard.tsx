@@ -1,9 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import type { Memo, MemoColorId } from "@/lib/memoDb";
 import { MEMO_COLORS } from "@/lib/memoDb";
+
+const EDIT_TITLE_DELAY_MS = 250;
 
 type MemoCardProps = {
   memo: Memo;
@@ -14,7 +16,7 @@ type MemoCardProps = {
   /** preview: 설정 시 헤더 전체 클릭으로 해당 URL 이동 (홈용) */
   headerHref?: string;
   /** full only */
-  updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt">>) => void;
+  updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "collapsed">>) => void;
   deleteMemo?: (id: string) => void;
   colorMenuId?: string | null;
   setColorMenuId?: (id: string | null) => void;
@@ -38,6 +40,15 @@ export function MemoCard({
   const colors = MEMO_COLORS[memo.color] ?? MEMO_COLORS.black;
   const isColorOpen = colorMenuId === memo.id;
   const isEditingTitle = editingTitleId === memo.id;
+  const isCollapsed = variant === "full" && memo.collapsed === true;
+  const editTitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearEditTitleSchedule = () => {
+    if (editTitleTimeoutRef.current) {
+      clearTimeout(editTitleTimeoutRef.current);
+      editTitleTimeoutRef.current = null;
+    }
+  };
+  useEffect(() => () => clearEditTitleSchedule(), []);
 
   const rootStyle = {
     backgroundColor: colors.bodyBg,
@@ -47,11 +58,11 @@ export function MemoCard({
 
   return (
     <div
-      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${className} ${
+      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${
         variant === "preview"
           ? "shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
           : ""
-      }`}
+      } ${className} ${isCollapsed ? "h-auto flex-shrink-0" : ""}`}
       style={rootStyle}
     >
       {/* 헤더 (preview+headerHref면 헤더 클릭 시 링크 이동) */}
@@ -86,7 +97,7 @@ export function MemoCard({
       ) : (
         <div
           data-memo-drag-handle
-          className={`relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] border-b px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""}`}
+          className={`relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""} ${isCollapsed ? "rounded-b-[10px] border-b-0" : "border-b"}`}
           style={{
             backgroundColor: colors.headerBg,
             borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
@@ -102,10 +113,12 @@ export function MemoCard({
               : undefined
           }
           onDoubleClick={
-            variant === "full" && setEditingTitleId
+            variant === "full" && updateMemo
               ? (e) => {
                   if ((e.target as HTMLElement).closest("button")) return;
-                  setEditingTitleId(memo.id);
+                  clearEditTitleSchedule();
+                  setEditingTitleId?.(null);
+                  updateMemo(memo.id, { collapsed: !memo.collapsed });
                 }
               : undefined
           }
@@ -127,7 +140,26 @@ export function MemoCard({
               autoFocus
             />
           ) : (
-            <span className="min-w-0 truncate text-[17px] font-semibold">
+            <span
+              className="min-w-0 truncate text-[17px] font-semibold cursor-text"
+              onClick={
+                variant === "full" && setEditingTitleId
+                  ? (e) => {
+                      e.stopPropagation();
+                      clearEditTitleSchedule();
+                      editTitleTimeoutRef.current = setTimeout(() => setEditingTitleId(memo.id), EDIT_TITLE_DELAY_MS);
+                    }
+                  : undefined
+              }
+              onDoubleClick={
+                variant === "full"
+                  ? (e) => {
+                      e.stopPropagation();
+                      clearEditTitleSchedule();
+                    }
+                  : undefined
+              }
+            >
               {memo.title || "\u00A0"}
             </span>
           )}
@@ -212,7 +244,8 @@ export function MemoCard({
       </div>
       )}
 
-      {/* 본문 (preview는 모바일에서 좌우 패딩 크게 → 화살표와 겹치지 않도록) */}
+      {/* 본문 (접힌 상태면 숨김. preview는 모바일에서 좌우 패딩 크게 → 화살표와 겹치지 않도록) */}
+      {!isCollapsed && (
       <div className={`min-h-0 flex-1 overflow-hidden py-3 bg-white rounded-b-[10px] ${variant === "preview" ? "px-12 md:px-4" : "px-4"}`}>
         {variant === "full" && updateMemo ? (
           <textarea
@@ -229,6 +262,7 @@ export function MemoCard({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

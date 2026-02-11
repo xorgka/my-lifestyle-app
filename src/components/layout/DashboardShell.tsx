@@ -33,9 +33,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
     }
   }, [pathname]);
 
-  // 팝업 설정 Supabase 동기화 (모바일·기기·브라우저 간 연동)
+  // 팝업 설정 Supabase 동기화 (모바일·기기·브라우저 간 연동). 동기화 완료 후 리렌더해 최신 설정 반영
+  const [, setPopupConfigVersion] = useState(0);
   useEffect(() => {
-    syncPopupConfigFromSupabase();
+    syncPopupConfigFromSupabase().then(() => setPopupConfigVersion((v) => v + 1));
   }, []);
 
   return (

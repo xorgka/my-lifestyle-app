@@ -101,7 +101,7 @@ export default function MemoPage() {
 
   const updateMemo = (
     id: string,
-    updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height">>
+    updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height" | "collapsed">>
   ) => {
     void persist(
       memos.map((m) => (m.id === id ? { ...m, ...updates } : m))
@@ -318,8 +318,11 @@ export default function MemoPage() {
           const my = memo.y ?? 20;
           const mw = memo.width ?? MEMO_DEFAULT_WIDTH;
           const mh = memo.height ?? MEMO_DEFAULT_HEIGHT;
+          const isCollapsed = memo.collapsed === true;
           const isDragging = draggingId === memo.id;
           const isResizing = resizingId === memo.id;
+          /** 접힌 상태에서는 헤더 높이만 사용해 하얀 박스+그림자 안 남김 */
+          const wrapHeight = isCollapsed ? 52 : mh;
           return (
             <div
               key={memo.id}
@@ -342,7 +345,7 @@ export default function MemoPage() {
                 isDragging || isResizing ? "z-50 select-none" : "z-10"
               }`}
               style={{
-                ...(isDesktop ? { left: mx, top: my, width: mw, height: mh } : {}),
+                ...(isDesktop ? { left: mx, top: my, width: mw, height: wrapHeight } : {}),
                 boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
               }}
             >

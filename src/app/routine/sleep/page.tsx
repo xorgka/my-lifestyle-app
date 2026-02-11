@@ -68,18 +68,18 @@ function getSleepSegments(bedTime?: string, wakeTime?: string): { from: number; 
   return [{ from: bedR, to: wakeR }];
 }
 
-/** Y축 23시(위)~14시(아래) 구간을 차트 전체 0~100%로 사용. 시각·막대 길이 맞고, 위/아래 여백 없음 */
-const CHART_START_MINUTES = 23 * 60; // 23:00 = 0%
-const CHART_END_MINUTES = 14 * 60;   // 14:00 = 100% (다음날)
-const CHART_SPAN_MINUTES = (24 - 23) * 60 + CHART_END_MINUTES; // 60 + 840 = 900
+/** Y축 22시(위)~13시(아래) 구간을 차트 전체 0~100%로 사용. 시각·막대 길이 맞고, 위/아래 여백 없음 */
+const CHART_START_MINUTES = 22 * 60; // 22:00 = 0%
+const CHART_END_MINUTES = 13 * 60;   // 13:00 = 100% (다음날)
+const CHART_SPAN_MINUTES = (24 - 22) * 60 + CHART_END_MINUTES; // 120 + 780 = 900
 
-/** 시각(분 0~1439)을 차트 Y 위치 %로. 23:00=0%, 02:00=20%, 05:00=40%, … 14:00=100%. 14~23시는 100%로 클램프 */
+/** 시각(분 0~1439)을 차트 Y 위치 %로. 22:00=0%, 01:00=20%, 04:00=40%, … 13:00=100%. 13~22시는 100%로 클램프 */
 function timeToChartPercent(minFromMidnight: number): number {
   let chartMin: number;
   if (minFromMidnight >= CHART_START_MINUTES) {
     chartMin = minFromMidnight - CHART_START_MINUTES;
   } else if (minFromMidnight <= CHART_END_MINUTES) {
-    chartMin = (24 - 23) * 60 + minFromMidnight;
+    chartMin = (24 - 22) * 60 + minFromMidnight;
   } else {
     return 100;
   }
@@ -93,20 +93,20 @@ function getVerticalBarPosition(bedTime?: string, wakeTime?: string): { topPerce
   if (wake <= bed) wake += 1440;
   const bedPercent = timeToChartPercent(bed);
   const wakePercent = timeToChartPercent(wake > 1440 ? wake - 1440 : wake);
-  // 막대 위 = 취침(수면 시작), 막대 아래 = 기상(수면 끝). Y축 20→23→02→05… 이므로 작은 %가 위쪽
+  // 막대 위 = 취침(수면 시작), 막대 아래 = 기상(수면 끝). Y축 22→01→04→07… 이므로 작은 %가 위쪽
   const topPercent = Math.min(bedPercent, wakePercent);
   const heightPercent = Math.max(2, Math.abs(wakePercent - bedPercent));
   return { topPercent, heightPercent };
 }
 
-/** 시간축 눈금: 23~14 구간을 0~100%에 맞춰 균등 배치 */
+/** 시간축 눈금: 22~13 구간을 0~100%에 맞춰 균등 배치 */
 const CHART_TIME_TICKS = [
-  { label: "23", topPercent: 0 },
-  { label: "02", topPercent: 20 },
-  { label: "05", topPercent: 40 },
-  { label: "08", topPercent: 60 },
-  { label: "11", topPercent: 80 },
-  { label: "14", topPercent: 100 },
+  { label: "22", topPercent: 0 },
+  { label: "01", topPercent: 20 },
+  { label: "04", topPercent: 40 },
+  { label: "07", topPercent: 60 },
+  { label: "10", topPercent: 80 },
+  { label: "13", topPercent: 100 },
 ];
 
 export default function SleepPage() {

@@ -227,10 +227,12 @@ create table if not exists memos (
   x integer,
   y integer,
   width integer,
-  height integer
+  height integer,
+  collapsed boolean not null default false
 );
 create index if not exists idx_memos_deleted_at on memos (deleted_at) where deleted_at is null;
 comment on table memos is '메모(포스트잇). PC/모바일 동기화';
+comment on column memos.collapsed is 'true면 헤더만 표시(접힌 상태)';
 
 -- ------------------------------------------------------------
 -- 11. 수면 관리 - 날짜별 기상/취침 (기기 간 동기화)

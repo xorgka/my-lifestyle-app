@@ -30,6 +30,8 @@ export type Memo = {
   y?: number;
   width?: number;
   height?: number;
+  /** 헤더만 보이도록 접힌 상태 (더블클릭으로 토글) */
+  collapsed?: boolean;
 };
 
 export const MEMO_DEFAULT_WIDTH = 320;
@@ -75,6 +77,7 @@ function rowToMemo(row: Record<string, unknown>): Memo {
     y: row.y != null ? Number(row.y) : undefined,
     width: row.width != null ? Number(row.width) : undefined,
     height: row.height != null ? Number(row.height) : undefined,
+    collapsed: row.collapsed === true,
   };
 }
 
@@ -92,6 +95,7 @@ function memoToRow(m: Memo): Record<string, unknown> {
     y: m.y ?? null,
     width: m.width ?? null,
     height: m.height ?? null,
+    collapsed: m.collapsed ?? false,
   };
 }
 
