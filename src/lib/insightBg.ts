@@ -9,6 +9,7 @@
 
 const INSIGHT_BG_SETTINGS_KEY = "insight-bg-settings";
 const INSIGHT_BG_URL_KEY = "insight-bg-url"; // 이전 버전 호환
+const INSIGHT_BG_LIST_INDEX_KEY = "insight-bg-list-index"; // list 모드에서 더블클릭 시 순환용 인덱스
 
 export type InsightBgMode = "auto" | "single" | "list";
 
@@ -71,19 +72,36 @@ export function setInsightBgSettings(settings: InsightBgSettings): void {
   }
 }
 
-/** 12시간마다 증가하는 슬롯 인덱스 (0시·12시 경계) */
-function getSlotIndex(): number {
-  return Math.floor(Date.now() / (12 * 60 * 60 * 1000));
+/** list 모드에서 더블클릭으로 넘길 때 쓰는 인덱스 (localStorage) */
+export function getInsightBgListIndex(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = window.localStorage.getItem(INSIGHT_BG_LIST_INDEX_KEY);
+    if (raw === null) return 0;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
 }
 
-/** 현재 표시할 이미지 URL. null이면 Picsum 사용 */
+export function setInsightBgListIndex(index: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(INSIGHT_BG_LIST_INDEX_KEY, String(index));
+  } catch {
+    // ignore
+  }
+}
+
+/** 현재 표시할 이미지 URL. null이면 Picsum 사용. list 모드는 저장된 인덱스로 순환 */
 export function getInsightBgDisplayUrl(): string | null {
   const settings = getInsightBgSettings();
   if (settings.mode === "auto") return null;
   if (settings.mode === "single") return settings.url;
   const { urls } = settings;
   if (urls.length === 0) return null;
-  const index = getSlotIndex() % urls.length;
+  const index = getInsightBgListIndex() % urls.length;
   return urls[index] ?? null;
 }
 

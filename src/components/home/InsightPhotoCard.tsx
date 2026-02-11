@@ -2,7 +2,13 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { getInsightBgDisplayUrl, setInsightBgSettings } from "@/lib/insightBg";
+import {
+  getInsightBgDisplayUrl,
+  getInsightBgListIndex,
+  getInsightBgSettings,
+  setInsightBgListIndex,
+  setInsightBgSettings,
+} from "@/lib/insightBg";
 import { TodayInsightHero } from "./TodayInsightHero";
 
 /** 12시간 단위 시드: 0~11시 = 0, 12~23시 = 1 → 하루 2번 이미지 교체 */
@@ -83,11 +89,20 @@ export function InsightPhotoCard() {
   const displayUrl = (customUrl && !customUrlFailed) ? customUrl : picsumUrl;
 
   const goNextPhoto = () => {
-    if (customUrl && !customUrlFailed) {
-      setInsightBgSettings({ mode: "auto" });
-      setCustomUrl(null);
-      setCustomUrlFailed(false);
+    const settings = getInsightBgSettings();
+    if (settings.mode === "single") {
+      return;
     }
+    if (settings.mode === "list" && settings.urls.length > 1) {
+      const next = (getInsightBgListIndex() + 1) % settings.urls.length;
+      setInsightBgListIndex(next);
+      setCustomUrl(getInsightBgDisplayUrl());
+      setCustomUrlFailed(false);
+      return;
+    }
+    setInsightBgSettings({ mode: "auto" });
+    setCustomUrl(null);
+    setCustomUrlFailed(false);
     setNextPhotoCount((c) => c + 1);
   };
 
