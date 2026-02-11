@@ -227,7 +227,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         contentEditable={!isTrashNote}
         suppressContentEditableWarning
         className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4"
-        style={{ minHeight: 200, fontSize: "19px" }}
+        style={{ minHeight: 200, fontSize: "20px" }}
         onInput={emitContent}
         onPaste={handlePaste}
       />
