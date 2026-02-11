@@ -160,6 +160,13 @@ export async function saveMemos(memos: Memo[]): Promise<void> {
   saveJson(MEMO_KEY, memos);
 }
 
+/** 활성 메모만 넘기고 저장 시 휴지통 항목은 그대로 유지 (추가/수정/드래그/리사이즈 시 사용) */
+export async function saveMemosKeepingTrash(activeMemos: Memo[]): Promise<void> {
+  const all = await loadAllMemos();
+  const trashed = all.filter((m) => m.deletedAt);
+  await saveMemos([...activeMemos, ...trashed]);
+}
+
 /** 메모 목록만 갱신(휴지통 항목은 유지). 위치 등 기본값 보정 시 사용 */
 export async function saveMemosOnlyUpdate(updatedMemos: Memo[]): Promise<void> {
   const all = await loadAllMemos();

@@ -5,8 +5,8 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import {
   type Memo,
   loadMemos,
-  saveMemos,
   saveMemosOnlyUpdate,
+  saveMemosKeepingTrash,
   createMemo,
   loadTrashMemos,
   moveMemoToTrash,
@@ -77,7 +77,7 @@ export default function MemoPage() {
 
   const persist = useCallback(async (next: Memo[]) => {
     setMemos(next);
-    await saveMemos(next);
+    await saveMemosKeepingTrash(next);
   }, []);
 
   const addMemo = () => {
@@ -183,7 +183,7 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === draggingId ? { ...m, x, y } : m
           );
-          void saveMemos(next);
+          void saveMemosKeepingTrash(next);
           return next;
         });
         dragStartRef.current = null;
@@ -194,7 +194,7 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === resizingId ? { ...m, width, height } : m
           );
-          void saveMemos(next);
+          void saveMemosKeepingTrash(next);
           return next;
         });
         resizeStartRef.current = null;
