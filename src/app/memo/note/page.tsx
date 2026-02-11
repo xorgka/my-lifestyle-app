@@ -262,23 +262,6 @@ export default function NotePage() {
               : "hidden min-w-0 flex-1 flex-col pl-0 md:flex md:pl-4"
           }
         >
-          {selectedNoteId && (
-            <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 md:hidden">
-              <button
-                type="button"
-                onClick={() => setSelectedNoteId(null)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100"
-                aria-label="목록"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-800">
-                {selectedNote?.title || "제목 없음"}
-              </span>
-            </div>
-          )}
           <NoteEditor
             note={selectedNote}
             onTitleChange={handleNoteTitleChange}
@@ -287,6 +270,7 @@ export default function NotePage() {
             isTrashNote={isTrashNote}
             onRestore={isTrashNote && selectedNote ? () => handleRestore(selectedNote.id) : undefined}
             onPermanentDelete={isTrashNote && selectedNote ? () => handlePermanentDelete(selectedNote.id) : undefined}
+            onBack={selectedNoteId ? () => setSelectedNoteId(null) : undefined}
           />
         </div>
       </div>

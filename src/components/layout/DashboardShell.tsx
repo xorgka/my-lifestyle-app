@@ -23,6 +23,8 @@ import { WakeTimePopup } from "@/components/WakeTimePopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
 import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
+import { syncInsightBgFromSupabase } from "@/lib/insightBg";
+import { syncWeatherBgFromSupabase } from "@/lib/weatherBg";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 const TEST_ALERTS_KEY = "testAlerts";
@@ -45,10 +47,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
     }
   }, [pathname]);
 
-  // 팝업 설정 Supabase 동기화 (모바일·기기·브라우저 간 연동). 동기화 완료 후 리렌더해 최신 설정 반영
+  // Supabase 동기화: 팝업 설정 + 날씨/인사이트 배경 (모바일·기기·브라우저 간 연동). 완료 후 리렌더로 최신 반영
   const [, setPopupConfigVersion] = useState(0);
   useEffect(() => {
-    syncPopupConfigFromSupabase().then(() => setPopupConfigVersion((v) => v + 1));
+    Promise.all([
+      syncPopupConfigFromSupabase(),
+      syncWeatherBgFromSupabase(),
+      syncInsightBgFromSupabase(),
+    ]).then(() => setPopupConfigVersion((v) => v + 1));
   }, []);
 
   return (

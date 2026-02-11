@@ -12,6 +12,8 @@ type NoteEditorProps = {
   isTrashNote?: boolean;
   onRestore?: () => void;
   onPermanentDelete?: () => void;
+  /** 모바일에서 목록으로 돌아가기. 있으면 헤더 왼쪽에 뒤로가기 버튼 표시 */
+  onBack?: () => void;
 };
 
 const HIGHLIGHT_COLOR = "#fef08a";
@@ -39,7 +41,7 @@ const COLORS = [
   { label: "보라", value: "#9333ea" },
 ];
 
-export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isTrashNote, onRestore, onPermanentDelete }: NoteEditorProps) {
+export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isTrashNote, onRestore, onPermanentDelete, onBack }: NoteEditorProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -119,7 +121,19 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-white">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2 md:px-5 md:py-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex md:hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100"
+            aria-label="목록"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
         {isTrashNote ? (
           <>
             <span className="min-w-0 flex-1 truncate text-lg font-semibold text-neutral-500">{note.title || "제목 없음"}</span>

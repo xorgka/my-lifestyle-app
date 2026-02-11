@@ -1,15 +1,15 @@
 /**
- * 투데이 인사이트 카드 배경 설정 (localStorage)
- * - auto: Picsum 자동 (12시간마다)
- * - single: URL 1개 고정
- * - list: 여러 URL 목록, 12시간마다 순환
- * - 새로고침/탭 전환 후에도 유지됨
- * - 기기 간 동기화를 원하면 Supabase user_settings 등에 저장하도록 연동 가능
+ * 투데이 인사이트 카드 배경 설정
+ * Supabase 연결 시 기기/브라우저 동기화, 없으면 localStorage만 사용
+ * - auto / single / list 모드
  */
+
+import { supabase } from "./supabase";
 
 const INSIGHT_BG_SETTINGS_KEY = "insight-bg-settings";
 const INSIGHT_BG_URL_KEY = "insight-bg-url"; // 이전 버전 호환
-const INSIGHT_BG_LIST_INDEX_KEY = "insight-bg-list-index"; // list 모드에서 더블클릭 시 순환용 인덱스
+const INSIGHT_BG_LIST_INDEX_KEY = "insight-bg-list-index"; // list 모드에서 더블클릭 시 순환용 인덱스 (기기별 유지)
+const SUPABASE_ROW_ID = "default";
 
 export type InsightBgMode = "auto" | "single" | "list";
 
@@ -25,6 +25,50 @@ function readRaw(): string | null {
     return window.localStorage.getItem(INSIGHT_BG_SETTINGS_KEY);
   } catch {
     return null;
+  }
+}
+
+function writeRaw(json: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(INSIGHT_BG_SETTINGS_KEY, json);
+  } catch {}
+}
+
+/** Supabase에서 인사이트 배경 설정을 가져와 localStorage에 반영. 앱 로드 시 호출하면 기기 간 동기화 */
+export async function syncInsightBgFromSupabase(): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { data: row, error } = await supabase
+      .from("user_display_settings")
+      .select("insight_bg")
+      .eq("id", SUPABASE_ROW_ID)
+      .maybeSingle();
+    if (error || !row || !row.insight_bg) return;
+    const ib = row.insight_bg as Record<string, unknown>;
+    if (ib && typeof ib === "object") writeRaw(JSON.stringify(ib));
+  } catch {
+    // ignore
+  }
+}
+
+async function saveInsightBgToSupabase(settings: Stored): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { data: row } = await supabase
+      .from("user_display_settings")
+      .select("weather_bg")
+      .eq("id", SUPABASE_ROW_ID)
+      .maybeSingle();
+    const weatherBg = (row?.weather_bg ?? {}) as Record<string, unknown>;
+    await supabase
+      .from("user_display_settings")
+      .upsert(
+        { id: SUPABASE_ROW_ID, weather_bg: weatherBg, insight_bg: settings, updated_at: new Date().toISOString() },
+        { onConflict: "id" }
+      );
+  } catch {
+    // ignore
   }
 }
 
@@ -79,6 +123,7 @@ export function setInsightBgSettings(settings: Partial<InsightBgSettings> | Insi
         urls: "urls" in current ? current.urls : undefined,
       };
       window.localStorage.setItem(INSIGHT_BG_SETTINGS_KEY, JSON.stringify(merged));
+      saveInsightBgToSupabase(merged);
       return;
     }
     const toSave: Stored =
@@ -88,6 +133,7 @@ export function setInsightBgSettings(settings: Partial<InsightBgSettings> | Insi
           ? { mode: "list", urls: settings.urls }
           : { mode: settings.mode ?? "auto" };
     window.localStorage.setItem(INSIGHT_BG_SETTINGS_KEY, JSON.stringify(toSave));
+    saveInsightBgToSupabase(toSave);
   } catch {
     // ignore
   }
