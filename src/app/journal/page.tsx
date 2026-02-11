@@ -643,7 +643,7 @@ export default function JournalPage() {
                         setTimeout(() => textareaRef.current?.focus(), 0);
                       }
                     }}
-                    className="min-h-[560px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
+                    className="min-h-[360px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
                     title="클릭하면 글쓰기 모드로 전환"
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >

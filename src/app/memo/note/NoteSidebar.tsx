@@ -91,7 +91,7 @@ function NotebookSection({
               e.preventDefault();
               onDeleteNotebook(nb.id);
             }}
-            className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-neutral-600 hover:bg-neutral-200/70 rounded"
+            className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-neutral-600"
           >
             {title}
           </button>
