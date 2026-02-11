@@ -51,14 +51,20 @@ export function MemoCard({
   useEffect(() => () => clearEditTitleSchedule(), []);
 
   const rootStyle = {
-    backgroundColor: colors.bodyBg,
-    borderColor: variant === "full" ? colors.border : "rgba(0,0,0,0.11)",
-    ...(variant !== "preview" ? { boxShadow: "0 4px 14px rgba(0,0,0,0.08)" } : {}),
+    ...(isCollapsed
+      ? { backgroundColor: "transparent", borderColor: "transparent", boxShadow: "none" }
+      : {
+          backgroundColor: colors.bodyBg,
+          borderColor: variant === "full" ? colors.border : "rgba(0,0,0,0.11)",
+          ...(variant !== "preview" ? { boxShadow: "0 4px 14px rgba(0,0,0,0.08)" } : {}),
+        }),
   };
 
   return (
     <div
-      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border ${
+      className={`flex min-h-0 flex-col overflow-hidden rounded-xl ${
+        isCollapsed ? "" : "border"
+      } ${
         variant === "preview"
           ? "shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
           : ""
@@ -97,11 +103,12 @@ export function MemoCard({
       ) : (
         <div
           data-memo-drag-handle
-          className={`relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""} ${isCollapsed ? "rounded-b-[10px] border-b-0" : "border-b"}`}
+          className={`relative flex flex-shrink-0 select-none items-center justify-between gap-2 rounded-t-[10px] px-4 py-1 ${variant === "full" ? "cursor-grab active:cursor-grabbing" : ""} ${isCollapsed ? "rounded-b-[10px] border" : "border-b"}`}
           style={{
             backgroundColor: colors.headerBg,
-            borderColor: colors.headerFg ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
+            borderColor: colors.headerFg ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.08)",
             color: colors.headerFg ?? undefined,
+            ...(isCollapsed ? { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } : {}),
           }}
           onContextMenu={
             variant === "full" && setColorMenuId

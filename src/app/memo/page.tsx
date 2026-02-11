@@ -321,8 +321,8 @@ export default function MemoPage() {
           const isCollapsed = memo.collapsed === true;
           const isDragging = draggingId === memo.id;
           const isResizing = resizingId === memo.id;
-          /** 접힌 상태에서는 헤더 높이만 사용해 하얀 박스+그림자 안 남김 */
-          const wrapHeight = isCollapsed ? 52 : mh;
+          /** 접힌 상태: 헤더 높이만, wrapper 그림자 제거(카드만 그림자), 리사이즈 핸들 숨김 */
+          const wrapHeight = isCollapsed ? 44 : mh;
           return (
             <div
               key={memo.id}
@@ -341,12 +341,12 @@ export default function MemoPage() {
                   memoY: my,
                 };
               }}
-              className={`flex min-h-[280px] w-full cursor-default flex-col overflow-hidden rounded-xl shadow-lg transition-shadow md:absolute md:min-h-0 md:w-auto ${
-                isDragging || isResizing ? "z-50 select-none" : "z-10"
-              }`}
+              className={`flex min-h-[280px] w-full cursor-default flex-col overflow-hidden rounded-xl transition-shadow md:absolute md:min-h-0 md:w-auto ${
+                isCollapsed ? "" : "shadow-lg"
+              } ${isDragging || isResizing ? "z-50 select-none" : "z-10"}`}
               style={{
                 ...(isDesktop ? { left: mx, top: my, width: mw, height: wrapHeight } : {}),
-                boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+                ...(isCollapsed ? {} : { boxShadow: "0 4px 14px rgba(0,0,0,0.08)" }),
               }}
             >
               <MemoCard
@@ -360,7 +360,7 @@ export default function MemoPage() {
                 editingTitleId={editingTitleId}
                 setEditingTitleId={setEditingTitleId}
               />
-              {isDesktop && (
+              {isDesktop && !isCollapsed && (
                 <div
                   data-resize-handle
                   className="absolute bottom-0 right-0 z-10 h-8 w-8 cursor-se-resize"
