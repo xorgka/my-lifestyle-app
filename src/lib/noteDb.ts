@@ -154,6 +154,12 @@ export async function saveNotebooks(notebooks: Notebook[]): Promise<void> {
     try {
       const rows = withTimestamps.map((n) => notebookToRow(n));
       await supabase.from("note_notebooks").upsert(rows, { onConflict: "id" });
+      const keepIds = new Set(notebooks.map((n) => n.id));
+      const { data: existing } = await supabase.from("note_notebooks").select("id");
+      const toDelete = (existing ?? []).map((r) => r.id).filter((id) => !keepIds.has(id));
+      if (toDelete.length > 0) {
+        await supabase.from("note_notebooks").delete().in("id", toDelete);
+      }
     } catch {}
   }
 }

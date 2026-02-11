@@ -165,7 +165,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
       </div>
 
       {!isTrashNote && (
-      <div className="relative flex shrink-0 flex-wrap items-center gap-1 border-b border-neutral-200 px-4 py-2">
+      <div className="relative hidden shrink-0 flex-wrap items-center gap-1 border-b border-neutral-200 px-4 py-2 md:flex">
         <button
           type="button"
           onClick={() => exec("bold")}
@@ -242,8 +242,8 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         ref={contentRef}
         contentEditable={!isTrashNote}
         suppressContentEditableWarning
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4"
-        style={{ minHeight: 200, fontSize: "20px" }}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[19px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 md:text-[20px]"
+        style={{ minHeight: 200 }}
         onInput={emitContent}
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
