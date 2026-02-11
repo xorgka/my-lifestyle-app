@@ -23,6 +23,19 @@ on conflict (category) do update set keywords = excluded.keywords, updated_at = 
 RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막혀서 저장이 안 됩니다.  
 **SQL Editor**에서 `rls-policies.sql` 내용을 실행해 주세요. (테이블은 이미 있다면 RLS 정책만 적용됩니다.)
 
+### 노트·메모 기기/모바일/브라우저 연동
+
+**노트**(에버노트 스타일)와 **메모**(포스트잇)를 모든 기기·브라우저에서 동기화하려면:
+
+1. **Supabase SQL Editor → New query**에서 **`migration-sync-notes-memos.sql`** 전체 내용을 붙여넣고 **Run** 실행
+2. 앱 환경 변수 설정:
+   - `NEXT_PUBLIC_SUPABASE_URL` = Supabase 프로젝트 URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = Supabase anon public key
+
+설정 후에는 PC, 모바일, 다른 브라우저에서 같은 노트·메모가 보입니다. (한 번 로컬만 쓰다가 Supabase를 켜면, 첫 로드 시 해당 기기의 로컬 데이터가 Supabase로 한 번 올라갑니다.)
+
+---
+
 ### 유튜브 실제 입금 금액 테이블 (기기/브라우저 동기화)
 
 유튜브 페이지의 **실제 입금 금액**(국민 6954/8189 등)을 기기·브라우저 간 연동하려면 **SQL Editor → New query**에서 아래 파일 내용을 붙여넣고 **Run** 하세요.

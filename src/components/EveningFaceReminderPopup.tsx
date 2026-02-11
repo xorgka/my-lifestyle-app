@@ -149,7 +149,7 @@ export function EveningFaceReminderPopup({ forceShow }: EveningFaceReminderPopup
   if (showIcon && typeof document !== "undefined" && document.body) {
     return createPortal(
       <div
-        className="fixed inset-0 flex items-center justify-center bg-black/30"
+        className="fixed inset-0 flex items-center justify-center bg-black/65"
         style={{ zIndex: REMINDER_POPUP_Z_INDEX }}
         aria-hidden
       >
@@ -165,8 +165,8 @@ export function EveningFaceReminderPopup({ forceShow }: EveningFaceReminderPopup
 
   const modal = (
     <div
-      className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
+      className="fixed inset-0 flex min-h-[100dvh] min-w-[100vw] items-center justify-center p-4"
+      style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: "rgba(0,0,0,0.65)" }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="evening-face-reminder-title"

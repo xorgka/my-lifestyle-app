@@ -1815,7 +1815,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4 sm:hidden"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4 sm:hidden"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={() => setShowFinanceSettingsMenu(false)}
           >
@@ -1901,7 +1901,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/55 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={() => setShowExportModal(false)}
           >
@@ -2038,7 +2038,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
             onClick={() => {
               setDayDetailDate(null);
               setDayDetailEditingId(null);
@@ -2164,7 +2164,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-black/55 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
@@ -2375,7 +2375,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
             onClick={() => {
               setCategoryDetailModal(null);
               setExpandedDetailItems(new Set());
@@ -2479,7 +2479,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/40 p-4"
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
             onClick={() => setShowCardExpenseDetailModal(false)}
           >
             <div
@@ -2567,7 +2567,7 @@ placeholder="항목"
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={() => {
               setShowKeywordModal(false);

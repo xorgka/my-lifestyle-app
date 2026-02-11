@@ -235,6 +235,29 @@ comment on table memos is '메모(포스트잇). PC/모바일 동기화';
 comment on column memos.collapsed is 'true면 헤더만 표시(접힌 상태)';
 
 -- ------------------------------------------------------------
+-- 10-2. 노트(에버노트 스타일) - 노트북 + 노트, 기기 동기화
+-- ------------------------------------------------------------
+create table if not exists note_notebooks (
+  id text primary key,
+  title text not null default '노트북',
+  collapsed boolean not null default false,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create table if not exists note_notes (
+  id text primary key,
+  notebook_id text,
+  title text not null default '',
+  content text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+create index if not exists idx_note_notes_notebook_id on note_notes(notebook_id);
+create index if not exists idx_note_notes_deleted_at on note_notes(deleted_at) where deleted_at is null;
+
+-- ------------------------------------------------------------
 -- 11. 수면 관리 - 날짜별 기상/취침 (기기 간 동기화)
 -- ------------------------------------------------------------
 create table if not exists sleep_records (
@@ -287,6 +310,8 @@ alter table schedule_order enable row level security;
 alter table schedule_builtin_deleted enable row level security;
 alter table income_entries enable row level security;
 alter table memos enable row level security;
+alter table note_notebooks enable row level security;
+alter table note_notes enable row level security;
 alter table sleep_records enable row level security;
 alter table reminder_last_shown enable row level security;
 alter table popup_reminder_config enable row level security;
@@ -309,6 +334,8 @@ create policy "allow all schedule_order" on schedule_order for all using (true) 
 create policy "allow all schedule_builtin_deleted" on schedule_builtin_deleted for all using (true) with check (true);
 create policy "allow all income_entries" on income_entries for all using (true) with check (true);
 create policy "allow all memos" on memos for all using (true) with check (true);
+create policy "allow all note_notebooks" on note_notebooks for all using (true) with check (true);
+create policy "allow all note_notes" on note_notes for all using (true) with check (true);
 create policy "allow all sleep_records" on sleep_records for all using (true) with check (true);
 create policy "allow all reminder_last_shown" on reminder_last_shown for all using (true) with check (true);
 create policy "allow all popup_reminder_config" on popup_reminder_config for all using (true) with check (true);

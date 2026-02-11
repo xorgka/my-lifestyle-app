@@ -979,7 +979,7 @@ export function SettingsModal({ onClose }: Props) {
       aria-labelledby="settings-modal-title"
     >
       <div
-        className="fixed inset-0 h-[100dvh] w-[100vw] min-h-full min-w-full bg-black/55"
+        className="fixed inset-0 h-[100dvh] w-[100vw] min-h-full min-w-full bg-black/65"
         style={{ top: 0, left: 0, right: 0, bottom: 0 }}
         onClick={onClose}
         aria-hidden

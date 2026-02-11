@@ -75,7 +75,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       {mobileMenuOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            className="fixed inset-0 z-40 min-h-[100dvh] min-w-[100vw] bg-black/65 md:hidden"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden
           />

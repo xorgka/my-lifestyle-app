@@ -119,7 +119,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
       style={{ top: 0, left: 0, right: 0, bottom: 0 }}
       onClick={onClose}
       role="dialog"

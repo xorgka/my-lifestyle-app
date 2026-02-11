@@ -400,7 +400,7 @@ export function YoutubePlayerBar() {
         createPortal(
           <>
             <div
-              className={`fixed inset-0 z-[9998] ${isMobile ? "bg-black/50" : ""}`}
+              className={`fixed inset-0 z-[9998] ${isMobile ? "bg-black/65" : ""}`}
               onClick={() => setDrawerOpen(false)}
               aria-hidden
             />

@@ -807,7 +807,7 @@ export default function SchedulePage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
             style={{ left: 0, top: 0, right: 0, bottom: 0 }}
             onClick={() => setWeekItemModal(null)}
             role="dialog"
@@ -878,7 +878,7 @@ export default function SchedulePage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
             style={{ left: 0, top: 0, right: 0, bottom: 0 }}
             onClick={() => setDayModalDate(null)}
             role="dialog"

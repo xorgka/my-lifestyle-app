@@ -207,7 +207,7 @@ export function MemoCard({
           {variant === "full" && isColorOpen && setColorMenuId && updateMemo && (
             <>
               <div
-                className="fixed inset-0 z-10"
+                className="fixed inset-0 z-10 min-h-[100dvh] min-w-[100vw] bg-black/65"
                 aria-hidden
                 onClick={(e) => {
                   e.stopPropagation();

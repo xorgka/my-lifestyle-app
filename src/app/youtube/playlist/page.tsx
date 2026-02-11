@@ -440,7 +440,7 @@ export default function YoutubePlaylistPage() {
             aria-label={modal === "add" ? "항목 추가" : "항목 수정"}
           >
             <div
-              className="absolute inset-0 bg-black/85"
+              className="absolute inset-0 min-h-[100dvh] min-w-[100vw] bg-black/65"
               onClick={closeModal}
               aria-hidden
             />

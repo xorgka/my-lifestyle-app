@@ -453,7 +453,7 @@ export default function SleepPage() {
       {isMobile && (editWake !== null || editBed !== null) && typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
             onClick={() => (setEditWake(null), setEditBed(null))}
             role="dialog"
             aria-modal="true"
@@ -879,7 +879,7 @@ export default function SleepPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
             onClick={() => setEditDayModal(null)}
             role="dialog"
             aria-modal="true"

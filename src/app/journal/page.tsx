@@ -772,7 +772,7 @@ export default function JournalPage() {
           createPortal(
             <>
               <div
-                className="fixed inset-0 z-40 min-h-screen min-w-[100vw] bg-black/40 transition-opacity duration-200"
+                className="fixed inset-0 z-40 min-h-screen min-w-[100vw] bg-black/65 transition-opacity duration-200"
                 aria-hidden
                 onClick={() => setDrawerOpen(false)}
               />

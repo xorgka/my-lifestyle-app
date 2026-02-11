@@ -364,7 +364,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/40 p-4 md:hidden"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4 md:hidden"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={() => setShowYoutubeSettingsMenu(false)}
           >
@@ -409,7 +409,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 aria-labelledby="export-modal-title"
               >
                 <div
-                  className="fixed inset-0 h-[100dvh] w-[100vw] min-h-full min-w-full bg-black/55"
+                  className="fixed inset-0 h-[100dvh] w-[100vw] min-h-full min-w-full bg-black/65"
                   onClick={() => setShowExportModal(false)}
                   aria-hidden
                 />
@@ -1044,7 +1044,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 aria-labelledby="stats-month-modal-title"
               >
                 <div
-                  className="fixed inset-0 bg-black/40"
+                  className="fixed inset-0 bg-black/65"
                   onClick={() => setStatsMonthModal(null)}
                   aria-hidden
                 />
@@ -1110,7 +1110,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
             aria-modal="true"
           >
             <div
-              className="fixed inset-0 bg-black/40"
+              className="fixed inset-0 bg-black/65"
               onClick={() => { setAddBankModalOpen(false); setAddBankInput(""); }}
               aria-hidden
             />
@@ -1177,7 +1177,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
             aria-modal="true"
           >
             <div
-              className="fixed inset-0 bg-black/40"
+              className="fixed inset-0 bg-black/65"
               onClick={closeModal}
               aria-hidden
             />
@@ -1296,7 +1296,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
             aria-modal="true"
           >
             <div
-              className="fixed inset-0 bg-black/40"
+              className="fixed inset-0 bg-black/65"
               onClick={closeAccountModal}
               aria-hidden
             />
@@ -1385,7 +1385,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
             aria-modal="true"
           >
             <div
-              className="fixed inset-0 bg-black/40"
+              className="fixed inset-0 bg-black/65"
               onClick={() => setMemoModalChannelId(null)}
               aria-hidden
             />
@@ -1469,7 +1469,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
           };
           return createPortal(
             <div
-              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/65 p-4"
               role="dialog"
               aria-modal="true"
               aria-labelledby="revenue-detail-title"
@@ -1580,7 +1580,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4"
             role="dialog"
             aria-modal="true"
           >

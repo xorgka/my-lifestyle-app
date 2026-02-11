@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { SectionTitle } from "@/components/ui/SectionTitle";
+import { useMemoSearch } from "./MemoSearchContext";
 import {
   type Memo,
   loadMemos,
@@ -18,6 +18,8 @@ import {
   MEMO_MIN_HEIGHT,
 } from "@/lib/memoDb";
 import { MemoCard } from "@/components/memo/MemoCard";
+import { SectionTitle } from "@/components/ui/SectionTitle";
+import { MemoNoteTabs } from "./MemoNoteTabs";
 
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -46,6 +48,8 @@ export default function MemoPage() {
     m.addEventListener("change", update);
     return () => m.removeEventListener("change", update);
   }, []);
+  const { searchQ: rawSearchQ } = useMemoSearch();
+  const searchQ = rawSearchQ.trim().toLowerCase();
   const dragStartRef = useRef<{ startX: number; startY: number; memoX: number; memoY: number; x: number; y: number } | null>(null);
   const dragPendingRef = useRef<{ id: string; startX: number; startY: number; memoX: number; memoY: number } | null>(null);
   const resizeStartRef = useRef<{ startX: number; startY: number; w: number; h: number; x: number; y: number } | null>(null);
@@ -74,6 +78,10 @@ export default function MemoPage() {
   useEffect(() => {
     loadTrashMemos().then((list) => setTrashCount(list.length));
   }, [trashOpen, memos.length]);
+
+  useEffect(() => {
+    if (trashOpen) loadTrashMemos().then(setTrashMemos);
+  }, [trashOpen]);
 
   const persist = useCallback(async (next: Memo[]) => {
     setMemos(next);
@@ -116,9 +124,17 @@ export default function MemoPage() {
     setTrashCount((c) => c + 1);
   };
 
-  /** 핀한 메모 먼저, 그 다음 최신순. 드래그/리사이즈 중인 카드는 맨 앞(위)에 */
+  /** 검색어 있으면 제목·내용 기준 필터 후, 핀한 메모 먼저·최신순 정렬. 드래그/리사이즈 중인 카드는 맨 앞에 */
   const sortedMemos = useMemo(() => {
-    return [...memos].sort((a, b) => {
+    let list = memos;
+    if (searchQ) {
+      list = memos.filter(
+        (m) =>
+          (m.title && m.title.toLowerCase().includes(searchQ)) ||
+          (m.content && m.content.toLowerCase().includes(searchQ))
+      );
+    }
+    return [...list].sort((a, b) => {
       if (a.id === draggingId || a.id === resizingId) return 1;
       if (b.id === draggingId || b.id === resizingId) return -1;
       const aPin = a.pinned ? 1 : 0;
@@ -126,7 +142,7 @@ export default function MemoPage() {
       if (bPin !== aPin) return bPin - aPin;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [memos, draggingId, resizingId]);
+  }, [memos, searchQ, draggingId, resizingId]);
 
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
@@ -212,38 +228,45 @@ export default function MemoPage() {
   }, [draggingId, resizingId]);
 
   return (
-    <div className="min-h-[180vh] min-w-0 space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SectionTitle
-          title="메모"
-          subtitle="포스트잇처럼 메모를 추가하고 관리해요."
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              const next = !trashOpen;
-              setTrashOpen(next);
-              if (next) {
-                const list = await loadTrashMemos();
-                setTrashMemos(list);
-                setTrashCount(list.length);
-              }
-            }}
-            className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
-            title="휴지통"
-          >
-            휴지통{trashCount > 0 ? ` (${trashCount})` : ""}
-          </button>
-          <button
-            type="button"
-            onClick={addMemo}
-            className="rounded-xl bg-neutral-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-700"
-          >
-            + 메모 추가
-          </button>
-        </div>
-      </div>
+    <div className="min-h-[180vh] min-w-0 space-y-6">
+      <SectionTitle
+        title="메모"
+        subtitle="포스트잇처럼 메모를 추가하고 관리해요."
+      />
+
+      <MemoNoteTabs
+        rightContent={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTrashOpen((prev) => !prev)}
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
+              title="휴지통"
+              aria-label="휴지통"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              {trashCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-medium text-white">
+                  {trashCount > 99 ? "99+" : trashCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={addMemo}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-800 text-white transition hover:bg-neutral-700"
+              title="메모 추가"
+              aria-label="메모 추가"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        }
+      />
 
       {trashOpen && (
         <div className="rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4">
@@ -397,6 +420,12 @@ export default function MemoPage() {
           >
             + 메모 추가
           </button>
+        </div>
+      )}
+      {memos.length > 0 && sortedMemos.length === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 py-16 text-center text-neutral-500">
+          <p className="font-medium">검색 결과가 없어요.</p>
+          <p className="mt-1 text-sm">다른 검색어로 시도해 보세요.</p>
         </div>
       )}
     </div>

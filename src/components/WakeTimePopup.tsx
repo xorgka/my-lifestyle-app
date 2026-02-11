@@ -65,7 +65,7 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
 
   const modal = (
     <div
-      className="fixed inset-0 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
       style={{ zIndex: REMINDER_POPUP_Z_INDEX, backgroundColor: `rgba(0,0,0,${REMINDER_BACKDROP_OPACITY})` }}
       role="dialog"
       aria-modal="true"
