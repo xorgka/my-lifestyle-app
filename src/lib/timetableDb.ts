@@ -125,7 +125,7 @@ async function saveToSupabase(data: Record<string, DayTimetable>): Promise<void>
 /** 특정 날짜 타임테이블 로드 결과. copiedFrom이 있으면 어제 데이터를 복사한 것 */
 export type LoadTimetableResult = { day: DayTimetable; copiedFrom: string | null };
 
-/** 특정 날짜 타임테이블 로드. 오늘을 기준(템플릿)으로 모든 날짜 구조 통일. 다른 날은 오늘 구조 + 그날 완료만 유지 */
+/** 특정 날짜 타임테이블 로드. 오늘·미래는 오늘 구조 기준, 과거는 저장된 그대로 */
 export async function loadTimetableForDate(key: string): Promise<LoadTimetableResult> {
   const all = await loadAllTimetables();
   const todayKey = getTodayKey();
@@ -133,6 +133,10 @@ export async function loadTimetableForDate(key: string): Promise<LoadTimetableRe
   if (key === todayKey) {
     const day = all[key] ?? getDefaultDay();
     return { day, copiedFrom: null };
+  }
+
+  if (key < todayKey) {
+    return { day: all[key] ?? getDefaultDay(), copiedFrom: null };
   }
 
   const template = all[todayKey] ?? getDefaultDay();
