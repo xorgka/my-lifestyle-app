@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 type ConfirmDialogProps = {
   message: string;
   onConfirm: () => void;
@@ -17,9 +20,12 @@ export function ConfirmDialog({
   cancelLabel = "취소",
   danger = false,
 }: ConfirmDialogProps) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const content = (
     <div
-      className="fixed inset-0 z-50 flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
+      className="fixed inset-0 z-[9999] flex min-h-[100dvh] min-w-[100vw] items-center justify-center bg-black/65 p-4"
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
@@ -53,4 +59,7 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(content, document.body);
 }
