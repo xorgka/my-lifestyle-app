@@ -107,7 +107,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
       }
     },
     [isTrashNote, toggleHighlight]
-  };
+  );
 
   if (!note) {
     return (
