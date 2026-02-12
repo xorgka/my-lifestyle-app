@@ -15,7 +15,7 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-4">
         <TodayAlertBar />
-        {/* 모바일만: 세로 1열, 날씨 행 높이 줄임 / 메모·인사이트는 나머지 균분 */}
+        {/* 모바일: 날씨 / 메모 / 인사이트 */}
         <div className="grid min-h-[600px] grid-cols-1 grid-rows-[160px_1fr_1fr] gap-4 md:hidden">
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <WeatherCardWrapper />
@@ -27,7 +27,7 @@ export default function HomePage() {
             <InsightPhotoCard />
           </div>
         </div>
-        {/* PC(md 이상): 왼쪽 날씨+메모, 오른쪽 인사이트 — 세로 높이 맞춤 */}
+        {/* PC: 왼쪽 날씨+메모, 오른쪽 인사이트 */}
         <div className="hidden min-h-[480px] md:grid md:min-h-[600px] md:grid-cols-2 md:gap-6 md:items-stretch">
           <div className="flex min-h-0 min-w-0 flex-col gap-4">
             <div className="flex min-h-0 flex-1 flex-col">
@@ -43,9 +43,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 아이폰 위젯 스타일: 일기 / 루틴 / 타임테이블 */}
+      {/* 일기 / 루틴 / 타임테이블 */}
       <HomeWidgets />
     </div>
   );
 }
-

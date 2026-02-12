@@ -37,7 +37,7 @@ function msUntilNextPeriod(): number {
 
 const PICSUM_SIZE = 800;
 
-export function InsightPhotoCard() {
+export function InsightPhotoCard({ compact }: { compact?: boolean } = {}) {
   const [seed, setSeed] = useState(() => getTwiceDailySeed());
   const [nextPhotoCount, setNextPhotoCount] = useState(0);
   const [customUrl, setCustomUrl] = useState<string | null>(() => getInsightBgDisplayUrl());
@@ -133,7 +133,7 @@ export function InsightPhotoCard() {
       />
       <div className="absolute inset-0 flex items-center justify-center overflow-auto p-4 sm:p-5">
         <div
-          className="insight-glass relative flex min-h-0 max-h-full w-full max-w-[300px] flex-col rounded-2xl border border-white/30 px-5 py-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:min-h-[320px] sm:max-w-[340px] sm:px-5 sm:py-5 [background:rgba(0,0,0,0.11)]"
+          className={`insight-glass relative flex min-h-0 max-h-full w-full max-w-[300px] flex-col rounded-2xl border border-white/30 px-5 py-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:max-w-[340px] sm:px-5 sm:py-5 [background:rgba(0,0,0,0.11)] ${compact ? "min-h-0" : "sm:min-h-[320px]"}`}
           data-insight-glass
         >
           <TodayInsightHero
