@@ -57,6 +57,7 @@ export function HomeWidgets() {
   const [dayTimetable, setDayTimetable] = useState<DayTimetable | null>(null);
   const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
   const [templateLinks, setTemplateLinks] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +99,6 @@ export function HomeWidgets() {
     setTemplateLinks(loadTimetableTemplateLinks());
   }, []);
 
-  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const tick = () => setNow(new Date());
     const id = setInterval(tick, 1000);

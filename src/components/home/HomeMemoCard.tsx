@@ -44,13 +44,14 @@ export function HomeMemoCard() {
         </Link>
       </div>
 
-      {/* 내용 영역: 하얀색, 메모지 가로선, 글자 두껍게 */}
+      {/* 내용 영역: 글 칸 + 하단 고정 여백. 좌우 버튼은 그 위에 겹침 */}
       <div
-        className="flex min-h-0 flex-1 flex-col bg-white px-7 py-5"
+        className="relative flex min-h-0 flex-1 flex-col bg-white px-7 py-5"
         style={{
           backgroundImage: "repeating-linear-gradient(transparent, transparent 0px, transparent 27px, rgba(0,0,0,0.08) 27px, rgba(0,0,0,0.08) 28px)",
         }}
       >
+        {/* 스크롤 영역: 맨 아래 5rem은 안 씀(고정 여백으로 둠) */}
         {pinnedMemos.length === 0 ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 py-8 text-center">
             <p className="text-sm font-semibold text-neutral-600">고정한 메모가 없어요</p>
@@ -63,37 +64,49 @@ export function HomeMemoCard() {
           </div>
         ) : currentMemo ? (
           <div
-            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden text-[15px] font-semibold text-black whitespace-pre-wrap break-words md:text-base scrollbar-hide"
+            className="absolute inset-0 overflow-y-auto overflow-x-hidden px-7 pt-5 pb-4 text-[15px] font-semibold text-black md:text-base scrollbar-hide"
             style={{ lineHeight: "28px" }}
           >
-            {currentMemo.content.trim() || "내용 없음"}
+            <div className="whitespace-pre-wrap break-words">
+              {currentMemo.content.trim() || "내용 없음"}
+            </div>
           </div>
         ) : null}
 
+        {/* 카드 하단 고정 여백: 스크롤 안 해도 항상 보임 */}
+        {/* 맨 아래 20px만: 아래는 흰색, 위로 갈수록 투명 → 글이 가리지 않음 */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
+            style={{ background: "linear-gradient(to top, #fff 0%, #fff 25%, transparent 100%)" }}
+            aria-hidden
+          />
+
         {pinnedMemos.length > 1 && (
-          <div className="flex flex-shrink-0 justify-end gap-0.5 pt-3">
-            <button
-              type="button"
-              onClick={() => setIndex((i) => Math.max(0, i - 1))}
-              disabled={!canPrev}
-              className="rounded p-1.5 text-neutral-600 transition hover:text-black disabled:opacity-30"
-              aria-label="이전 메모"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
-              disabled={!canNext}
-              className="rounded p-1.5 text-neutral-600 transition hover:text-black disabled:opacity-30"
-              aria-label="다음 메모"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          <div className="absolute bottom-3 right-7 flex justify-end gap-0.5 z-10 pointer-events-none">
+            <div className="pointer-events-auto flex gap-0.5 rounded bg-white/90 shadow-sm ring-1 ring-black/5">
+              <button
+                type="button"
+                onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                disabled={!canPrev}
+                className="rounded p-1.5 text-neutral-600 transition hover:text-black disabled:opacity-30"
+                aria-label="이전 메모"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
+                disabled={!canNext}
+                className="rounded p-1.5 text-neutral-600 transition hover:text-black disabled:opacity-30"
+                aria-label="다음 메모"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -15,9 +15,9 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-4">
         <TodayAlertBar />
-        {/* 모바일만: 세로 1열, 날씨·메모·인사이트 같은 높이 */}
-        <div className="grid min-h-[600px] grid-cols-1 grid-rows-3 gap-4 md:hidden">
-          <div className="flex min-h-0 min-w-0 flex-col">
+        {/* 모바일만: 세로 1열, 날씨 행 높이 줄임 / 메모·인사이트는 나머지 균분 */}
+        <div className="grid min-h-[600px] grid-cols-1 grid-rows-[160px_1fr_1fr] gap-4 md:hidden">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <WeatherCardWrapper />
           </div>
           <div className="flex min-h-0 min-w-0 flex-col">

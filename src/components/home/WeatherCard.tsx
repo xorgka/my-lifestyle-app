@@ -1,8 +1,23 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { fetchCurrentWeather, type WeatherCurrent } from "@/lib/weather";
 import { getRandomWeatherBgUrl } from "@/lib/weatherBg";
+
+const WEATHER_OVERLAY_STORAGE_KEY = "weather-bg-overlay-opacity";
+const OVERLAY_MIN = 0.05;
+const OVERLAY_MAX = 0.5;
+
+function loadOverlayOpacity(): number {
+  if (typeof window === "undefined") return 0.1;
+  try {
+    const v = parseFloat(window.localStorage.getItem(WEATHER_OVERLAY_STORAGE_KEY) ?? "0.1");
+    return Number.isFinite(v) ? Math.max(OVERLAY_MIN, Math.min(OVERLAY_MAX, v)) : 0.1;
+  } catch {
+    return 0.1;
+  }
+}
 
 /** 2문장 이상이면 문장 단위로 나누어 줄바꿈 (마침표+공백 기준) */
 function descriptionBySentences(description: string): React.ReactNode {
@@ -27,6 +42,35 @@ export function WeatherCard() {
   const [loading, setLoading] = useState(true);
   const [customBgUrl, setCustomBgUrl] = useState<string | null>(null);
   const [customBgFailed, setCustomBgFailed] = useState(false);
+  const [overlayOpacity, setOverlayOpacity] = useState(() => loadOverlayOpacity());
+  const [overlayMenu, setOverlayMenu] = useState<{ x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const applyOverlay = useCallback((value: number) => {
+    const clamped = Math.max(OVERLAY_MIN, Math.min(OVERLAY_MAX, value));
+    setOverlayOpacity(clamped);
+    try {
+      window.localStorage.setItem(WEATHER_OVERLAY_STORAGE_KEY, String(clamped));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setOverlayMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  useEffect(() => {
+    if (!overlayMenu) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOverlayMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", close, true);
+    return () => document.removeEventListener("mousedown", close, true);
+  }, [overlayMenu]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +171,7 @@ export function WeatherCard() {
   const useCustomBg = customBgUrl && !customBgFailed;
 
   return (
-    <section className={sectionClass}>
+    <section className={sectionClass} onContextMenu={handleContextMenu}>
       {!useCustomBg ? blueLayer : null}
       {useCustomBg && (
         <>
@@ -142,7 +186,11 @@ export function WeatherCard() {
             style={{ backgroundImage: `url(${customBgUrl})`, zIndex: 0 }}
             aria-hidden
           />
-          <div className="absolute inset-0 rounded-3xl bg-black/40" style={{ zIndex: 0 }} aria-hidden />
+          <div
+            className="absolute inset-0 rounded-3xl"
+            style={{ zIndex: 0, backgroundColor: `rgba(0,0,0,${overlayOpacity})` }}
+            aria-hidden
+          />
         </>
       )}
       <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -180,6 +228,54 @@ export function WeatherCard() {
           💧<span className="hidden md:inline"> 습도</span> {weather.humidity}%
         </span>
       </div>
+
+      {overlayMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[200] flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-lg"
+            style={{
+              left: Math.min(overlayMenu.x, document.documentElement.clientWidth - 240),
+              top: Math.min(overlayMenu.y, document.documentElement.clientHeight - 120),
+            }}
+            role="dialog"
+            aria-label="날씨 음영 조정"
+          >
+            <p className="text-sm font-medium text-neutral-800">날씨 박스 음영</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={OVERLAY_MIN * 100}
+                max={OVERLAY_MAX * 100}
+                step={5}
+                value={overlayOpacity * 100}
+                onChange={(e) => applyOverlay(Number(e.target.value) / 100)}
+                className="h-2 w-32 flex-1 rounded-full bg-neutral-200 accent-neutral-700"
+              />
+              <span className="w-10 text-right text-sm tabular-nums text-neutral-600">
+                {(overlayOpacity * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[5, 10, 15, 20, 25, 30, 40, 50].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => applyOverlay(p / 100)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                    Math.round(overlayOpacity * 100) === p
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  {p}%
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </section>
   );
 }

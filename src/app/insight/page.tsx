@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -31,6 +31,40 @@ import {
 import type { WeatherThemeId } from "@/lib/weather";
 
 type InsightTab = "mine" | "system";
+
+/** 문장 입력용: 내용에 따라 높이 자동 확장 */
+function AutoResizeQuoteTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+  ...props
+}: React.ComponentProps<"textarea">) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(80, el.scrollHeight)}px`;
+  }, []);
+  useEffect(() => {
+    resize();
+  }, [value, resize]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => {
+        onChange?.(e);
+        resize();
+      }}
+      placeholder={placeholder}
+      className={className}
+      rows={1}
+      {...props}
+    />
+  );
+}
 
 /** 기본 문장 탭 통합 목록: 내가 저장한 문장(user) + 시스템 기본(system) */
 type UnifiedItem =
@@ -372,11 +406,10 @@ function InsightPageContent() {
               {systemIsAdding && (
                 <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 p-4">
                   <div className="space-y-3">
-                    <textarea
+                    <AutoResizeQuoteTextarea
                       value={systemEditQuote}
                       onChange={(e) => setSystemEditQuote(e.target.value)}
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                      className="w-full min-h-[4.5rem] resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
                       placeholder="문장"
                     />
                     <input
@@ -437,11 +470,10 @@ function InsightPageContent() {
                   >
                     {isEditing ? (
                       <div className="space-y-3">
-                        <textarea
+                        <AutoResizeQuoteTextarea
                           value={systemEditQuote}
                           onChange={(e) => setSystemEditQuote(e.target.value)}
-                          rows={3}
-                          className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+                          className="w-full min-h-[4.5rem] resize-none rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
                           placeholder="문장"
                         />
                         <input
@@ -774,6 +806,15 @@ function InsightPageContent() {
                     placeholder="https://..."
                     className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:min-w-[16rem]"
                   />
+                  <button
+                    type="button"
+                    onClick={() => insightBgSingleUrl.trim() && window.open(insightBgSingleUrl.trim(), "_blank", "noopener,noreferrer")}
+                    disabled={!insightBgSingleUrl.trim()}
+                    className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+                    title="새 탭에서 열기"
+                  >
+                    URL 열기
+                  </button>
                 </div>
               )}
               {insightBgMode === "list" && (
@@ -791,6 +832,15 @@ function InsightPageContent() {
                         placeholder="https://..."
                         className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:min-w-[14rem]"
                       />
+                      <button
+                        type="button"
+                        onClick={() => url.trim() && window.open(url.trim(), "_blank", "noopener,noreferrer")}
+                        disabled={!url.trim()}
+                        className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+                        title="새 탭에서 열기"
+                      >
+                        URL 열기
+                      </button>
                       <button
                         type="button"
                         onClick={() => setInsightBgListUrls(insightBgListUrls.filter((_, j) => j !== i))}
@@ -885,6 +935,15 @@ function InsightPageContent() {
                           placeholder="https://..."
                           className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm md:min-w-[12rem]"
                         />
+                        <button
+                          type="button"
+                          onClick={() => url.trim() && window.open(url.trim(), "_blank", "noopener,noreferrer")}
+                          disabled={!url.trim()}
+                          className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+                          title="새 탭에서 열기"
+                        >
+                          URL 열기
+                        </button>
                         <button
                           type="button"
                           onClick={() =>
