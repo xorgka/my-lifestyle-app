@@ -21,6 +21,35 @@ export function sortTimetableSlots(slots: TimetableSlot[]): TimetableSlot[] {
   return [...slots].sort((a, b) => timetableSlotOrderKey(a.time) - timetableSlotOrderKey(b.time));
 }
 
+/** 해당 날짜만 적용되는 시작시간 오버라이드(0~23). null이면 기존 슬롯 시간 그대로 */
+const START_TIME_OVERRIDE_KEY = "timetable-start-time";
+
+export function getStartTimeOverrideForKey(key: string): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(`${START_TIME_OVERRIDE_KEY}-${key}`);
+  if (raw == null || raw === "") return null;
+  const n = parseInt(raw, 10);
+  if (Number.isNaN(n) || n < 0 || n > 23) return null;
+  return n;
+}
+
+export function setStartTimeOverrideForKey(key: string, hour: number | null): void {
+  if (typeof window === "undefined") return;
+  if (hour == null) {
+    window.localStorage.removeItem(`${START_TIME_OVERRIDE_KEY}-${key}`);
+    return;
+  }
+  window.localStorage.setItem(`${START_TIME_OVERRIDE_KEY}-${key}`, String(hour));
+}
+
+/** 오버라이드가 있을 때 슬롯의 표시 시각(0~23) */
+export function getSlotDisplayHour(slotTime: string, firstSlotHour: number, startTimeOverride: number): number {
+  const slotHour = parseInt(String(slotTime).trim(), 10);
+  if (Number.isNaN(slotHour)) return 0;
+  const raw = slotHour + (startTimeOverride - firstSlotHour);
+  return ((raw % 24) + 24) % 24;
+}
+
 const STORAGE_KEY = "timetable-by-date";
 
 function dateKey(d: Date): string {

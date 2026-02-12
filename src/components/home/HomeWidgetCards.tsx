@@ -60,6 +60,8 @@ export function RoutineCard({
 type TimetableCardProps = {
   dayTimetable: DayTimetable | null;
   currentSlot: TimetableSlot | null;
+  /** 시작시간 오버라이드 적용 시 표시할 시각(0~23). 없으면 currentSlot.time 사용 */
+  currentSlotDisplayHour: number | null;
   completedIds: string[];
   nextSlotHour: number;
   remainingText: string | null;
@@ -70,12 +72,14 @@ type TimetableCardProps = {
 export function TimetableCard({
   dayTimetable,
   currentSlot,
+  currentSlotDisplayHour,
   completedIds,
   nextSlotHour,
   remainingText,
   onToggle,
   className = "col-span-2",
 }: TimetableCardProps) {
+  const displayHour = currentSlotDisplayHour ?? (currentSlot ? Number(currentSlot.time) : null);
   return (
     <Link
       href="/routine/timetable"
@@ -89,12 +93,12 @@ export function TimetableCard({
           <div className="flex min-h-0 min-w-0 flex-1 bg-white/95">
             <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-1 border-r border-[#F19E36]/40 bg-[#F19E36] py-3 md:w-32">
               <span className="text-2xl font-bold text-white md:text-3xl">
-                {Number(currentSlot.time)}시
+                {displayHour != null ? `${displayHour}시` : `${Number(currentSlot.time)}시`}
               </span>
               {remainingText != null && (
                 <span
                   className="text-sm font-medium tabular-nums text-white md:text-base"
-                  title={`다음 ${nextSlotHour >= 24 ? "자정" : `${nextSlotHour}시`}까지`}
+                  title={`다음 ${nextSlotHour >= 24 ? `내일 ${nextSlotHour - 24}시` : `${nextSlotHour}시`}까지`}
                 >
                   {remainingText}
                 </span>

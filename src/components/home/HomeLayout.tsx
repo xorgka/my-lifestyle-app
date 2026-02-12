@@ -43,6 +43,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
                 <TimetableCard
                   dayTimetable={data.dayTimetable}
                   currentSlot={data.currentSlot}
+                  currentSlotDisplayHour={data.currentSlotDisplayHour}
                   completedIds={data.completedIds}
                   nextSlotHour={data.nextSlotHour}
                   remainingText={data.remainingText}
@@ -89,6 +90,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
             <TimetableCard
               dayTimetable={data.dayTimetable}
               currentSlot={data.currentSlot}
+              currentSlotDisplayHour={data.currentSlotDisplayHour}
               completedIds={data.completedIds}
               nextSlotHour={data.nextSlotHour}
               remainingText={data.remainingText}

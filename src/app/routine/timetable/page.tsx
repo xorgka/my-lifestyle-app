@@ -10,6 +10,9 @@ import {
   getDateKeyOffset,
   genId,
   sortTimetableSlots,
+  getStartTimeOverrideForKey,
+  setStartTimeOverrideForKey,
+  getSlotDisplayHour,
   type DayTimetable,
   type TimetableSlot,
 } from "@/lib/timetableDb";
@@ -64,6 +67,9 @@ export default function TimetablePage() {
   const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
   const [templateLinks, setTemplateLinks] = useState<Record<string, number>>({});
   const [reorderState, setReorderState] = useState<{ slotId: string; itemId: string } | null>(null);
+  /** 해당 날짜만 적용되는 시작시간 오버라이드(0~23). null이면 기존 슬롯 시간 그대로 표시 */
+  const [startTimeOverride, setStartTimeOverride] = useState<number | null>(() => getStartTimeOverrideForKey(getTodayKey()));
+  const [startTimeModalOpen, setStartTimeModalOpen] = useState(false);
 
   /** 항목 ID로 슬롯 시간·텍스트 찾기 (템플릿 연동 조회용) */
   const getSlotTimeAndText = useCallback((d: DayTimetable | null, itemId: string): { time: string; text: string } | null => {
@@ -108,6 +114,10 @@ export default function TimetablePage() {
   useEffect(() => {
     load(dateKey);
   }, [dateKey, load]);
+
+  useEffect(() => {
+    setStartTimeOverride(getStartTimeOverrideForKey(dateKey));
+  }, [dateKey]);
 
   const persist = useCallback(
     async (next: DayTimetable, pushHistory = true) => {
@@ -346,6 +356,14 @@ export default function TimetablePage() {
   const totalItems = day.slots.reduce((sum, s) => sum + s.items.length, 0);
   const completedCount = day.completedIds.length;
 
+  const sortedSlots = sortTimetableSlots(day.slots);
+  const firstSlotHour = sortedSlots.length > 0 ? parseInt(String(sortedSlots[0].time).trim(), 10) : 0;
+  const getDisplayTime = (slot: TimetableSlot): string => {
+    if (startTimeOverride == null || Number.isNaN(firstSlotHour)) return slot.time;
+    const displayHour = getSlotDisplayHour(slot.time, firstSlotHour, startTimeOverride);
+    return String(displayHour);
+  };
+
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
@@ -388,7 +406,7 @@ export default function TimetablePage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-        <div className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-600 sm:flex-initial sm:px-4 sm:py-3 sm:text-sm">
+        <div className="min-w-0 max-w-[55%] shrink-0 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-600 sm:max-w-none sm:flex-initial sm:px-4 sm:py-3 sm:text-sm">
           총 <span className="font-semibold text-neutral-800">{totalItems}</span>개 항목 중{" "}
           <span className="font-semibold text-neutral-800">{completedCount}</span>개 완료
           {saving && <span className="ml-1 text-neutral-400 sm:ml-2">· 저장 중</span>}
@@ -407,6 +425,20 @@ export default function TimetablePage() {
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStartTimeModalOpen(true)}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 sm:h-10 sm:w-auto sm:min-w-0 sm:px-4 sm:py-3"
+            title="시작시간 재설정"
+            aria-label="시작시간 재설정"
+          >
+            <span className="sm:hidden" aria-hidden>
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+            <span className="hidden sm:inline">시작시간</span>
           </button>
           <button
             type="button"
@@ -433,10 +465,11 @@ export default function TimetablePage() {
               </tr>
             </thead>
             <tbody>
-              {sortTimetableSlots(day.slots).map((slot) => (
+              {sortedSlots.map((slot) => (
                 <SlotRow
                   key={slot.id}
                   slot={slot}
+                  displayTime={getDisplayTime(slot)}
                   completedIds={day.completedIds}
                   reorderState={reorderState}
                   onTimeDoubleClick={() => setTimeModal({ slotId: slot.id, time: slot.time })}
@@ -451,7 +484,7 @@ export default function TimetablePage() {
       </div>
 
       {/* 전체 화면(사이드바 포함) 어두운 배경 + 가운데 모달 — body에 포털 */}
-      {(timeModal || itemModal || addModalOpen) &&
+      {(timeModal || itemModal || addModalOpen || startTimeModalOpen) &&
         typeof document !== "undefined" &&
         createPortal(
           <div
@@ -461,9 +494,27 @@ export default function TimetablePage() {
                 setTimeModal(null);
                 setItemModal(null);
                 setAddModalOpen(false);
+                setStartTimeModalOpen(false);
               }
             }}
           >
+            {startTimeModalOpen && (
+              <StartTimeModal
+                currentOverride={startTimeOverride}
+                firstSlotHour={sortedSlots.length > 0 ? parseInt(String(sortedSlots[0].time).trim(), 10) : 9}
+                onSave={(hour) => {
+                  if (hour != null) {
+                    setStartTimeOverrideForKey(dateKey, hour);
+                    setStartTimeOverride(hour);
+                  } else {
+                    setStartTimeOverrideForKey(dateKey, null);
+                    setStartTimeOverride(null);
+                  }
+                  setStartTimeModalOpen(false);
+                }}
+                onCancel={() => setStartTimeModalOpen(false)}
+              />
+            )}
             {timeModal && (
               <TimeEditModal
                 initialTime={timeModal.time}
@@ -782,6 +833,7 @@ function ItemEditModal({
 
 function SlotRow({
   slot,
+  displayTime,
   completedIds,
   reorderState,
   onTimeDoubleClick,
@@ -790,6 +842,7 @@ function SlotRow({
   onToggleComplete,
 }: {
   slot: TimetableSlot;
+  displayTime: string;
   completedIds: string[];
   reorderState: { slotId: string; itemId: string } | null;
   onTimeDoubleClick: () => void;
@@ -825,7 +878,7 @@ function SlotRow({
                   onDoubleClick={onTimeDoubleClick}
                   className={`w-full cursor-pointer rounded px-1 py-0.5 text-center text-lg font-bold outline-none hover:bg-neutral-100 sm:text-xl md:text-2xl ${allCompleted ? "text-neutral-100" : "text-neutral-800"}`}
                 >
-                  {formatTimeDisplay(slot.time)}
+                  {formatTimeDisplay(displayTime)}
                 </button>
               </td>
             ) : null}
@@ -871,12 +924,105 @@ function SlotRow({
               onDoubleClick={onTimeDoubleClick}
               className="w-full cursor-pointer rounded px-1 py-0.5 text-center text-lg font-bold text-neutral-800 outline-none hover:bg-neutral-100 sm:text-xl md:text-2xl"
             >
-              {formatTimeDisplay(slot.time)}
+              {formatTimeDisplay(displayTime)}
             </button>
           </td>
           <td className="px-4 py-2" colSpan={2} />
         </tr>
       )}
     </>
+  );
+}
+
+function StartTimeModal({
+  currentOverride,
+  firstSlotHour,
+  onSave,
+  onCancel,
+}: {
+  currentOverride: number | null;
+  firstSlotHour: number;
+  onSave: (hour: number | null) => void;
+  onCancel: () => void;
+}) {
+  const [hour, setHour] = useState<string>(() =>
+    currentOverride != null ? String(currentOverride) : String(firstSlotHour)
+  );
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSave = () => {
+    const n = parseInt(hour.trim(), 10);
+    if (Number.isNaN(n) || n < 0 || n > 23) {
+      setError("0~23 사이의 숫자를 입력하세요.");
+      return;
+    }
+    setError("");
+    onSave(n);
+  };
+
+  return (
+    <div
+      className="relative w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h2 className="text-lg font-semibold text-neutral-800">시작시간 재설정</h2>
+      <p className="mt-1 text-sm text-neutral-500">
+        첫 시간대를 이 시간으로 보여줍니다. 나머지 시간대도 함께 밀려 표시됩니다. (해당 날짜만 적용)
+      </p>
+      <div className="mt-4">
+        <input
+          ref={inputRef}
+          type="number"
+          min={0}
+          max={23}
+          value={hour}
+          onChange={(e) => {
+            setHour(e.target.value);
+            setError("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+          }}
+          className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+          placeholder="0~23"
+        />
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </div>
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const n = parseInt(hour.trim(), 10);
+            if (Number.isNaN(n) || n < 0 || n > 23) {
+              setError("0~23 사이의 숫자를 입력하세요.");
+              return;
+            }
+            setError("");
+            onSave(n);
+          }}
+          className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700"
+        >
+          적용
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={() => onSave(null)}
+        className="mt-3 w-full rounded-xl border border-neutral-200 py-2 text-sm text-neutral-500 hover:bg-neutral-50"
+      >
+        되돌리기 (기본 시간대로)
+      </button>
+    </div>
   );
 }

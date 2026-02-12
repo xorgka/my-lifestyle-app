@@ -8,6 +8,8 @@ import {
   saveTimetableForDate,
   getTodayKey,
   sortTimetableSlots,
+  getStartTimeOverrideForKey,
+  getSlotDisplayHour,
   type DayTimetable,
   type TimetableSlot,
 } from "@/lib/timetableDb";
@@ -22,10 +24,35 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function getCurrentSlot(day: DayTimetable | null): TimetableSlot | null {
+function getDisplayHour(slot: TimetableSlot, firstSlotHour: number, startTimeOverride: number): number {
+  return getSlotDisplayHour(slot.time, firstSlotHour, startTimeOverride);
+}
+
+export function getCurrentSlot(
+  day: DayTimetable | null,
+  startTimeOverride: number | null
+): TimetableSlot | null {
   if (!day || day.slots.length === 0) return null;
   const sorted = sortTimetableSlots(day.slots);
   const currentHour = new Date().getHours();
+  const firstSlotHour = parseInt(String(sorted[0].time).trim(), 10) || 0;
+
+  if (startTimeOverride != null && !Number.isNaN(firstSlotHour)) {
+    for (let i = 0; i < sorted.length; i++) {
+      const start = getDisplayHour(sorted[i], firstSlotHour, startTimeOverride);
+      const end =
+        i + 1 < sorted.length
+          ? getDisplayHour(sorted[i + 1], firstSlotHour, startTimeOverride)
+          : 24;
+      const inSlot =
+        start <= end
+          ? currentHour >= start && currentHour < end
+          : currentHour >= start || currentHour < end;
+      if (inSlot) return sorted[i];
+    }
+    return sorted[0];
+  }
+
   for (let i = 0; i < sorted.length; i++) {
     const start = Number(sorted[i].time);
     const end = i + 1 < sorted.length ? Number(sorted[i + 1].time) : 5;
@@ -37,19 +64,32 @@ export function getCurrentSlot(day: DayTimetable | null): TimetableSlot | null {
   return sorted[0];
 }
 
-function getNextSlotHour(day: DayTimetable | null, currentSlot: TimetableSlot | null): number {
+function getNextSlotHour(
+  day: DayTimetable | null,
+  currentSlot: TimetableSlot | null,
+  startTimeOverride: number | null
+): number {
   if (!day || !currentSlot || day.slots.length === 0) return 24;
   const sorted = sortTimetableSlots(day.slots);
   const idx = sorted.findIndex((s) => s.id === currentSlot.id);
-  if (idx < 0 || idx + 1 >= sorted.length) return 5;
-  return Number(sorted[idx + 1].time);
+  if (idx < 0 || idx + 1 >= sorted.length) return 24;
+  const firstSlotHour = parseInt(String(sorted[0].time).trim(), 10) || 0;
+  const nextSlot = sorted[idx + 1];
+
+  if (startTimeOverride != null && !Number.isNaN(firstSlotHour)) {
+    const nextDisplay = getDisplayHour(nextSlot, firstSlotHour, startTimeOverride);
+    const currentDisplay = getDisplayHour(currentSlot, firstSlotHour, startTimeOverride);
+    if (nextDisplay <= currentDisplay) return 24 + nextDisplay;
+    return nextDisplay;
+  }
+  return Number(nextSlot.time);
 }
 
 export function getRemainingToNextSlot(nextHour: number, now: Date): string {
   const end = new Date(now);
   if (nextHour >= 24) {
     end.setDate(end.getDate() + 1);
-    end.setHours(0, 0, 0, 0);
+    end.setHours(nextHour - 24, 0, 0, 0);
   } else {
     end.setHours(nextHour, 0, 0, 0);
   }
@@ -115,10 +155,21 @@ export function useHomeWidgetData() {
     return () => clearInterval(id);
   }, []);
 
-  const currentSlot = getCurrentSlot(dayTimetable);
+  const startTimeOverride = getStartTimeOverrideForKey(getTodayKey());
+  const currentSlot = getCurrentSlot(dayTimetable, startTimeOverride);
   const completedIds = dayTimetable?.completedIds ?? [];
-  const nextSlotHour = getNextSlotHour(dayTimetable, currentSlot);
+  const nextSlotHour = getNextSlotHour(dayTimetable, currentSlot, startTimeOverride);
   const remainingText = currentSlot ? getRemainingToNextSlot(nextSlotHour, now) : null;
+
+  const sortedSlots = dayTimetable ? sortTimetableSlots(dayTimetable.slots) : [];
+  const firstSlotHour =
+    sortedSlots.length > 0 ? parseInt(String(sortedSlots[0].time).trim(), 10) : 0;
+  const currentSlotDisplayHour =
+    currentSlot && startTimeOverride != null && !Number.isNaN(firstSlotHour)
+      ? getDisplayHour(currentSlot, firstSlotHour, startTimeOverride)
+      : currentSlot
+        ? Number(currentSlot.time)
+        : null;
 
   const handleTimetableToggle = async (itemId: string) => {
     if (!dayTimetable) return;
@@ -151,6 +202,7 @@ export function useHomeWidgetData() {
     routineProgress,
     dayTimetable,
     currentSlot,
+    currentSlotDisplayHour,
     completedIds,
     nextSlotHour,
     remainingText,
