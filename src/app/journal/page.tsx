@@ -1137,7 +1137,32 @@ export default function JournalPage() {
                     )}
                   </button>
                 </div>
-                {viewMode === "write" ? (
+                {(draftSecret || entryForDate?.secret) && !secretUnlocked ? (
+                  <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-xl border border-neutral-200 bg-[#FCFCFC] py-12 text-center">
+                    <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
+                    {getStoredPinHash() ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUnlockModal(true);
+                          setUnlockPinValue("");
+                          setUnlockError("");
+                        }}
+                        className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+                      >
+                        암호 입력하여 보기
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowSetPinInline(true)}
+                        className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+                      >
+                        암호 설정 후 보기
+                      </button>
+                    )}
+                  </div>
+                ) : viewMode === "write" ? (
                   <textarea
                     ref={textareaRef}
                     value={draft}
@@ -1187,42 +1212,9 @@ export default function JournalPage() {
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >
                     {draft.trim() ? (
-                      (draftSecret || entryForDate?.secret) && !secretUnlocked ? (
-                        <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-                          <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
-                          {getStoredPinHash() ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowUnlockModal(true);
-                                setUnlockPinValue("");
-                                setUnlockError("");
-                              }}
-                              className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-                            >
-                              암호 입력하여 보기
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowSetPinInline(true);
-                              }}
-                              className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-                            >
-                              암호 설정 후 보기
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
-                        />
-                      )
+                      <div
+                        dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
+                      />
                     ) : (
                       <div className="space-y-2 text-neutral-400">
                         {getEmptyStatePrompt(selectedDate, entries)
