@@ -23,7 +23,7 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-type DraftSnapshot = { content: string; important: boolean };
+type DraftSnapshot = { content: string; important: boolean; secret?: boolean };
 function loadDrafts(): Record<string, DraftSnapshot> {
   if (typeof window === "undefined") return {};
   try {
@@ -139,6 +139,7 @@ export default function JournalPage() {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [draft, setDraft] = useState("");
   const [draftImportant, setDraftImportant] = useState(false);
+  const [draftSecret, setDraftSecret] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   /** 초안 자동 저장 상태: idle | pending(2초 대기 중) | saved(방금 저장됨) */
   const [draftSaveStatus, setDraftSaveStatus] = useState<"idle" | "pending" | "saved">("idle");
@@ -156,8 +157,11 @@ export default function JournalPage() {
   const [drawerAnimated, setDrawerAnimated] = useState(false);
   /** 일기장 | 모아보기 탭 */
   const [journalViewMode, setJournalViewMode] = useState<"journal" | "collect">("journal");
-  /** 모아보기에서 선택한 연도 (null이면 연도 선택 화면) */
+  /** 모아보기에서 선택한 연도 (드롭다운으로 선택 후 바로 넘기기 페이지) */
   const [collectYear, setCollectYear] = useState<number | null>(null);
+  /** 모아보기 연도 드롭다운 열림 */
+  const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const yearDropdownRef = useRef<HTMLDivElement>(null);
   /** 오늘 마음에 남은 문장 (인사이트) 입력 */
   const [insightInput, setInsightInput] = useState("");
   const [insightAuthorInput, setInsightAuthorInput] = useState("");
@@ -187,6 +191,16 @@ export default function JournalPage() {
     return () => cancelAnimationFrame(id);
   }, [drawerOpen]);
 
+  useEffect(() => {
+    if (!yearDropdownOpen) return;
+    const close = (e: MouseEvent) => {
+      if (yearDropdownRef.current?.contains(e.target as Node)) return;
+      setYearDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", close, true);
+    return () => document.removeEventListener("mousedown", close, true);
+  }, [yearDropdownOpen]);
+
   const entryForDate = entries.find((e) => e.date === selectedDate);
   const currentContent = entryForDate?.content ?? "";
   const isToday = selectedDate === todayStr();
@@ -197,21 +211,23 @@ export default function JournalPage() {
     if (savedDraft) {
       setDraft(savedDraft.content);
       setDraftImportant(savedDraft.important);
+      setDraftSecret(savedDraft.secret ?? false);
     } else {
       setDraft(currentContent);
       setDraftImportant(entryForDate?.important ?? false);
+      setDraftSecret(entryForDate?.secret ?? false);
     }
-  }, [selectedDate, currentContent, entryForDate?.important]);
+  }, [selectedDate, currentContent, entryForDate?.important, entryForDate?.secret]);
 
   useEffect(() => {
-    if (currentContent === draft && (entryForDate?.important ?? false) === draftImportant) {
+    if (currentContent === draft && (entryForDate?.important ?? false) === draftImportant && (entryForDate?.secret ?? false) === draftSecret) {
       setDraftSaveStatus("idle");
       return;
     }
     setDraftSaveStatus("pending");
     const t = setTimeout(() => {
-      if (draft.trim() || draftImportant) {
-        saveDraft(selectedDate, { content: draft, important: draftImportant });
+      if (draft.trim() || draftImportant || draftSecret) {
+        saveDraft(selectedDate, { content: draft, important: draftImportant, secret: draftSecret });
       } else {
         saveDraft(selectedDate, null);
       }
@@ -219,7 +235,7 @@ export default function JournalPage() {
       setTimeout(() => setDraftSaveStatus("idle"), 1500);
     }, 2000);
     return () => clearTimeout(t);
-  }, [draft, draftImportant, selectedDate]);
+  }, [draft, draftImportant, draftSecret, selectedDate]);
 
   const save = async () => {
     const next: JournalEntry[] = entries.filter((e) => e.date !== selectedDate);
@@ -232,6 +248,7 @@ export default function JournalPage() {
         createdAt: entryForDate?.createdAt ?? now,
         updatedAt: now,
         important: draftImportant,
+        secret: draftSecret,
       });
       next.sort((a, b) => b.date.localeCompare(a.date));
     } else {
@@ -255,6 +272,7 @@ export default function JournalPage() {
     setEntries(next);
     setDraft("");
     setDraftImportant(false);
+    setDraftSecret(false);
     deleteJournalEntry(selectedDate).catch(console.error);
   };
 
@@ -318,7 +336,7 @@ export default function JournalPage() {
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from(
     { length: currentYear - 2018 + 1 },
-    (_, i) => 2018 + i
+    (_, i) => currentYear - i
   );
 
   /** 모아보기: 선택 연도에 글 있는 날짜만 (날짜 오름차순) */
@@ -339,6 +357,15 @@ export default function JournalPage() {
   const goNextInCollect = () => {
     if (!canGoNextCollect) return;
     setSelectedDate(entryDatesInYear[collectIndex + 1]);
+  };
+
+  /** 연도 선택 시 모아보기 페이지로 전환 */
+  const goToCollectYear = (y: number) => {
+    setCollectYear(y);
+    setJournalViewMode("collect");
+    const dates = entries.filter((e) => e.date.startsWith(String(y))).map((e) => e.date).sort();
+    if (dates.length > 0) setSelectedDate(dates[0]);
+    setYearDropdownOpen(false);
   };
 
   /** 모아보기 연도 진입 시 선택 날짜가 해당 연도 목록에 없으면 첫 기록으로 */
@@ -509,10 +536,10 @@ export default function JournalPage() {
     const isTxt = exportFormat === "txt";
     const text = isTxt
       ? list
-          .map((e) => `날짜: ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
+          .map((e) => `날짜: ${formatDateLabel(e.date)}${e.important ? " ★" : ""}${e.secret ? " 🔒" : ""}\n\n${e.content}\n\n`)
           .join("---\n\n")
       : list
-          .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
+          .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}${e.secret ? " 🔒" : ""}\n\n${e.content}\n\n`)
           .join("---\n\n");
     const blob = new Blob([text], { type: isTxt ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -610,6 +637,31 @@ export default function JournalPage() {
           document.body
         )}
 
+      {/* 모바일: 모아보기 연도 선택 모달 */}
+      {yearDropdownOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[55] sm:hidden">
+            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => setYearDropdownOpen(false)} />
+            <div className="absolute left-1/2 top-1/2 w-[min(280px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-xl">
+              <p className="mb-3 text-sm font-medium text-neutral-500">연도 선택</p>
+              <div className="max-h-[60vh] overflow-y-auto">
+                {yearOptions.map((y) => (
+                  <button
+                    key={y}
+                    type="button"
+                    onClick={() => goToCollectYear(y)}
+                    className="w-full rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100"
+                  >
+                    {y}년
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       <div className="-mb-4">
         <header className="mb-8 pt-4 pl-4 md:mb-10 md:pt-6 md:pl-6 !mb-3">
           <div className="flex items-center justify-between gap-3">
@@ -644,13 +696,11 @@ export default function JournalPage() {
               {journalViewMode === "journal" ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setJournalViewMode("collect");
-                    setCollectYear(null);
-                  }}
+                  onClick={() => setYearDropdownOpen((o) => !o)}
                   className="flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
                   aria-label="모아보기"
                   title="모아보기"
+                  aria-expanded={yearDropdownOpen}
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -698,22 +748,39 @@ export default function JournalPage() {
               </svg>
               달력
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setJournalViewMode("collect");
-                setCollectYear(null);
-              }}
-              className={clsx(
-                "hidden shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium shadow-sm transition sm:flex",
-                journalViewMode === "collect"
-                  ? "border-neutral-800 bg-neutral-800 text-white"
-                  : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300"
+            <div className="relative hidden sm:block" ref={yearDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setYearDropdownOpen((o) => !o)}
+                className={clsx(
+                  "flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium shadow-sm transition",
+                  journalViewMode === "collect"
+                    ? "border-neutral-800 bg-neutral-800 text-white"
+                    : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300"
+                )}
+                aria-label="모아보기"
+                aria-expanded={yearDropdownOpen}
+              >
+                모아보기
+                <svg className={clsx("h-4 w-4 transition-transform", yearDropdownOpen && "rotate-180")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {yearDropdownOpen && (
+                <div className="absolute right-0 top-full z-10 mt-1 min-w-[100%] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg">
+                  {yearOptions.map((y) => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => goToCollectYear(y)}
+                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+                    >
+                      {y}년
+                    </button>
+                  ))}
+                </div>
               )}
-              aria-label="모아보기"
-            >
-              모아보기
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -779,6 +846,20 @@ export default function JournalPage() {
               aria-label={draftImportant ? "중요한 날 해제" : "중요한 날로 표시"}
             >
               ★
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraftSecret(!draftSecret)}
+              className={clsx(
+                "shrink-0 p-1 text-lg transition",
+                draftSecret ? "text-neutral-600" : "text-neutral-200 hover:text-neutral-400"
+              )}
+              title="비밀글"
+              aria-label={draftSecret ? "비밀글 해제" : "비밀글로 설정"}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
             </button>
           </div>
           {/* 초안 자동 저장 상태 */}
@@ -993,44 +1074,25 @@ export default function JournalPage() {
           </>
         )}
 
-        {journalViewMode === "collect" && (
+        {journalViewMode === "collect" && collectYear != null && (
           <Card className="min-w-0">
-            {collectYear == null ? (
-              /* 연도 선택 */
-              <div className="space-y-4 py-6">
-                <h2 className="text-xl font-semibold text-neutral-800">모아보기</h2>
-                <p className="text-sm text-neutral-500">연도를 선택하면 해당 연도에 쓴 일기만 순서대로 넘겨볼 수 있어요.</p>
-                <div className="flex flex-wrap gap-2">
-                  {yearOptions.map((y) => (
-                    <button
-                      key={y}
-                      type="button"
-                      onClick={() => {
-                        setCollectYear(y);
-                        const dates = entries
-                          .filter((e) => e.date.startsWith(String(y)))
-                          .map((e) => e.date)
-                          .sort();
-                        if (dates.length > 0) setSelectedDate(dates[0]);
-                      }}
-                      className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 hover:border-neutral-300"
-                    >
-                      {y}년
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : entryDatesInYear.length === 0 ? (
+            {entryDatesInYear.length === 0 ? (
               <div className="space-y-4 py-6">
                 <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
                 <p className="text-sm text-neutral-500">이 연도에는 기록된 일기가 없어요.</p>
-                <button
-                  type="button"
-                  onClick={() => setCollectYear(null)}
-                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                >
-                  다른 연도 선택
-                </button>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="collect-year-empty" className="text-sm font-medium text-neutral-600">다른 연도:</label>
+                  <select
+                    id="collect-year-empty"
+                    value={collectYear}
+                    onChange={(e) => goToCollectYear(Number(e.target.value))}
+                    className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>{y}년</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ) : (
               /* 해당 연도 일기 넘기기 */
@@ -1074,13 +1136,18 @@ export default function JournalPage() {
                     }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setCollectYear(null)}
-                  className="mt-4 text-sm font-medium text-neutral-500 hover:text-neutral-700"
-                >
-                  ← 다른 연도 선택
-                </button>
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="text-sm text-neutral-500">다른 연도:</span>
+                  <select
+                    value={collectYear}
+                    onChange={(e) => goToCollectYear(Number(e.target.value))}
+                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>{y}년</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
           </Card>
@@ -1194,8 +1261,9 @@ export default function JournalPage() {
                         const entry = entriesByDate[dateStr];
                         const hasEntry = !!(entry && entry.content.trim().length > 0);
                         const hasDraftForThisDate = dateStr === selectedDate && draft.trim().length > 0;
+                        const isSecret = (hasEntry && entry!.secret) || (hasDraftForThisDate && draftSecret);
                         const showTooltip = hasEntry || hasDraftForThisDate;
-                        const tooltipText = hasEntry ? firstLinePreview(entry!.content, 80) : firstLinePreview(draft, 80);
+                        const tooltipText = isSecret ? "🔒 비밀글" : hasEntry ? firstLinePreview(entry!.content, 80) : firstLinePreview(draft, 80);
                         const isImportant = entry?.important ?? false;
                         const isSelected = dateStr === selectedDate;
                         return (

@@ -10,6 +10,8 @@ export type JournalEntry = {
   createdAt: string;
   updatedAt?: string;
   important?: boolean;
+  /** 비밀글이면 달력·검색 등에서 내용 미리보기 숨김 */
+  secret?: boolean;
   /** 나중에 '태그별로 보기' 확장 시 사용. content에서 #해시태그 파싱 */
   tags?: string[];
 };
@@ -46,7 +48,7 @@ export async function loadJournalEntries(): Promise<JournalEntry[]> {
   if (supabase) {
     const { data, error } = await supabase
       .from("journal_entries")
-      .select("date, content, important, created_at, updated_at")
+      .select("date, content, important, secret, created_at, updated_at")
       .order("date", { ascending: false });
     if (error) {
       console.error("[journal] loadJournalEntries", error);
@@ -58,6 +60,7 @@ export async function loadJournalEntries(): Promise<JournalEntry[]> {
       createdAt: row.created_at,
       updatedAt: row.updated_at ?? undefined,
       important: row.important ?? false,
+      secret: row.secret ?? false,
     }));
   }
   return loadFromStorage();
@@ -71,6 +74,7 @@ export async function saveJournalEntries(entries: JournalEntry[]): Promise<void>
           date: e.date,
           content: e.content,
           important: e.important ?? false,
+          secret: e.secret ?? false,
           updated_at: e.updatedAt ?? new Date().toISOString(),
         },
         { onConflict: "date" }
