@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   loadPlaylistEntries,
   parseYoutubeUrl,
@@ -236,12 +237,14 @@ export function YoutubePlayerBar() {
 
   const isEmpty = shuffledList.length === 0;
 
-  /** 전역 단축키: 1 = 재생/정지, 2 = 다음. 입력 필드에 포커스 있을 때는 무시 */
+  const router = useRouter();
+
+  /** 전역 단축키: 0 = 타임테이블, . = 수면관리, 1 = 재생/정지, 2 = 다음. 입력 필드에 포커스 있을 때는 무시 */
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "1" && e.key !== "2") return;
+      if (e.key !== "0" && e.key !== "." && e.key !== "1" && e.key !== "2") return;
       const active = document.activeElement;
       if (
         active &&
@@ -249,6 +252,16 @@ export function YoutubePlayerBar() {
           active instanceof HTMLTextAreaElement ||
           (active instanceof HTMLElement && active.isContentEditable))
       ) {
+        return;
+      }
+      if (e.key === "0") {
+        e.preventDefault();
+        router.push("/routine/timetable");
+        return;
+      }
+      if (e.key === ".") {
+        e.preventDefault();
+        router.push("/routine/sleep");
         return;
       }
       if (isEmpty || !current) return;
@@ -275,7 +288,7 @@ export function YoutubePlayerBar() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isEmpty, current, isMobile]);
+  }, [router, isEmpty, current, isMobile]);
 
   return (
     <>
