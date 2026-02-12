@@ -219,8 +219,9 @@ export default function JournalPage() {
   /** 이 탭에서 비밀글 해제 여부 (sessionStorage와 동기화) */
   const [secretUnlocked, setSecretUnlocked] = useState(false);
 
+  /** 페이지 들어올 때마다 비밀글 해제 상태 리셋 (새로고침·다른 페이지 갔다 오면 무조건 비밀번호 다시 입력) */
   useEffect(() => {
-    setSecretUnlocked(isSecretUnlocked());
+    setSecretUnlocked(false);
   }, []);
 
   const load = useCallback(async () => {
@@ -699,20 +700,20 @@ export default function JournalPage() {
           document.body
         )}
 
-      {/* 비밀글 보기 암호 입력 모달 */}
+      {/* 비밀글 보기 암호 입력 모달 (블랙 디자인) */}
       {showUnlockModal &&
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => { setShowUnlockModal(false); setUnlockError(""); setUnlockPinValue(""); }} />
             <div
-              className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+              className="relative w-full max-w-sm rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
               role="dialog"
               aria-labelledby="unlock-pin-title"
               aria-modal="true"
             >
-              <h2 id="unlock-pin-title" className="text-lg font-semibold text-neutral-800">비밀글 보기</h2>
-              <p className="mt-1 text-sm text-neutral-500">설정한 암호를 입력하세요.</p>
+              <h2 id="unlock-pin-title" className="text-lg font-semibold text-white">비밀글 보기</h2>
+              <p className="mt-1 text-sm text-neutral-400">설정한 암호를 입력하세요.</p>
               <div className="mt-4">
                 <input
                   type="password"
@@ -730,15 +731,15 @@ export default function JournalPage() {
                       (document.querySelector("[data-unlock-submit]") as HTMLButtonElement)?.click();
                     }
                   }}
-                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                  className="w-full rounded-xl border border-neutral-600 bg-neutral-800 px-4 py-3 text-white placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-600"
                 />
-                {unlockError && <p className="mt-2 text-sm text-red-600">{unlockError}</p>}
+                {unlockError && <p className="mt-2 text-sm text-red-400">{unlockError}</p>}
               </div>
               <div className="mt-5 flex gap-2">
                 <button
                   type="button"
                   onClick={() => { setShowUnlockModal(false); setUnlockError(""); setUnlockPinValue(""); }}
-                  className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                  className="flex-1 rounded-xl border border-neutral-600 py-2.5 text-sm font-medium text-neutral-300 hover:bg-neutral-800"
                 >
                   취소
                 </button>
@@ -756,13 +757,12 @@ export default function JournalPage() {
                       setUnlockError("암호가 일치하지 않습니다.");
                       return;
                     }
-                    setSecretUnlockedSession();
                     setSecretUnlocked(true);
                     setShowUnlockModal(false);
                     setUnlockPinValue("");
                     setUnlockError("");
                   }}
-                  className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700"
+                  className="flex-1 rounded-xl bg-black py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
                 >
                   확인
                 </button>
@@ -1019,11 +1019,11 @@ export default function JournalPage() {
             </div>
           </div>
 
-          {/* 비밀글 암호 설정 (인라인 - 카드 안에 바로 표시) */}
+          {/* 비밀글 암호 설정 (인라인 - 블랙 디자인) */}
           {showSetPinInline && (
-            <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-              <p className="mb-3 font-medium text-neutral-800">비밀글 암호 설정</p>
-              <p className="mb-3 text-sm text-neutral-500">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
+            <div className="mb-4 rounded-xl border border-neutral-700 bg-neutral-900 p-4">
+              <p className="mb-3 font-medium text-white">비밀글 암호 설정</p>
+              <p className="mb-3 text-sm text-neutral-400">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
               <div className="space-y-2">
                 <input
                   type="password"
@@ -1035,7 +1035,7 @@ export default function JournalPage() {
                     setSetPinValue(e.target.value);
                     setSetPinError("");
                   }}
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                  className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-white placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-600"
                 />
                 <input
                   type="password"
@@ -1047,9 +1047,9 @@ export default function JournalPage() {
                     setSetPinConfirm(e.target.value);
                     setSetPinError("");
                   }}
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                  className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-white placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-600"
                 />
-                {setPinError && <p className="text-sm text-red-600">{setPinError}</p>}
+                {setPinError && <p className="text-sm text-red-400">{setPinError}</p>}
               </div>
               <div className="mt-3 flex gap-2">
                 <button
@@ -1061,7 +1061,7 @@ export default function JournalPage() {
                     setSetPinError("");
                     if (getStoredPinHash()) setDraftSecret(true);
                   }}
-                  className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-800"
                 >
                   취소
                 </button>
@@ -1095,7 +1095,7 @@ export default function JournalPage() {
                         : prev
                     );
                   }}
-                  className="rounded-lg bg-neutral-800 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700"
+                  className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
                 >
                   확인
                 </button>
