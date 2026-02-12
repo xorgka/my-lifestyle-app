@@ -67,7 +67,7 @@ function renderSimpleMarkdown(text: string): string {
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span style="color:#3b82f6">$1</span>')
     .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '<span style="color:#dc2626">$1</span>')
     .replace(/\[gray\]([\s\S]+?)\[\/gray\]/g, '<span style="color:#6b7280">$1</span>')
-    .replace(/\[wave\]([\s\S]+?)\[\/wave\]/g, '<span style="text-decoration:underline wavy">$1</span>')
+    .replace(/\[wave\]([\s\S]+?)\[\/wave\]/g, '<span style="text-decoration:underline wavy; text-decoration-color:#a3a3a3">$1</span>')
     .replace(/\n/g, "<br />");
 }
 
