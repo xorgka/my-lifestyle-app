@@ -9,6 +9,7 @@ import {
   getTodayKey,
   getDateKeyOffset,
   genId,
+  sortTimetableSlots,
   type DayTimetable,
   type TimetableSlot,
 } from "@/lib/timetableDb";
@@ -229,8 +230,7 @@ export default function TimetablePage() {
           time: t || "0",
           items: newItems,
         };
-        const num = (v: string) => parseInt(v, 10) || 0;
-        const sorted = [...day.slots, newSlot].sort((a, b) => num(a.time) - num(b.time));
+        const sorted = sortTimetableSlots([...day.slots, newSlot]);
         await persist({ ...day, slots: sorted }, true);
       }
       routineIdsByIndex?.forEach((rid, i) => {
@@ -433,7 +433,7 @@ export default function TimetablePage() {
               </tr>
             </thead>
             <tbody>
-              {day.slots.map((slot) => (
+              {sortTimetableSlots(day.slots).map((slot) => (
                 <SlotRow
                   key={slot.id}
                   slot={slot}

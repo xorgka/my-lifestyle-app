@@ -9,6 +9,18 @@ export type TimetableItem = { id: string; text: string };
 export type TimetableSlot = { id: string; time: string; items: TimetableItem[] };
 export type DayTimetable = { slots: TimetableSlot[]; completedIds: string[] };
 
+/** 5시를 하루 시작으로, 0~4시는 늦은 시간(맨 뒤). 정렬용 키 반환. */
+export function timetableSlotOrderKey(time: string): number {
+  const n = parseInt(String(time).trim(), 10) || 0;
+  if (n >= 5 && n <= 24) return n - 5;
+  return n + 19;
+}
+
+/** 슬롯을 5시 시작·늦은시간 맨 뒤 순서로 정렬 */
+export function sortTimetableSlots(slots: TimetableSlot[]): TimetableSlot[] {
+  return [...slots].sort((a, b) => timetableSlotOrderKey(a.time) - timetableSlotOrderKey(b.time));
+}
+
 const STORAGE_KEY = "timetable-by-date";
 
 function dateKey(d: Date): string {

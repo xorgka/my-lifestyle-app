@@ -7,6 +7,7 @@ import {
   loadTimetableForDate,
   saveTimetableForDate,
   getTodayKey,
+  sortTimetableSlots,
   type DayTimetable,
   type TimetableSlot,
 } from "@/lib/timetableDb";
@@ -23,21 +24,24 @@ function todayStr(): string {
 
 export function getCurrentSlot(day: DayTimetable | null): TimetableSlot | null {
   if (!day || day.slots.length === 0) return null;
-  const sorted = [...day.slots].sort((a, b) => Number(a.time) - Number(b.time));
+  const sorted = sortTimetableSlots(day.slots);
   const currentHour = new Date().getHours();
   for (let i = 0; i < sorted.length; i++) {
-    const slotTime = Number(sorted[i].time);
-    const nextTime = i + 1 < sorted.length ? Number(sorted[i + 1].time) : 24;
-    if (currentHour >= slotTime && currentHour < nextTime) return sorted[i];
+    const start = Number(sorted[i].time);
+    const end = i + 1 < sorted.length ? Number(sorted[i + 1].time) : 5;
+    const inSlot = start <= end
+      ? currentHour >= start && currentHour < end
+      : currentHour >= start || currentHour < end;
+    if (inSlot) return sorted[i];
   }
   return sorted[0];
 }
 
 function getNextSlotHour(day: DayTimetable | null, currentSlot: TimetableSlot | null): number {
   if (!day || !currentSlot || day.slots.length === 0) return 24;
-  const sorted = [...day.slots].sort((a, b) => Number(a.time) - Number(b.time));
+  const sorted = sortTimetableSlots(day.slots);
   const idx = sorted.findIndex((s) => s.id === currentSlot.id);
-  if (idx < 0 || idx + 1 >= sorted.length) return 24;
+  if (idx < 0 || idx + 1 >= sorted.length) return 5;
   return Number(sorted[idx + 1].time);
 }
 
