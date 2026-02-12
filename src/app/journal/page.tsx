@@ -50,6 +50,11 @@ function setSecretUnlockedSession(): void {
   window.sessionStorage.setItem(JOURNAL_SECRET_UNLOCKED, "1");
 }
 
+function clearSecretUnlockedSession(): void {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(JOURNAL_SECRET_UNLOCKED);
+}
+
 function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -1079,6 +1084,8 @@ export default function JournalPage() {
                     setSetPinConfirm("");
                     setSetPinError("");
                     setViewMode("preview");
+                    clearSecretUnlockedSession();
+                    setSecretUnlocked(false);
                     const snap = { content: draft, important: draftImportant, secret: true };
                     saveDraft(selectedDate, snap);
                     saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
