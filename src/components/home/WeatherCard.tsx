@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { fetchCurrentWeather, type WeatherCurrent } from "@/lib/weather";
-import { getRandomWeatherBgUrl } from "@/lib/weatherBg";
+import { getOrPickDailyWeatherBgUrl, clearDailyWeatherBgCache } from "@/lib/weatherBg";
 
 const WEATHER_OVERLAY_STORAGE_KEY = "weather-bg-overlay-opacity";
 const OVERLAY_MIN = 0.05;
@@ -92,23 +92,20 @@ export function WeatherCard() {
   useEffect(() => {
     if (!themeId) return;
     const read = () => {
-      const url = getRandomWeatherBgUrl(themeId);
+      const url = getOrPickDailyWeatherBgUrl(themeId);
       setCustomBgUrl(url);
       if (url) setCustomBgFailed(false);
     };
     read();
-    const onCustom = () => read();
-    window.addEventListener("storage", read);
-    window.addEventListener("visibilitychange", read);
-    window.addEventListener("pageshow", read);
-    window.addEventListener("focus", read);
-    window.addEventListener("weather-bg-settings-changed", onCustom);
+    const onSettingsChanged = () => {
+      clearDailyWeatherBgCache();
+      read();
+    };
+    window.addEventListener("storage", onSettingsChanged);
+    window.addEventListener("weather-bg-settings-changed", onSettingsChanged);
     return () => {
-      window.removeEventListener("storage", read);
-      window.removeEventListener("visibilitychange", read);
-      window.removeEventListener("pageshow", read);
-      window.removeEventListener("focus", read);
-      window.removeEventListener("weather-bg-settings-changed", onCustom);
+      window.removeEventListener("storage", onSettingsChanged);
+      window.removeEventListener("weather-bg-settings-changed", onSettingsChanged);
     };
   }, [themeId]);
 

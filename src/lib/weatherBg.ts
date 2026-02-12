@@ -123,3 +123,38 @@ export function getRandomWeatherBgUrl(themeId: WeatherThemeId): string | null {
   if (urls.length === 0) return null;
   return urls[Math.floor(Math.random() * urls.length)] ?? null;
 }
+
+const DAILY_BG_PREFIX = "weather-bg-daily-";
+
+function getTodayKey(): string {
+  if (typeof window === "undefined") return "";
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 오늘 날짜+테마로 이미 고른 URL이 있으면 반환, 없으면 랜덤 선택 후 저장. 하루 동안 동일 이미지 유지(다른 페이지 갔다 와도, 새로고침해도) */
+export function getOrPickDailyWeatherBgUrl(themeId: WeatherThemeId): string | null {
+  if (typeof window === "undefined") return null;
+  const today = getTodayKey();
+  const key = `${DAILY_BG_PREFIX}${today}-${themeId}`;
+  const stored = window.localStorage.getItem(key);
+  if (stored) return stored;
+  const url = getRandomWeatherBgUrl(themeId);
+  if (url) window.localStorage.setItem(key, url);
+  return url;
+}
+
+/** 날씨 배경 설정이 바뀌었을 때 오늘짜 캐시만 비움 (다음 읽기에서 새로 랜덤 선택) */
+export function clearDailyWeatherBgCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k?.startsWith(DAILY_BG_PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+}
