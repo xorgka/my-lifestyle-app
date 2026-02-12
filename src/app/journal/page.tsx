@@ -1059,7 +1059,6 @@ export default function JournalPage() {
                     setSetPinValue("");
                     setSetPinConfirm("");
                     setSetPinError("");
-                    if (getStoredPinHash()) setDraftSecret(true);
                   }}
                   className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-800"
                 >
