@@ -67,6 +67,7 @@ function renderSimpleMarkdown(text: string): string {
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span style="color:#3b82f6">$1</span>')
     .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '<span style="color:#dc2626">$1</span>')
     .replace(/\[gray\]([\s\S]+?)\[\/gray\]/g, '<span style="color:#6b7280">$1</span>')
+    .replace(/\[wave\]([\s\S]+?)\[\/wave\]/g, '<span style="text-decoration:underline wavy">$1</span>')
     .replace(/\n/g, "<br />");
 }
 
@@ -263,12 +264,12 @@ export default function JournalPage() {
     }
   };
 
-  /** 편집 모드: 선택 영역에 글자색 적용 (우클릭 메뉴용) */
-  const applyEditColor = (tag: "blue" | "red" | "gray") => {
+  /** 편집 모드: 선택 영역에 글자색·물결 밑줄 적용 (우클릭 메뉴용) */
+  const applyEditColor = (tag: "blue" | "red" | "gray" | "wave") => {
     if (!editContextMenu) return;
     const { start, end } = editContextMenu;
-    const open = tag === "blue" ? "[blue]" : tag === "red" ? "[red]" : "[gray]";
-    const close = tag === "blue" ? "[/blue]" : tag === "red" ? "[/red]" : "[/gray]";
+    const open = tag === "blue" ? "[blue]" : tag === "red" ? "[red]" : tag === "gray" ? "[gray]" : "[wave]";
+    const close = tag === "blue" ? "[/blue]" : tag === "red" ? "[/red]" : tag === "gray" ? "[/gray]" : "[/wave]";
     setDraft((prev) => prev.slice(0, start) + open + prev.slice(start, end) + close + prev.slice(end));
     setEditContextMenu(null);
     setTimeout(() => {
@@ -561,6 +562,17 @@ export default function JournalPage() {
               >
                 <span className="h-3 w-3 rounded-full bg-[#6b7280]" aria-hidden />
                 회색
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => applyEditColor("wave")}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100"
+              >
+                <span className="text-neutral-500" style={{ textDecoration: "underline wavy" }} aria-hidden>
+                  ∼∼
+                </span>
+                물결 밑줄
               </button>
             </div>
           </>,
