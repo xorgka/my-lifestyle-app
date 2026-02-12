@@ -139,4 +139,10 @@ export async function saveJournalDraftToSupabase(date: string, snapshot: Journal
     { onConflict: "date" }
   );
   if (error) console.warn("[journal] saveJournalDraftToSupabase", date, error.message);
+
+  // 비밀글 토글 시 해당 날짜 일기가 이미 있으면 secret만 반영 (저장 버튼 없이도 비밀글 설정 유지)
+  await supabase
+    .from("journal_entries")
+    .update({ secret: snapshot.secret ?? false, updated_at: new Date().toISOString() })
+    .eq("date", date);
 }
