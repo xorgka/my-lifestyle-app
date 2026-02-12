@@ -59,13 +59,132 @@ function firstLinePreview(content: string, maxLen = 50): string {
   return line.length > maxLen ? line.slice(0, maxLen) + "…" : line;
 }
 
-/** 마크다운 볼드·글자색 등 간단 렌더 (미리보기 탭용) */
+/** 마크다운 볼드·글자색 등 간단 렌더 (일반 HTML 문자열용) */
 function renderSimpleMarkdown(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\[pink\]([\s\S]+?)\[\/pink\]/g, '<span style="color:#f87171">$1</span>')
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span style="color:#3b82f6">$1</span>')
     .replace(/\n/g, "<br />");
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br />");
+}
+
+type DraftSegment = { start: number; end: number; type: "plain" | "bold" | "pink" | "blue"; text: string };
+
+function parseDraftToSegments(draft: string): DraftSegment[] {
+  const segments: DraftSegment[] = [];
+  let i = 0;
+  while (i < draft.length) {
+    const rest = draft.slice(i);
+    const boldMatch = rest.match(/^\*\*(.+?)\*\*/);
+    if (boldMatch) {
+      segments.push({ start: i, end: i + boldMatch[0].length, type: "bold", text: boldMatch[1] });
+      i += boldMatch[0].length;
+      continue;
+    }
+    const pinkMatch = rest.match(/^\[pink\]([\s\S]+?)\[\/pink\]/);
+    if (pinkMatch) {
+      segments.push({ start: i, end: i + pinkMatch[0].length, type: "pink", text: pinkMatch[1] });
+      i += pinkMatch[0].length;
+      continue;
+    }
+    const blueMatch = rest.match(/^\[blue\]([\s\S]+?)\[\/blue\]/);
+    if (blueMatch) {
+      segments.push({ start: i, end: i + blueMatch[0].length, type: "blue", text: blueMatch[1] });
+      i += blueMatch[0].length;
+      continue;
+    }
+    const nextBold = draft.indexOf("**", i);
+    const nextPink = draft.indexOf("[pink]", i);
+    const nextBlue = draft.indexOf("[blue]", i);
+    let next = draft.length;
+    if (nextBold !== -1) next = Math.min(next, nextBold);
+    if (nextPink !== -1) next = Math.min(next, nextPink);
+    if (nextBlue !== -1) next = Math.min(next, nextBlue);
+    if (next > i) {
+      segments.push({ start: i, end: next, type: "plain", text: draft.slice(i, next) });
+      i = next;
+    } else {
+      segments.push({ start: i, end: i + 1, type: "plain", text: draft[i] });
+      i += 1;
+    }
+  }
+  return segments;
+}
+
+/** DOM 선택 영역을 draft 문자 범위(start, end)로 변환. 실패 시 null */
+function getDraftRangeFromSelection(container: HTMLElement): { start: number; end: number } | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return null;
+
+  const startOffset = getDraftOffset(container, range.startContainer, range.startOffset);
+  const endOffset = getDraftOffset(container, range.endContainer, range.endOffset);
+  if (startOffset == null || endOffset == null) return null;
+  return { start: Math.min(startOffset, endOffset), end: Math.max(startOffset, endOffset) };
+}
+
+function findSegmentSpan(node: Node): HTMLElement | null {
+  let n: Node | null = node;
+  while (n && n !== document.body) {
+    if (n.nodeType === Node.ELEMENT_NODE) {
+      const el = n as HTMLElement;
+      if (el.dataset.start != null && el.dataset.end != null) return el;
+    }
+    n = n.parentNode;
+  }
+  return null;
+}
+
+function getOffsetInNode(parent: Node, targetNode: Node, targetOffset: number): number {
+  let acc = 0;
+  const walk = (node: Node): boolean => {
+    if (node === targetNode) {
+      acc += targetOffset;
+      return true;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      acc += (node.textContent ?? "").length;
+      return false;
+    }
+    for (let i = 0; i < node.childNodes.length; i++) {
+      if (walk(node.childNodes[i])) return true;
+    }
+    return false;
+  };
+  walk(parent);
+  return acc;
+}
+
+function getDraftOffset(container: HTMLElement, node: Node, offset: number): number | null {
+  const span = findSegmentSpan(node);
+  if (!span || !container.contains(span)) return null;
+  const segStart = parseInt(span.dataset.start ?? "", 10);
+  if (Number.isNaN(segStart)) return null;
+  const offsetInSpan = getOffsetInNode(span, node, offset);
+  return segStart + offsetInSpan;
+}
+
+function segmentToHtml(seg: DraftSegment): string {
+  const t = escapeHtml(seg.text);
+  switch (seg.type) {
+    case "bold":
+      return `<strong>${t}</strong>`;
+    case "pink":
+      return `<span style="color:#f87171">${t}</span>`;
+    case "blue":
+      return `<span style="color:#3b82f6">${t}</span>`;
+    default:
+      return t;
+  }
 }
 
 /** 날짜 문자열(YYYY-MM-DD) 하루 전 */
@@ -154,6 +273,10 @@ export default function JournalPage() {
   /** 오늘 마음에 남은 문장 (인사이트) 입력 */
   const [insightInput, setInsightInput] = useState("");
   const [insightAuthorInput, setInsightAuthorInput] = useState("");
+  /** 보기 모드에서 드래그 후 우클릭 메뉴 (글자색) */
+  const [previewContextMenu, setPreviewContextMenu] = useState<{ x: number; y: number; start: number; end: number } | null>(null);
+  const previewContentRef = useRef<HTMLDivElement>(null);
+  const previewContextMenuRef = useRef<HTMLDivElement>(null);
   const load = useCallback(async () => {
     setJournalLoading(true);
     try {
@@ -258,6 +381,30 @@ export default function JournalPage() {
     }
   };
 
+  /** 보기 모드에서 선택 영역에 글자색 적용 (우클릭 메뉴용) */
+  const applyPreviewColor = (tag: "pink" | "blue") => {
+    if (!previewContextMenu) return;
+    const { start, end } = previewContextMenu;
+    const open = tag === "pink" ? "[pink]" : "[blue]";
+    const close = tag === "pink" ? "[/pink]" : "[/blue]";
+    setDraft((prev) => prev.slice(0, start) + open + prev.slice(start, end) + close + prev.slice(end));
+    setPreviewContextMenu(null);
+  };
+
+  useEffect(() => {
+    if (!previewContextMenu) return;
+    const close = (e?: MouseEvent) => {
+      if (e && previewContextMenuRef.current?.contains(e.target as Node)) return;
+      setPreviewContextMenu(null);
+    };
+    document.addEventListener("mousedown", close, true);
+    document.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", close, true);
+      document.removeEventListener("scroll", close, true);
+    };
+  }, [previewContextMenu]);
+
   const handleInsightAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = insightInput.trim();
@@ -327,58 +474,6 @@ export default function JournalPage() {
     }
   };
 
-  /** 선택 영역을 [pink]...[/pink] 로 감싸기 */
-  const insertPink = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const before = draft.slice(0, start);
-    const selected = draft.slice(start, end);
-    const after = draft.slice(end);
-    const open = "[pink]";
-    const close = "[/pink]";
-    if (selected) {
-      setDraft(`${before}${open}${selected}${close}${after}`);
-      setTimeout(() => {
-        el.focus();
-        el.setSelectionRange(start + open.length, end + open.length);
-      }, 0);
-    } else {
-      setDraft(`${before}${open}${close}${after}`);
-      setTimeout(() => {
-        el.focus();
-        el.setSelectionRange(start + open.length, start + open.length);
-      }, 0);
-    }
-  };
-
-  /** 선택 영역을 [blue]...[/blue] 로 감싸기 */
-  const insertBlue = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const before = draft.slice(0, start);
-    const selected = draft.slice(start, end);
-    const after = draft.slice(end);
-    const open = "[blue]";
-    const close = "[/blue]";
-    if (selected) {
-      setDraft(`${before}${open}${selected}${close}${after}`);
-      setTimeout(() => {
-        el.focus();
-        el.setSelectionRange(start + open.length, end + open.length);
-      }, 0);
-    } else {
-      setDraft(`${before}${open}${close}${after}`);
-      setTimeout(() => {
-        el.focus();
-        el.setSelectionRange(start + open.length, start + open.length);
-      }, 0);
-    }
-  };
-
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -407,20 +502,9 @@ export default function JournalPage() {
         if (e.key === "a") goPrevDay();
         else goNextDay();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "b" && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
         e.preventDefault();
         insertBold();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "p") {
-        e.preventDefault();
-        insertPink();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "l") {
-        e.preventDefault();
-        insertBlue();
-        return;
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -546,6 +630,45 @@ export default function JournalPage() {
           저장됨 ✓
         </div>
       )}
+
+      {/* 보기 모드: 글자 드래그 후 우클릭 메뉴 (글자색) */}
+      {previewContextMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[60]"
+              aria-hidden
+              onClick={() => setPreviewContextMenu(null)}
+            />
+            <div
+              ref={previewContextMenuRef}
+              className="fixed z-[61] min-w-[140px] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+              style={{ left: previewContextMenu.x, top: previewContextMenu.y }}
+              role="menu"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => applyPreviewColor("pink")}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100"
+              >
+                <span className="h-3 w-3 rounded-full bg-[#f87171]" aria-hidden />
+                핑크로 칠하기
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => applyPreviewColor("blue")}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100"
+              >
+                <span className="h-3 w-3 rounded-full bg-[#3b82f6]" aria-hidden />
+                파랑으로 칠하기
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
 
       <div className="-mb-4">
         <header className="mb-8 pt-4 pl-4 md:mb-10 md:pt-6 md:pl-6 !mb-3">
@@ -701,7 +824,7 @@ export default function JournalPage() {
                         save();
                       }
                     }}
-                    placeholder="오늘 하루를 적어보세요. 볼드 Ctrl+B · 핑크 Ctrl+Shift+P · 파랑 Ctrl+Shift+L"
+                    placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
                     className="min-h-[560px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
                     rows={20}
                   />
@@ -709,7 +832,8 @@ export default function JournalPage() {
                   <div
                     role="button"
                     tabIndex={0}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (e.button === 2) return;
                       setViewMode("write");
                       setTimeout(() => textareaRef.current?.focus(), 0);
                     }}
@@ -721,13 +845,40 @@ export default function JournalPage() {
                       }
                     }}
                     className="min-h-[360px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
-                    title="클릭하면 글쓰기 모드로 전환"
+                    title="클릭하면 글쓰기 모드로 전환. 글자 드래그 후 우클릭하면 색 적용"
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >
                     {draft.trim() ? (
                       <div
-                        dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
-                      />
+                        ref={previewContentRef}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const range = previewContentRef.current
+                            ? getDraftRangeFromSelection(previewContentRef.current)
+                            : null;
+                          if (range && range.start < range.end) {
+                            setPreviewContextMenu({
+                              x: e.clientX,
+                              y: e.clientY,
+                              start: range.start,
+                              end: range.end,
+                            });
+                          } else {
+                            setPreviewContextMenu(null);
+                          }
+                        }}
+                        className="select-text"
+                      >
+                        {parseDraftToSegments(draft).map((seg, i) => (
+                          <span
+                            key={i}
+                            data-start={seg.start}
+                            data-end={seg.end}
+                            dangerouslySetInnerHTML={{ __html: segmentToHtml(seg) }}
+                          />
+                        ))}
+                      </div>
                     ) : (
                       <div className="space-y-2 text-neutral-400">
                         {getEmptyStatePrompt(selectedDate, entries)
