@@ -43,9 +43,20 @@ const COLORS = [
 
 export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isTrashNote, onRestore, onPermanentDelete, onBack }: NoteEditorProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [highlightOn, setHighlightOn] = useState(false);
+
+  useEffect(() => {
+    if (!colorPickerOpen) return;
+    const close = (e: MouseEvent) => {
+      if (colorPickerRef.current?.contains(e.target as Node)) return;
+      setColorPickerOpen(false);
+    };
+    document.addEventListener("mousedown", close, true);
+    return () => document.removeEventListener("mousedown", close, true);
+  }, [colorPickerOpen]);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -189,7 +200,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           <span className="text-sm font-bold">B</span>
         </button>
         <span className="text-neutral-300">|</span>
-        <div className="relative">
+        <div className="relative" ref={colorPickerRef}>
           <button
             type="button"
             onClick={() => setColorPickerOpen((o) => !o)}
@@ -200,7 +211,6 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           </button>
           {colorPickerOpen && (
             <>
-              <div className="fixed inset-0 z-10 min-h-[100dvh] min-w-[100vw] bg-black/65" onClick={() => setColorPickerOpen(false)} aria-hidden />
               <div className="absolute left-0 top-full z-20 mt-1 flex gap-0.5 rounded-lg border border-neutral-200 bg-white p-1.5 shadow-lg">
                 {COLORS.map((c) => (
                   <button
