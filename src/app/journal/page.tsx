@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { localDateStr } from "@/lib/dateUtil";
@@ -16,8 +15,8 @@ import {
 import { addInsightEntry } from "@/lib/insightDb";
 
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
-/** 복사 후 이동 버튼에서 이동할 링크 (PC에서만 노출) */
-const COPY_AND_GO_LINK = "/insight";
+/** 복사 후 이동 버튼에서 새 창으로 열 링크 (PC에서만 노출) */
+const COPY_AND_GO_LINK = "https://www.saramin.co.kr/zf_user/tools/character-counter";
 
 function todayStr(): string {
   const d = new Date();
@@ -60,10 +59,12 @@ function firstLinePreview(content: string, maxLen = 50): string {
   return line.length > maxLen ? line.slice(0, maxLen) + "…" : line;
 }
 
-/** 마크다운 볼드 등 간단 렌더 (미리보기 탭용) */
+/** 마크다운 볼드·글자색 등 간단 렌더 (미리보기 탭용) */
 function renderSimpleMarkdown(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[pink\]([\s\S]+?)\[\/pink\]/g, '<span style="color:#ec4899">$1</span>')
+    .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span style="color:#3b82f6">$1</span>')
     .replace(/\n/g, "<br />");
 }
 
@@ -131,7 +132,6 @@ function getEmptyStatePrompt(selectedDate: string, entries: { date: string }[]):
 }
 
 export default function JournalPage() {
-  const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [draft, setDraft] = useState("");
@@ -252,7 +252,7 @@ export default function JournalPage() {
     if (!draft.trim()) return;
     try {
       await navigator.clipboard.writeText(draft);
-      router.push(COPY_AND_GO_LINK);
+      window.open(COPY_AND_GO_LINK, "_blank", "noopener,noreferrer");
     } catch (e) {
       console.error(e);
     }
@@ -327,6 +327,58 @@ export default function JournalPage() {
     }
   };
 
+  /** 선택 영역을 [pink]...[/pink] 로 감싸기 */
+  const insertPink = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const before = draft.slice(0, start);
+    const selected = draft.slice(start, end);
+    const after = draft.slice(end);
+    const open = "[pink]";
+    const close = "[/pink]";
+    if (selected) {
+      setDraft(`${before}${open}${selected}${close}${after}`);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + open.length, end + open.length);
+      }, 0);
+    } else {
+      setDraft(`${before}${open}${close}${after}`);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + open.length, start + open.length);
+      }, 0);
+    }
+  };
+
+  /** 선택 영역을 [blue]...[/blue] 로 감싸기 */
+  const insertBlue = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const before = draft.slice(0, start);
+    const selected = draft.slice(start, end);
+    const after = draft.slice(end);
+    const open = "[blue]";
+    const close = "[/blue]";
+    if (selected) {
+      setDraft(`${before}${open}${selected}${close}${after}`);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + open.length, end + open.length);
+      }, 0);
+    } else {
+      setDraft(`${before}${open}${close}${after}`);
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + open.length, start + open.length);
+      }, 0);
+    }
+  };
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -355,9 +407,20 @@ export default function JournalPage() {
         if (e.key === "a") goPrevDay();
         else goNextDay();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "b" && !e.shiftKey) {
         e.preventDefault();
         insertBold();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "p") {
+        e.preventDefault();
+        insertPink();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "l") {
+        e.preventDefault();
+        insertBlue();
+        return;
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -638,7 +701,7 @@ export default function JournalPage() {
                         save();
                       }
                     }}
-                    placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
+                    placeholder="오늘 하루를 적어보세요. 볼드 Ctrl+B · 핑크 Ctrl+Shift+P · 파랑 Ctrl+Shift+L"
                     className="min-h-[560px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
                     rows={20}
                   />
@@ -728,7 +791,7 @@ export default function JournalPage() {
               disabled={!draft.trim()}
               className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
             >
-              복사 후 이동
+              맞춤법 검사
             </button>
             {entryForDate && (
               <button
