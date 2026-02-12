@@ -396,7 +396,7 @@ export default function JournalPage() {
     (_, i) => currentYear - i
   );
 
-  /** 모아보기: 선택 연도에 글 있는 날짜만 (날짜 오름차순) */
+  /** 모아보기: 선택 연도에 글 있는 날짜만 (비밀글 포함, 날짜 오름차순. 비밀글은 목록에 포함되고 선택 시 '비밀글' 표시) */
   const entryDatesInYear =
     journalViewMode === "collect" && collectYear != null
       ? entries
