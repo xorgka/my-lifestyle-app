@@ -202,8 +202,8 @@ export default function JournalPage() {
   const editContextMenuRef = useRef<HTMLDivElement>(null);
   /** Supabase에서 초안 동기화 후 true. 새로고침·기기 전환 시 초안 유지 */
   const [draftsSyncedFromSupabase, setDraftsSyncedFromSupabase] = useState(false);
-  /** 비밀글 암호 설정 모달 (처음 비밀글 켤 때) */
-  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  /** 비밀글 암호 설정: 모달 대신 카드 안 인라인 폼 표시 (보이게) */
+  const [showSetPinInline, setShowSetPinInline] = useState(false);
   const [setPinValue, setSetPinValue] = useState("");
   const [setPinConfirm, setSetPinConfirm] = useState("");
   const [setPinError, setSetPinError] = useState("");
@@ -694,95 +694,6 @@ export default function JournalPage() {
           document.body
         )}
 
-      {/* 비밀글 암호 설정 모달 */}
-      {showSetPinModal &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => { setShowSetPinModal(false); if (getStoredPinHash()) setDraftSecret(true); }} />
-            <div
-              className="relative z-[100000] w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-labelledby="set-pin-title"
-              aria-modal="true"
-            >
-              <h2 id="set-pin-title" className="text-lg font-semibold text-neutral-800">비밀글 암호 설정</h2>
-              <p className="mt-1 text-sm text-neutral-500">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
-              <div className="mt-4 space-y-3">
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="암호 입력"
-                  value={setPinValue}
-                  onChange={(e) => {
-                    setSetPinValue(e.target.value);
-                    setSetPinError("");
-                  }}
-                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-                />
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="암호 다시 입력"
-                  value={setPinConfirm}
-                  onChange={(e) => {
-                    setSetPinConfirm(e.target.value);
-                    setSetPinError("");
-                  }}
-                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-                />
-                {setPinError && <p className="text-sm text-red-600">{setPinError}</p>}
-              </div>
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowSetPinModal(false); if (getStoredPinHash()) setDraftSecret(true); }}
-                  className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!setPinValue.trim()) {
-                      setSetPinError("암호를 입력하세요.");
-                      return;
-                    }
-                    if (setPinValue !== setPinConfirm) {
-                      setSetPinError("암호가 일치하지 않습니다.");
-                      return;
-                    }
-                    const h = await hashPin(setPinValue);
-                    setStoredPinHash(h);
-                    setDraftSecret(true);
-                    setShowSetPinModal(false);
-                    setSetPinValue("");
-                    setSetPinConfirm("");
-                    setSetPinError("");
-                    setViewMode("preview");
-                    // 새로고침/다른 페이지 갔다 와도 비밀글 유지되도록 즉시 저장
-                    const snap = { content: draft, important: draftImportant, secret: true };
-                    saveDraft(selectedDate, snap);
-                    saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
-                    setEntries((prev) =>
-                      prev.some((e) => e.date === selectedDate)
-                        ? prev.map((e) => (e.date === selectedDate ? { ...e, secret: true } : e))
-                        : prev
-                    );
-                  }}
-                  className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700"
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
       {/* 비밀글 보기 암호 입력 모달 */}
       {showUnlockModal &&
         typeof document !== "undefined" &&
@@ -1081,7 +992,7 @@ export default function JournalPage() {
                   e.preventDefault();
                   e.stopPropagation();
                   if (!draftSecret) {
-                    setShowSetPinModal(true);
+                    setShowSetPinInline(true);
                     setSetPinValue("");
                     setSetPinConfirm("");
                     setSetPinError("");
@@ -1102,6 +1013,89 @@ export default function JournalPage() {
               </button>
             </div>
           </div>
+
+          {/* 비밀글 암호 설정 (인라인 - 카드 안에 바로 표시) */}
+          {showSetPinInline && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="mb-3 font-medium text-amber-900">비밀글 암호 설정</p>
+              <p className="mb-3 text-sm text-amber-800">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="암호 입력"
+                  value={setPinValue}
+                  onChange={(e) => {
+                    setSetPinValue(e.target.value);
+                    setSetPinError("");
+                  }}
+                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-neutral-800"
+                />
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="암호 다시 입력"
+                  value={setPinConfirm}
+                  onChange={(e) => {
+                    setSetPinConfirm(e.target.value);
+                    setSetPinError("");
+                  }}
+                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-neutral-800"
+                />
+                {setPinError && <p className="text-sm text-red-600">{setPinError}</p>}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSetPinInline(false);
+                    setSetPinValue("");
+                    setSetPinConfirm("");
+                    setSetPinError("");
+                    if (getStoredPinHash()) setDraftSecret(true);
+                  }}
+                  className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-900"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!setPinValue.trim()) {
+                      setSetPinError("암호를 입력하세요.");
+                      return;
+                    }
+                    if (setPinValue !== setPinConfirm) {
+                      setSetPinError("암호가 일치하지 않습니다.");
+                      return;
+                    }
+                    const h = await hashPin(setPinValue);
+                    setStoredPinHash(h);
+                    setDraftSecret(true);
+                    setShowSetPinInline(false);
+                    setSetPinValue("");
+                    setSetPinConfirm("");
+                    setSetPinError("");
+                    setViewMode("preview");
+                    const snap = { content: draft, important: draftImportant, secret: true };
+                    saveDraft(selectedDate, snap);
+                    saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
+                    setEntries((prev) =>
+                      prev.some((e) => e.date === selectedDate)
+                        ? prev.map((e) => (e.date === selectedDate ? { ...e, secret: true } : e))
+                        : prev
+                    );
+                  }}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 초안 자동 저장 상태 */}
           <p className="mb-0.5 text-xs text-neutral-500 md:mb-1">
             {draftSaveStatus === "pending" && "2초 후 초안 자동 저장"}
@@ -1209,7 +1203,7 @@ export default function JournalPage() {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                setShowSetPinModal(true);
+                                setShowSetPinInline(true);
                               }}
                               className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
                             >
@@ -1423,7 +1417,7 @@ export default function JournalPage() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setShowSetPinModal(true)}
+                          onClick={() => setShowSetPinInline(true)}
                           className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
                         >
                           암호 설정 후 보기
