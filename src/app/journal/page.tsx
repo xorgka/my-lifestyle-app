@@ -1176,7 +1176,7 @@ export default function JournalPage() {
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >
                     {draft.trim() ? (
-                      (draftSecret || entryForDate?.secret) && !secretUnlocked ? (
+                      (draftSecret || entryForDate?.secret) && getStoredPinHash() && !secretUnlocked ? (
                         <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
                           <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
                           <button
@@ -1381,7 +1381,7 @@ export default function JournalPage() {
                 </div>
                 <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6 md:px-6">
                   <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
-                  {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
+                  {entriesByDate[selectedDate]?.secret && getStoredPinHash() && !secretUnlocked ? (
                     <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
                       <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
                       <button
