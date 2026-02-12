@@ -699,9 +699,9 @@ export default function JournalPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => setShowSetPinModal(false)} />
+            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => { setShowSetPinModal(false); if (getStoredPinHash()) setDraftSecret(true); }} />
             <div
-              className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+              className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
               role="dialog"
               aria-labelledby="set-pin-title"
               aria-modal="true"
@@ -738,7 +738,7 @@ export default function JournalPage() {
               <div className="mt-5 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowSetPinModal(false)}
+                  onClick={() => { setShowSetPinModal(false); if (getStoredPinHash()) setDraftSecret(true); }}
                   className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                 >
                   취소
@@ -1067,14 +1067,10 @@ export default function JournalPage() {
                 type="button"
                 onClick={() => {
                   if (!draftSecret) {
-                    if (!getStoredPinHash()) {
-                      setShowSetPinModal(true);
-                      setSetPinValue("");
-                      setSetPinConfirm("");
-                      setSetPinError("");
-                    } else {
-                      setDraftSecret(true);
-                    }
+                    setShowSetPinModal(true);
+                    setSetPinValue("");
+                    setSetPinConfirm("");
+                    setSetPinError("");
                   } else {
                     setDraftSecret(false);
                   }
