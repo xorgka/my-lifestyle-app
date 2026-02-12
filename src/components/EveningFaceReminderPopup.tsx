@@ -14,10 +14,10 @@ const THROTTLE_MS = 30 * 60 * 1000; // 30분
 const INITIAL_DELAY_MS = 1 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
 
-/** 저녁 10시 ~ 새벽 3시 */
+/** 저녁 9시 ~ 새벽 3시 */
 function isEveningFaceTime(): boolean {
   const hour = new Date().getHours();
-  return hour >= 22 || hour < 3;
+  return hour >= 21 || hour < 3;
 }
 
 function benefitLineWithBold(text: string, boldWords: string[]) {

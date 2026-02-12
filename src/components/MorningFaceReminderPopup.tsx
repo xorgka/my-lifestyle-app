@@ -55,7 +55,7 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
     }
     if (getPopupConfig("morning_face")?.enabled === false) return;
     const hour = new Date().getHours();
-    if (hour >= 0 && hour < 5) return;
+    if (hour < 5 || hour > 15) return;
     if (!faceItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(faceItem.id);
