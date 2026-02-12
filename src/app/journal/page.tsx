@@ -63,7 +63,7 @@ function firstLinePreview(content: string, maxLen = 50): string {
 function renderSimpleMarkdown(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[pink\]([\s\S]+?)\[\/pink\]/g, '<span style="color:#ec4899">$1</span>')
+    .replace(/\[pink\]([\s\S]+?)\[\/pink\]/g, '<span style="color:#f87171">$1</span>')
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span style="color:#3b82f6">$1</span>')
     .replace(/\n/g, "<br />");
 }
