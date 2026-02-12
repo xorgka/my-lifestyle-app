@@ -1021,9 +1021,9 @@ export default function JournalPage() {
 
           {/* 비밀글 암호 설정 (인라인 - 카드 안에 바로 표시) */}
           {showSetPinInline && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="mb-3 font-medium text-amber-900">비밀글 암호 설정</p>
-              <p className="mb-3 text-sm text-amber-800">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
+            <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+              <p className="mb-3 font-medium text-neutral-800">비밀글 암호 설정</p>
+              <p className="mb-3 text-sm text-neutral-500">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
               <div className="space-y-2">
                 <input
                   type="password"
@@ -1035,7 +1035,7 @@ export default function JournalPage() {
                     setSetPinValue(e.target.value);
                     setSetPinError("");
                   }}
-                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-neutral-800"
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
                 />
                 <input
                   type="password"
@@ -1047,7 +1047,7 @@ export default function JournalPage() {
                     setSetPinConfirm(e.target.value);
                     setSetPinError("");
                   }}
-                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-neutral-800"
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
                 />
                 {setPinError && <p className="text-sm text-red-600">{setPinError}</p>}
               </div>
@@ -1061,7 +1061,7 @@ export default function JournalPage() {
                     setSetPinError("");
                     if (getStoredPinHash()) setDraftSecret(true);
                   }}
-                  className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-900"
+                  className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                 >
                   취소
                 </button>
@@ -1095,7 +1095,7 @@ export default function JournalPage() {
                         : prev
                     );
                   }}
-                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                  className="rounded-lg bg-neutral-800 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700"
                 >
                   확인
                 </button>
