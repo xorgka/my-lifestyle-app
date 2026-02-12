@@ -131,7 +131,7 @@ export function TimetableCard({
                           </svg>
                         </span>
                         <span
-                          className={`min-w-0 truncate text-base font-semibold md:text-lg ${isCompleted ? "text-neutral-300 line-through" : "text-neutral-800"}`}
+                          className={`min-w-0 truncate text-base font-semibold ${isCompleted ? "text-neutral-300 line-through" : "text-neutral-800"}`}
                         >
                           {item.text || "항목"}
                         </span>
