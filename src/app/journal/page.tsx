@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { localDateStr } from "@/lib/dateUtil";
@@ -15,6 +16,8 @@ import {
 import { addInsightEntry } from "@/lib/insightDb";
 
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
+/** 복사 후 이동 버튼에서 이동할 링크 (PC에서만 노출) */
+const COPY_AND_GO_LINK = "/insight";
 
 function todayStr(): string {
   const d = new Date();
@@ -128,6 +131,7 @@ function getEmptyStatePrompt(selectedDate: string, entries: { date: string }[]):
 }
 
 export default function JournalPage() {
+  const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [draft, setDraft] = useState("");
@@ -242,6 +246,16 @@ export default function JournalPage() {
     setDraft("");
     setDraftImportant(false);
     deleteJournalEntry(selectedDate).catch(console.error);
+  };
+
+  const copyAndGo = async () => {
+    if (!draft.trim()) return;
+    try {
+      await navigator.clipboard.writeText(draft);
+      router.push(COPY_AND_GO_LINK);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleInsightAdd = async (e: React.FormEvent) => {
@@ -708,6 +722,14 @@ export default function JournalPage() {
                 저장 (Ctrl+S / ⌘+S)
               </span>
             </span>
+            <button
+              type="button"
+              onClick={copyAndGo}
+              disabled={!draft.trim()}
+              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              복사 후 이동
+            </button>
             {entryForDate && (
               <button
                 type="button"
