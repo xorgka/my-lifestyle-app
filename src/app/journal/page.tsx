@@ -763,6 +763,15 @@ export default function JournalPage() {
                     setSetPinConfirm("");
                     setSetPinError("");
                     setViewMode("preview");
+                    // 새로고침/다른 페이지 갔다 와도 비밀글 유지되도록 즉시 저장
+                    const snap = { content: draft, important: draftImportant, secret: true };
+                    saveDraft(selectedDate, snap);
+                    saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
+                    setEntries((prev) =>
+                      prev.some((e) => e.date === selectedDate)
+                        ? prev.map((e) => (e.date === selectedDate ? { ...e, secret: true } : e))
+                        : prev
+                    );
                   }}
                   className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700"
                 >
