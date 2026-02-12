@@ -1423,12 +1423,26 @@ export default function JournalPage() {
                       )}
                     </div>
                   ) : (
-                    <div
-                      className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800"
-                      dangerouslySetInnerHTML={{
-                        __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? ""),
-                      }}
-                    />
+                    <>
+                      <div
+                        className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800"
+                        dangerouslySetInnerHTML={{
+                          __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? ""),
+                        }}
+                      />
+                      <div className="mt-4 pt-4 border-t border-neutral-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setJournalViewMode("journal");
+                            setViewMode("write");
+                          }}
+                          className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
+                        >
+                          수정
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
                 <div className="mt-4 flex items-center gap-2">
