@@ -96,3 +96,47 @@ export async function deleteJournalEntry(date: string): Promise<void> {
   const list = loadFromStorage().filter((e) => e.date !== date);
   saveToStorage(list);
 }
+
+/** 일기 초안 스냅샷 (기기·브라우저 연동용) */
+export type JournalDraftSnapshot = { content: string; important: boolean; secret?: boolean };
+
+const DRAFTS_TABLE = "journal_drafts";
+
+/** Supabase에서 일기 초안 전체 로드. 기기·브라우저 간 동기화 */
+export async function loadJournalDraftsFromSupabase(): Promise<Record<string, JournalDraftSnapshot>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase.from(DRAFTS_TABLE).select("date, content, important, secret");
+  if (error) {
+    console.warn("[journal] loadJournalDraftsFromSupabase", error.message);
+    return {};
+  }
+  const out: Record<string, JournalDraftSnapshot> = {};
+  (data ?? []).forEach((row: { date: string; content: string | null; important: boolean | null; secret: boolean | null }) => {
+    out[row.date] = {
+      content: row.content ?? "",
+      important: row.important ?? false,
+      secret: row.secret ?? false,
+    };
+  });
+  return out;
+}
+
+/** Supabase에 일기 초안 한 건 저장 또는 삭제. 기기·브라우저 간 동기화 */
+export async function saveJournalDraftToSupabase(date: string, snapshot: JournalDraftSnapshot | null): Promise<void> {
+  if (!supabase) return;
+  if (snapshot === null) {
+    await supabase.from(DRAFTS_TABLE).delete().eq("date", date);
+    return;
+  }
+  const { error } = await supabase.from(DRAFTS_TABLE).upsert(
+    {
+      date,
+      content: snapshot.content,
+      important: snapshot.important ?? false,
+      secret: snapshot.secret ?? false,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "date" }
+  );
+  if (error) console.warn("[journal] saveJournalDraftToSupabase", date, error.message);
+}

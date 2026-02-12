@@ -11,12 +11,44 @@ import {
   loadJournalEntries,
   saveJournalEntries,
   deleteJournalEntry,
+  loadJournalDraftsFromSupabase,
+  saveJournalDraftToSupabase,
 } from "@/lib/journal";
 import { addInsightEntry } from "@/lib/insightDb";
 
 const DRAFT_KEY = "my-lifestyle-journal-drafts";
 /** 복사 후 이동 버튼에서 새 창으로 열 링크 (PC에서만 노출) */
 const COPY_AND_GO_LINK = "https://www.saramin.co.kr/zf_user/tools/character-counter";
+
+const JOURNAL_SECRET_PIN_HASH = "my-lifestyle-journal-secret-pin-hash";
+const JOURNAL_SECRET_UNLOCKED = "my-lifestyle-journal-secret-unlocked";
+
+async function hashPin(pin: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function getStoredPinHash(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(JOURNAL_SECRET_PIN_HASH);
+}
+
+function setStoredPinHash(hash: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(JOURNAL_SECRET_PIN_HASH, hash);
+}
+
+function isSecretUnlocked(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(JOURNAL_SECRET_UNLOCKED) === "1";
+}
+
+function setSecretUnlockedSession(): void {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(JOURNAL_SECRET_UNLOCKED, "1");
+}
 
 function todayStr(): string {
   const d = new Date();
@@ -168,11 +200,32 @@ export default function JournalPage() {
   /** 편집 모드: 글자 드래그 후 우클릭 메뉴 (글자색) */
   const [editContextMenu, setEditContextMenu] = useState<{ x: number; y: number; start: number; end: number } | null>(null);
   const editContextMenuRef = useRef<HTMLDivElement>(null);
+  /** Supabase에서 초안 동기화 후 true. 새로고침·기기 전환 시 초안 유지 */
+  const [draftsSyncedFromSupabase, setDraftsSyncedFromSupabase] = useState(false);
+  /** 비밀글 암호 설정 모달 (처음 비밀글 켤 때) */
+  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  const [setPinValue, setSetPinValue] = useState("");
+  const [setPinConfirm, setSetPinConfirm] = useState("");
+  const [setPinError, setSetPinError] = useState("");
+  /** 비밀글 보기용 암호 입력 모달 */
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockPinValue, setUnlockPinValue] = useState("");
+  const [unlockError, setUnlockError] = useState("");
+  /** 이 탭에서 비밀글 해제 여부 (sessionStorage와 동기화) */
+  const [secretUnlocked, setSecretUnlocked] = useState(false);
+
+  useEffect(() => {
+    setSecretUnlocked(isSecretUnlocked());
+  }, []);
+
   const load = useCallback(async () => {
     setJournalLoading(true);
     try {
       const list = await loadJournalEntries();
       setEntries(list);
+      const drafts = await loadJournalDraftsFromSupabase();
+      Object.entries(drafts).forEach(([date, snap]) => saveDraft(date, snap));
+      setDraftsSyncedFromSupabase(true);
     } finally {
       setJournalLoading(false);
     }
@@ -217,7 +270,7 @@ export default function JournalPage() {
       setDraftImportant(entryForDate?.important ?? false);
       setDraftSecret(entryForDate?.secret ?? false);
     }
-  }, [selectedDate, currentContent, entryForDate?.important, entryForDate?.secret]);
+  }, [selectedDate, currentContent, entryForDate?.important, entryForDate?.secret, draftsSyncedFromSupabase]);
 
   useEffect(() => {
     if (currentContent === draft && (entryForDate?.important ?? false) === draftImportant && (entryForDate?.secret ?? false) === draftSecret) {
@@ -227,9 +280,12 @@ export default function JournalPage() {
     setDraftSaveStatus("pending");
     const t = setTimeout(() => {
       if (draft.trim() || draftImportant || draftSecret) {
-        saveDraft(selectedDate, { content: draft, important: draftImportant, secret: draftSecret });
+        const snap = { content: draft, important: draftImportant, secret: draftSecret };
+        saveDraft(selectedDate, snap);
+        saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
       } else {
         saveDraft(selectedDate, null);
+        saveJournalDraftToSupabase(selectedDate, null).catch(() => {});
       }
       setDraftSaveStatus("saved");
       setTimeout(() => setDraftSaveStatus("idle"), 1500);
@@ -257,6 +313,7 @@ export default function JournalPage() {
     }
     setEntries(next);
     saveDraft(selectedDate, null);
+    saveJournalDraftToSupabase(selectedDate, null).catch(() => {});
     await saveJournalEntries(next).catch(console.error);
     setLastSaved(trimmed.length > 0 ? new Date().toISOString() : null);
     setSaveToast(trimmed.length > 0);
@@ -637,6 +694,156 @@ export default function JournalPage() {
           document.body
         )}
 
+      {/* 비밀글 암호 설정 모달 */}
+      {showSetPinModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => setShowSetPinModal(false)} />
+            <div
+              className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+              role="dialog"
+              aria-labelledby="set-pin-title"
+              aria-modal="true"
+            >
+              <h2 id="set-pin-title" className="text-lg font-semibold text-neutral-800">비밀글 암호 설정</h2>
+              <p className="mt-1 text-sm text-neutral-500">숫자만 입력해도 됩니다. 비밀글 보기 시 이 암호를 입력하세요.</p>
+              <div className="mt-4 space-y-3">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="암호 입력"
+                  value={setPinValue}
+                  onChange={(e) => {
+                    setSetPinValue(e.target.value);
+                    setSetPinError("");
+                  }}
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                />
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="암호 다시 입력"
+                  value={setPinConfirm}
+                  onChange={(e) => {
+                    setSetPinConfirm(e.target.value);
+                    setSetPinError("");
+                  }}
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                />
+                {setPinError && <p className="text-sm text-red-600">{setPinError}</p>}
+              </div>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSetPinModal(false)}
+                  className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!setPinValue.trim()) {
+                      setSetPinError("암호를 입력하세요.");
+                      return;
+                    }
+                    if (setPinValue !== setPinConfirm) {
+                      setSetPinError("암호가 일치하지 않습니다.");
+                      return;
+                    }
+                    const h = await hashPin(setPinValue);
+                    setStoredPinHash(h);
+                    setDraftSecret(true);
+                    setShowSetPinModal(false);
+                    setSetPinValue("");
+                    setSetPinConfirm("");
+                  }}
+                  className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 비밀글 보기 암호 입력 모달 */}
+      {showUnlockModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => { setShowUnlockModal(false); setUnlockError(""); setUnlockPinValue(""); }} />
+            <div
+              className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+              role="dialog"
+              aria-labelledby="unlock-pin-title"
+              aria-modal="true"
+            >
+              <h2 id="unlock-pin-title" className="text-lg font-semibold text-neutral-800">비밀글 보기</h2>
+              <p className="mt-1 text-sm text-neutral-500">설정한 암호를 입력하세요.</p>
+              <div className="mt-4">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="암호 입력"
+                  value={unlockPinValue}
+                  onChange={(e) => {
+                    setUnlockPinValue(e.target.value);
+                    setUnlockError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      (document.querySelector("[data-unlock-submit]") as HTMLButtonElement)?.click();
+                    }
+                  }}
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
+                />
+                {unlockError && <p className="mt-2 text-sm text-red-600">{unlockError}</p>}
+              </div>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowUnlockModal(false); setUnlockError(""); setUnlockPinValue(""); }}
+                  className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                >
+                  취소
+                </button>
+                <button
+                  data-unlock-submit
+                  type="button"
+                  onClick={async () => {
+                    const stored = getStoredPinHash();
+                    if (!stored) {
+                      setUnlockError("설정된 암호가 없습니다.");
+                      return;
+                    }
+                    const h = await hashPin(unlockPinValue);
+                    if (h !== stored) {
+                      setUnlockError("암호가 일치하지 않습니다.");
+                      return;
+                    }
+                    setSecretUnlockedSession();
+                    setSecretUnlocked(true);
+                    setShowUnlockModal(false);
+                    setUnlockPinValue("");
+                    setUnlockError("");
+                  }}
+                  className="flex-1 rounded-xl bg-neutral-800 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* 모바일: 모아보기 연도 선택 모달 */}
       {yearDropdownOpen &&
         typeof document !== "undefined" &&
@@ -646,16 +853,20 @@ export default function JournalPage() {
             <div className="absolute left-1/2 top-1/2 w-[min(280px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-xl">
               <p className="mb-3 text-sm font-medium text-neutral-500">연도 선택</p>
               <div className="max-h-[60vh] overflow-y-auto">
-                {yearOptions.map((y) => (
-                  <button
-                    key={y}
-                    type="button"
-                    onClick={() => goToCollectYear(y)}
-                    className="w-full rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100"
-                  >
-                    {y}년
-                  </button>
-                ))}
+                {yearOptions.map((y) => {
+                  const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                  return (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => goToCollectYear(y)}
+                      className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100"
+                    >
+                      {y}년
+                      <span className="text-sm font-normal text-neutral-400">{count}편</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>,
@@ -768,16 +979,20 @@ export default function JournalPage() {
               </button>
               {yearDropdownOpen && (
                 <div className="absolute right-0 top-full z-10 mt-1 min-w-[100%] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg">
-                  {yearOptions.map((y) => (
-                    <button
-                      key={y}
-                      type="button"
-                      onClick={() => goToCollectYear(y)}
-                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-                    >
-                      {y}년
-                    </button>
-                  ))}
+                  {yearOptions.map((y) => {
+                    const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                    return (
+                      <button
+                        key={y}
+                        type="button"
+                        onClick={() => goToCollectYear(y)}
+                        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+                      >
+                        {y}년
+                        <span className="text-xs font-normal text-neutral-400">{count}편</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -835,32 +1050,47 @@ export default function JournalPage() {
                 </button>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setDraftImportant(!draftImportant)}
-              className={clsx(
-                "shrink-0 p-1 text-xl transition",
-                draftImportant ? "text-orange-500" : "text-neutral-200 hover:text-orange-400"
-              )}
-              title="중요한 날"
-              aria-label={draftImportant ? "중요한 날 해제" : "중요한 날로 표시"}
-            >
-              ★
-            </button>
-            <button
-              type="button"
-              onClick={() => setDraftSecret(!draftSecret)}
-              className={clsx(
-                "shrink-0 p-1 text-lg transition",
-                draftSecret ? "text-neutral-600" : "text-neutral-200 hover:text-neutral-400"
-              )}
-              title="비밀글"
-              aria-label={draftSecret ? "비밀글 해제" : "비밀글로 설정"}
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </button>
+            <div className="flex shrink-0 items-center gap-0">
+              <button
+                type="button"
+                onClick={() => setDraftImportant(!draftImportant)}
+                className={clsx(
+                  "p-1 text-xl transition",
+                  draftImportant ? "text-orange-500" : "text-neutral-200 hover:text-orange-400"
+                )}
+                title="중요한 날"
+                aria-label={draftImportant ? "중요한 날 해제" : "중요한 날로 표시"}
+              >
+                ★
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!draftSecret) {
+                    if (!getStoredPinHash()) {
+                      setShowSetPinModal(true);
+                      setSetPinValue("");
+                      setSetPinConfirm("");
+                      setSetPinError("");
+                    } else {
+                      setDraftSecret(true);
+                    }
+                  } else {
+                    setDraftSecret(false);
+                  }
+                }}
+                className={clsx(
+                  "p-1 text-lg transition",
+                  draftSecret ? "text-neutral-600" : "text-neutral-200 hover:text-neutral-400"
+                )}
+                title="비밀글"
+                aria-label={draftSecret ? "비밀글 해제" : "비밀글로 설정"}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </button>
+            </div>
           </div>
           {/* 초안 자동 저장 상태 */}
           <p className="mb-0.5 text-xs text-neutral-500 md:mb-1">
@@ -946,9 +1176,28 @@ export default function JournalPage() {
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >
                     {draft.trim() ? (
-                      <div
-                        dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
-                      />
+                      (draftSecret || entryForDate?.secret) && !secretUnlocked ? (
+                        <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                          <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setShowUnlockModal(true);
+                              setUnlockPinValue("");
+                              setUnlockError("");
+                            }}
+                            className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+                          >
+                            암호 입력하여 보기
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(draft) }}
+                        />
+                      )
                     ) : (
                       <div className="space-y-2 text-neutral-400">
                         {getEmptyStatePrompt(selectedDate, entries)
@@ -1088,9 +1337,12 @@ export default function JournalPage() {
                     onChange={(e) => goToCollectYear(Number(e.target.value))}
                     className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
                   >
-                    {yearOptions.map((y) => (
-                      <option key={y} value={y}>{y}년</option>
-                    ))}
+                    {yearOptions.map((y) => {
+                      const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                      return (
+                        <option key={y} value={y}>{y}년 ({count}편)</option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -1129,12 +1381,29 @@ export default function JournalPage() {
                 </div>
                 <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6 md:px-6">
                   <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
-                  <div
-                    className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800"
-                    dangerouslySetInnerHTML={{
-                      __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? ""),
-                    }}
-                  />
+                  {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
+                    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                      <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUnlockModal(true);
+                          setUnlockPinValue("");
+                          setUnlockError("");
+                        }}
+                        className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
+                      >
+                        암호 입력하여 보기
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800"
+                      dangerouslySetInnerHTML={{
+                        __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? ""),
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="mt-4 flex items-center gap-2">
                   <span className="text-sm text-neutral-500">다른 연도:</span>
@@ -1143,9 +1412,12 @@ export default function JournalPage() {
                     onChange={(e) => goToCollectYear(Number(e.target.value))}
                     className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
                   >
-                    {yearOptions.map((y) => (
-                      <option key={y} value={y}>{y}년</option>
-                    ))}
+                    {yearOptions.map((y) => {
+                      const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                      return (
+                        <option key={y} value={y}>{y}년 ({count}편)</option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
