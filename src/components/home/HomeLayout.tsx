@@ -15,7 +15,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
 
   return (
     <>
-      <div className="grid min-h-[600px] grid-cols-1 grid-rows-[160px_1fr_1fr] gap-4 md:hidden">
+      <div className="grid min-h-[600px] grid-cols-1 grid-rows-[minmax(240px,auto)_1fr_1fr] gap-4 md:hidden">
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <WeatherCardWrapper />
         </div>
