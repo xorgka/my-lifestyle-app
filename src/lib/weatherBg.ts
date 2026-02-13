@@ -132,13 +132,15 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 오늘 날짜+테마로 이미 고른 URL이 있으면 반환, 없으면 랜덤 선택 후 저장. 하루 동안 동일 이미지 유지(다른 페이지 갔다 와도, 새로고침해도) */
+/** 오늘 날짜+테마로 이미 고른 URL이 있으면 반환, 없으면 랜덤 선택 후 저장. 하루 동안 동일 이미지 유지. 캐시된 URL이 현재 목록에 없으면(삭제됐으면) 캐시 무시하고 다시 고름 */
 export function getOrPickDailyWeatherBgUrl(themeId: WeatherThemeId): string | null {
   if (typeof window === "undefined") return null;
   const today = getTodayKey();
   const key = `${DAILY_BG_PREFIX}${today}-${themeId}`;
   const stored = window.localStorage.getItem(key);
-  if (stored) return stored;
+  const currentUrls = getWeatherBgUrls(themeId);
+  if (stored && currentUrls.includes(stored)) return stored;
+  if (stored) window.localStorage.removeItem(key);
   const url = getRandomWeatherBgUrl(themeId);
   if (url) window.localStorage.setItem(key, url);
   return url;
