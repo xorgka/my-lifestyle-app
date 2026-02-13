@@ -45,6 +45,44 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** 달성률 %에 따른 색 구간 (4단계): 100% 진함 → 0% 연함 */
+function getPctTier(pct: number): 0 | 1 | 2 | 3 {
+  if (pct >= 75) return 3;
+  if (pct >= 50) return 2;
+  if (pct >= 25) return 1;
+  return 0;
+}
+
+/** 카드/박스용: 배경+테두리+글자 (주별 주간 박스, 이번달 총 달성 박스 등) */
+function getPctCardClasses(pct: number): string {
+  const tier = getPctTier(pct);
+  const classes = [
+    "border-emerald-200/80 bg-emerald-50",
+    "border-emerald-300 bg-emerald-100",
+    "border-emerald-500 bg-emerald-400 text-white",
+    "border-emerald-600 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 text-white",
+  ];
+  return classes[tier];
+}
+
+/** 작은 셀/버튼용: 배경+글자 (주별 요일, 이번달 날짜 셀 등) */
+function getPctCellClasses(pct: number): string {
+  const tier = getPctTier(pct);
+  const classes = [
+    "bg-emerald-50 text-emerald-800",
+    "bg-emerald-200 text-emerald-900",
+    "bg-emerald-400 text-white",
+    "bg-emerald-600 text-white",
+  ];
+  return classes[tier];
+}
+
+/** 보조 텍스트(라벨)용: 카드가 진할 때 연한 글자 */
+function getPctLabelClasses(pct: number): string {
+  const tier = getPctTier(pct);
+  return tier >= 2 ? "text-white/90" : "text-neutral-500";
+}
+
 function fireConfetti() {
   const count = 28;
   const defaults = { startVelocity: 28, spread: 100, scalar: 0.85, ticks: 120 };
@@ -924,19 +962,15 @@ export default function RoutinePage() {
               </button>
             </div>
             <div
-              className={`rounded-2xl border p-4 shadow-sm ${
-                viewingWeek.weekPct === 100
-                  ? "border-red-400/80 bg-gradient-to-br from-red-400 via-red-500 to-red-600"
-                  : "border-neutral-200 bg-white"
-              }`}
+              className={`rounded-2xl border-2 p-4 shadow-sm ${getPctCardClasses(viewingWeek.weekPct)}`}
             >
               <div className="mb-3 flex items-baseline justify-between gap-2">
-                <span className={viewingWeek.weekPct === 100 ? "text-sm text-red-100" : "text-sm text-neutral-500"}>
+                <span className={`text-sm ${getPctLabelClasses(viewingWeek.weekPct)}`}>
                   {formatWeekRange(viewingWeek)}
                 </span>
                 <div className="text-right">
-                  <span className={viewingWeek.weekPct === 100 ? "text-xs text-red-100" : "text-xs text-neutral-400"}>주간 총</span>
-                  <span className={`ml-2 text-2xl font-bold tabular-nums ${viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-900"}`}>
+                  <span className={getPctTier(viewingWeek.weekPct) >= 2 ? "text-xs text-white/80" : "text-xs text-neutral-400"}>주간 총</span>
+                  <span className={`ml-2 text-2xl font-bold tabular-nums ${getPctTier(viewingWeek.weekPct) >= 2 ? "text-white" : "text-neutral-900"}`}>
                     {viewingWeek.weekPct}%
                   </span>
                 </div>
@@ -944,24 +978,20 @@ export default function RoutinePage() {
               <div className="flex gap-2">
                 {weekDayNames.map((name, i) => {
                   const isToday = viewingWeek.days[i].key === todayKey;
+                  const dayPct = viewingWeek.days[i].pct;
+                  const dayTier = getPctTier(dayPct);
                   return (
                     <button
                       key={name}
                       type="button"
                       onClick={() => setDayDetailModalKey(viewingWeek.days[i].key)}
-                      className={`flex flex-1 flex-col rounded-xl py-2 text-center ${
-                        viewingWeek.days[i].pct === 100
-                          ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white"
-                          : viewingWeek.weekPct === 100
-                            ? "bg-white/15 text-red-50"
-                            : "bg-neutral-50"
-                      } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""} hover:opacity-90 transition-opacity`}
+                      className={`flex flex-1 flex-col rounded-xl py-2 text-center ${getPctCellClasses(dayPct)} ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""} hover:opacity-90 transition-opacity`}
                     >
-                      <div className={`text-sm font-medium uppercase ${viewingWeek.days[i].pct === 100 ? "text-red-100" : viewingWeek.weekPct === 100 ? "text-red-100" : "text-neutral-400"}`}>
+                      <div className={`text-sm font-medium uppercase ${dayTier >= 2 ? "text-white/90" : "text-neutral-500"}`}>
                         {name}
                       </div>
-                      <div className={`mt-0.5 text-sm font-semibold tabular-nums ${viewingWeek.days[i].pct === 100 || viewingWeek.weekPct === 100 ? "text-white" : "text-neutral-800"}`}>
-                        {viewingWeek.days[i].pct}%
+                      <div className="mt-0.5 text-sm font-semibold tabular-nums">
+                        {dayPct}%
                       </div>
                     </button>
                   );
@@ -1048,28 +1078,23 @@ export default function RoutinePage() {
                   const displayText = isSingleItem
                     ? `${(row as { doneDays: number; daysInMonth: number }).doneDays}/${(row as { daysInMonth: number }).daysInMonth} (${rate}%)`
                     : `${rate}% (${(row as { completed: number }).completed}/${(row as { total: number }).total})`;
-                  const isFull = rate === 100;
+                  const tier = getPctTier(rate);
+                  const isDark = tier >= 2;
                   return (
                     <div
                       key={row.month}
-                      className={`flex items-center gap-3 rounded-xl px-4 py-2 ${
-                        isFull
-                          ? isSingleItem
-                            ? "bg-gradient-to-r from-neutral-600 via-neutral-800 to-neutral-950"
-                            : "bg-gradient-to-r from-red-400 via-red-500 to-red-600"
-                          : "bg-neutral-50"
-                      }`}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-2 ${getPctCardClasses(rate)}`}
                     >
-                      <span className={`w-24 text-sm font-medium ${isFull ? "text-white" : "text-neutral-700"}`}>{row.label}</span>
+                      <span className={`w-24 text-sm font-medium ${isDark ? "text-white" : "text-neutral-700"}`}>{row.label}</span>
                       <div className="flex-1 min-w-0">
-                        <div className={`h-2 w-full overflow-hidden rounded-full ${isFull ? "bg-white/30" : "bg-neutral-200"}`}>
+                        <div className={`h-2 w-full overflow-hidden rounded-full ${isDark ? "bg-white/30" : "bg-neutral-200"}`}>
                           <div
-                            className={`h-full rounded-full transition-all ${isFull ? "bg-white" : "bg-neutral-700"}`}
+                            className={`h-full rounded-full transition-all ${isDark ? "bg-white" : "bg-emerald-600"}`}
                             style={{ width: `${rate}%` }}
                           />
                         </div>
                       </div>
-                      <span className={`w-28 text-right text-sm tabular-nums font-medium ${isFull ? "text-white" : "text-neutral-600"}`}>
+                      <span className={`w-28 text-right text-sm tabular-nums font-medium ${isDark ? "text-white" : "text-neutral-600"}`}>
                         {displayText}
                       </span>
                     </div>
@@ -1131,19 +1156,15 @@ export default function RoutinePage() {
               </div>
             </div>
             <div
-              className={`rounded-2xl border-2 px-6 py-5 text-center ${
-                thisMonthCalendar.totalPct === 100
-                  ? "border-red-400/80 bg-gradient-to-br from-red-400 via-red-500 to-red-600"
-                  : "border-neutral-200 bg-neutral-50"
-              }`}
+              className={`rounded-2xl border-2 px-6 py-5 text-center ${getPctCardClasses(thisMonthCalendar.totalPct)}`}
             >
-              <p className={thisMonthCalendar.totalPct === 100 ? "text-sm font-medium text-red-100" : "text-sm font-medium text-neutral-500"}>
+              <p className={`text-sm font-medium ${getPctLabelClasses(thisMonthCalendar.totalPct)}`}>
                 {thisMonthCalendar.year}년 {thisMonthCalendar.month}월
                 {"singleItemId" in thisMonthCalendar && thisMonthCalendar.singleItemId != null
                   ? " O/X 달성"
                   : " 총 달성률"}
               </p>
-              <p className={`mt-2 text-4xl font-bold tabular-nums sm:text-5xl ${thisMonthCalendar.totalPct === 100 ? "text-white" : "text-neutral-900"}`}>
+              <p className={`mt-2 text-4xl font-bold tabular-nums sm:text-5xl ${getPctTier(thisMonthCalendar.totalPct) >= 2 ? "text-white" : "text-neutral-900"}`}>
                 {"doneDays" in thisMonthCalendar && "totalDays" in thisMonthCalendar
                   ? `${thisMonthCalendar.doneDays}/${thisMonthCalendar.totalDays} (${thisMonthCalendar.totalPct}%)`
                   : `${thisMonthCalendar.totalPct}%`}
@@ -1167,11 +1188,9 @@ export default function RoutinePage() {
                 {thisMonthCalendar.cells.map((cell, i) => {
                   const isToday = cell.key === todayKey;
                   const isOX = "done" in cell && cell.done !== undefined;
-                  const isDone = isOX ? cell.done : cell.pct === 100;
-                  const isSingleItemView = isOX;
-                  const doneBg = isSingleItemView
-                    ? "bg-gradient-to-br from-neutral-600 via-neutral-800 to-neutral-950 text-white"
-                    : "bg-gradient-to-br from-red-400 via-red-500 to-red-600 text-white";
+                  const cellPct = isOX ? (cell.done ? 100 : 0) : cell.pct;
+                  const cellClasses = getPctCellClasses(cellPct);
+                  const cellTier = getPctTier(cellPct);
                   return (
                     <button
                       key={i}
@@ -1180,19 +1199,17 @@ export default function RoutinePage() {
                       className={`min-h-[4rem] w-full rounded-xl py-3 text-center ${
                         cell.day === null
                           ? "invisible cursor-default"
-                          : isDone
-                            ? doneBg
-                            : "bg-neutral-100 hover:bg-neutral-200"
+                          : `${cellClasses} hover:opacity-90`
                       } ${isToday ? "ring-2 ring-neutral-900 ring-offset-2" : ""} ${cell.day != null ? "cursor-pointer" : ""}`}
                       title={cell.key ? (isOX ? `${cell.key} ${cell.done ? "O" : "X"}` : `${cell.key} ${cell.pct}%`) : ""}
                       disabled={!cell.key}
                     >
                       {cell.day != null && (
                         <>
-                          <div className={`text-base font-semibold ${isDone ? "text-white" : "text-neutral-800"}`}>
+                          <div className={`text-base font-semibold ${cellTier >= 2 ? "text-white" : "text-neutral-800"}`}>
                             {cell.day}
                           </div>
-                          <div className={`mt-0.5 text-sm font-medium tabular-nums ${isDone ? (isSingleItemView ? "text-neutral-300" : "text-red-100") : "text-neutral-600"}`}>
+                          <div className={`mt-0.5 text-sm font-medium tabular-nums ${cellTier >= 2 ? "text-white/90" : "text-neutral-600"}`}>
                             {isOX ? (cell.done ? "O" : "X") : `${cell.pct}%`}
                           </div>
                         </>
@@ -1250,11 +1267,13 @@ export default function RoutinePage() {
                 const completedIds = dailyCompletions[dayDetailModalKey] ?? [];
                 const total = items.length || 1;
                 const pct = Math.round((completedIds.length / total) * 100);
+                const tier = getPctTier(pct);
+                const isDark = tier >= 2;
                 return (
-                  <div className="mt-3 rounded-xl bg-neutral-100 px-4 py-2.5">
-                    <span className="text-sm font-medium text-neutral-600">이날 달성률</span>
-                    <span className="ml-2 text-xl font-bold tabular-nums text-neutral-900">{pct}%</span>
-                    <span className="ml-1 text-sm text-neutral-500">({completedIds.length}/{total})</span>
+                  <div className={`mt-3 rounded-xl border px-4 py-2.5 ${getPctCardClasses(pct)}`}>
+                    <span className={`text-sm font-medium ${isDark ? "text-white/90" : "text-neutral-600"}`}>이날 달성률</span>
+                    <span className={`ml-2 text-xl font-bold tabular-nums ${isDark ? "text-white" : "text-neutral-900"}`}>{pct}%</span>
+                    <span className={`ml-1 text-sm ${isDark ? "text-white/80" : "text-neutral-500"}`}>({completedIds.length}/{total})</span>
                   </div>
                 );
               })()}
