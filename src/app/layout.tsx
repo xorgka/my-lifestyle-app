@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { ConditionalShell } from "@/components/layout/ConditionalShell";
 import { RegisterServiceWorker } from "@/components/layout/RegisterServiceWorker";
@@ -47,7 +48,9 @@ export default function RootLayout({
       </head>
       <body lang="ko" className="bg-soft-bg font-sans antialiased">
         <RegisterServiceWorker />
-        <ConditionalShell>{children}</ConditionalShell>
+        <Suspense fallback={<div className="min-h-screen bg-soft-bg" />}>
+          <ConditionalShell>{children}</ConditionalShell>
+        </Suspense>
       </body>
     </html>
   );
