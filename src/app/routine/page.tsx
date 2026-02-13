@@ -52,26 +52,26 @@ function getPctTier(pct: number): 0 | 1 | 2 {
   return 0;
 }
 
-/** 카드/박스용: 배경+테두리+글자 (이번달 총 달성 박스, 모달 등). 0%는 색 없음 */
+/** 카드/박스용: 배경+테두리+글자 (#F25252 계열). 0%는 색 없음 */
 function getPctCardClasses(pct: number): string {
   if (pct === 0) return "border-neutral-200 bg-neutral-100";
   const tier = getPctTier(pct);
   const classes = [
-    "border-emerald-200/80 bg-emerald-50",
-    "border-emerald-400 bg-emerald-200 text-emerald-900",
-    "border-emerald-600 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 text-white",
+    "border-[#F25252]/40 bg-[#FEE8E8]",
+    "border-[#F25252]/80 bg-[#F9B4B4] text-[#7F1D1D]",
+    "border-[#C53030] bg-gradient-to-br from-[#F25252] via-[#E03E3E] to-[#C53030] text-white",
   ];
   return classes[tier];
 }
 
-/** 작은 셀/버튼용: 배경+글자 (주별 요일, 이번달 날짜 셀 등). 0%는 색 없음 */
+/** 작은 셀/버튼용: 배경+글자 (#F25252 계열). 0%는 색 없음 */
 function getPctCellClasses(pct: number): string {
   if (pct === 0) return "bg-neutral-100 text-neutral-600";
   const tier = getPctTier(pct);
   const classes = [
-    "bg-emerald-50 text-emerald-800",
-    "bg-emerald-200 text-emerald-900",
-    "bg-emerald-600 text-white",
+    "bg-[#FEE8E8] text-[#9B2C2C]",
+    "bg-[#F9B4B4] text-[#7F1D1D]",
+    "bg-[#E03E3E] text-white",
   ];
   return classes[tier];
 }
