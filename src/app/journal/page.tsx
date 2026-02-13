@@ -431,6 +431,13 @@ export default function JournalPage() {
     setYearDropdownOpen(false);
   };
 
+  /** 모아보기 화면 진입 시 스크롤을 맨 위로 (모바일에서 연도 선택 후 화면이 안 보이는 현상 방지) */
+  useEffect(() => {
+    if (journalViewMode === "collect" && collectYear != null && typeof window !== "undefined") {
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    }
+  }, [journalViewMode, collectYear]);
+
   /** 모아보기 연도 진입 시 선택 날짜가 해당 연도 목록에 없으면 첫 기록으로 */
   useEffect(() => {
     if (journalViewMode === "collect" && collectYear != null && entryDatesInYear.length > 0 && !entryDatesInYear.includes(selectedDate)) {
