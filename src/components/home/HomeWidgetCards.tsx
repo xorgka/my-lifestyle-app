@@ -186,7 +186,7 @@ export function SleepCard({
     <Link
       href="/routine/sleep"
       onClick={handleMobileTap}
-      className={`group relative ${className} flex min-h-[180px] min-w-0 flex-col items-center justify-center overflow-hidden rounded-3xl border border-neutral-200/90 bg-white px-6 py-5 shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-1.5 hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-500 hover:to-blue-600 hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(59,130,246,0.4)] sm:flex-row`}
+      className={`group relative ${className} flex min-h-[170px] min-w-0 flex-col items-center justify-center overflow-hidden rounded-3xl border border-neutral-200/90 bg-white px-6 py-5 shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-1.5 hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-500 hover:to-blue-600 hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(59,130,246,0.4)] sm:flex-row`}
     >
       <span className="absolute right-4 top-4 text-xl text-neutral-300/80 transition-colors group-hover:text-white" aria-hidden>🌙</span>
       {/* 모바일: 탭 시 1↔2페이지 전환. 데스크톱: 둘 다 나란히 */}
@@ -256,7 +256,7 @@ export function RoutineCard({
   return (
     <Link
       href="/routine"
-      className={`group ${className} flex min-h-[180px] min-w-0 flex-col items-center justify-center gap-0 rounded-3xl border border-neutral-200/90 bg-white px-4 py-5 shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-1.5 hover:border-[#1CBD87] hover:bg-[#1CBD87] hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(28,189,135,0.4)]`}
+      className={`group ${className} flex min-h-[170px] min-w-0 flex-col items-center justify-center gap-0 rounded-3xl border border-neutral-200/90 bg-white px-4 py-5 shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-1.5 hover:border-[#1CBD87] hover:bg-[#1CBD87] hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(28,189,135,0.4)]`}
     >
       <span className="text-sm font-medium text-emerald-500/90 transition-colors group-hover:text-white">Routine</span>
       <div className="mt-1.5 w-full max-w-[88px] overflow-hidden rounded-full bg-neutral-200/80 transition-colors group-hover:bg-white/30">
@@ -445,7 +445,7 @@ export function TimetableCard({
   return (
     <Link
       href="/routine/timetable"
-      className={`${className} flex max-h-[180px] min-h-[180px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(0,0,0,0.18)] ${
+      className={`${className} flex max-h-[170px] min-h-[170px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(0,0,0,0.18)] ${
         isB
           ? "widget-grain-texture border-neutral-200/90 bg-white shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)]"
           : "widget-grain-texture relative border-neutral-200/90 bg-[#F19E36] shadow-[0_1px_0_0_rgba(255,255,255,0.3)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)]"
