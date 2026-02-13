@@ -170,7 +170,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 type Props = { onClose: () => void };
 
-type SettingsTab = "export" | "alertbar" | "popup" | "account";
+type SettingsTab = "export" | "alertbar" | "popup" | "shortcuts" | "account";
 
 export function SettingsModal({ onClose }: Props) {
   const now = new Date();
@@ -237,6 +237,7 @@ export function SettingsModal({ onClose }: Props) {
     { id: "export", label: "내보내기" },
     { id: "alertbar", label: "알림바" },
     { id: "popup", label: "팝업" },
+    { id: "shortcuts", label: "단축키" },
     { id: "account", label: "계정" },
   ];
 
@@ -313,6 +314,66 @@ export function SettingsModal({ onClose }: Props) {
   };
 
   const renderMainContent = () => {
+    if (activeTab === "shortcuts") {
+      const shortcutSections = [
+        {
+          title: "전역 (입력창 포커스 시 제외)",
+          items: [
+            { keys: "Home", desc: "홈(/)으로 이동" },
+            { keys: "Ctrl + Shift + M", desc: "메모(노트) 페이지로 이동", mac: "Mac: Cmd + Shift + M" },
+          ],
+        },
+        {
+          title: "유튜브 · 루틴 (전역)",
+          items: [
+            { keys: "0", desc: "타임테이블로 이동" },
+            { keys: ". (마침표)", desc: "수면관리로 이동" },
+            { keys: "1", desc: "재생 / 일시정지" },
+            { keys: "2", desc: "다음 곡" },
+          ],
+        },
+        {
+          title: "일기장",
+          items: [
+            { keys: "Ctrl + S", desc: "저장", mac: "Mac: Cmd + S" },
+            { keys: "Ctrl + ← / →", desc: "이전 / 다음 날짜", mac: "Mac: Cmd + ← / →" },
+            { keys: "A / D", desc: "이전 / 다음 날짜 (입력창 아닐 때)" },
+            { keys: "Ctrl + B", desc: "굵게", mac: "Mac: Cmd + B" },
+          ],
+        },
+        {
+          title: "노트(메모) 에디터",
+          items: [
+            { keys: "Ctrl + Shift + B", desc: "굵게" },
+            { keys: "Ctrl + Shift + H", desc: "형광펜" },
+            { keys: "Ctrl + Shift + -", desc: "구분선 삽입" },
+            { keys: "- + 스페이스", desc: "해당 줄을 글머리 기호(목록)로" },
+          ],
+        },
+      ];
+      return (
+        <section className="space-y-6">
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">키보드 단축키</h3>
+          <p className="text-sm text-neutral-500">입력창·에디터에 포커스가 있을 때는 일부 단축키가 동작하지 않아요.</p>
+          {shortcutSections.map((sec) => (
+            <div key={sec.title}>
+              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">{sec.title}</h4>
+              <ul className="mt-2 space-y-2">
+                {sec.items.map((item) => (
+                  <li key={item.keys} className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-neutral-100 bg-neutral-50/50 px-3 py-2.5">
+                    <span className="text-sm text-neutral-800">{item.desc}</span>
+                    <span className="shrink-0 font-mono text-xs font-medium text-neutral-600">
+                      {item.keys}
+                      {item.mac != null && <span className="ml-1 text-neutral-400">({item.mac})</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+      );
+    }
     if (activeTab === "account") {
       const accountItems = [
         { title: "My Lifestyle", content: "xorgka25@naver.com" },
