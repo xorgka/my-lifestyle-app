@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 
 function useIsMobile(): boolean {
@@ -37,7 +37,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [forceShowWakePopup, setForceShowWakePopup] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
+  /** 일기장 모아보기일 때: backdrop-blur 래퍼 제거해 레이아웃/스크롤 문제 방지 */
+  const isJournalCollect = pathname === "/journal" && searchParams.get("view") === "collect";
 
   useEffect(() => {
     if (pathname !== "/" || typeof window === "undefined") return;
@@ -142,9 +145,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </p>
             </div>
           )}
-          <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:px-8 md:pt-8 md:pb-4 sm:p-5 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] md:[padding-bottom:1rem]">
-            {children}
-          </div>
+          {isJournalCollect ? (
+            <div className="flex min-w-0 flex-col gap-4 p-4 md:px-8 md:pt-8 md:pb-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))]">
+              {children}
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-4 rounded-2xl bg-white/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.06)] ring-1 ring-white/40 backdrop-blur-xl md:gap-6 md:rounded-3xl md:px-8 md:pt-8 md:pb-4 sm:p-5 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] md:[padding-bottom:1rem]">
+              {children}
+            </div>
+          )}
         </main>
       </div>
     </div>

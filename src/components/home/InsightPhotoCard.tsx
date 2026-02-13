@@ -37,10 +37,14 @@ function msUntilNextPeriod(): number {
 
 const PICSUM_SIZE = 800;
 
+/** hydration 시 서버/클라이언트 동일한 초기값 (날짜 기반은 useEffect에서 적용) */
+const INITIAL_SEED = "insight-hydration";
+
 export function InsightPhotoCard({ compact }: { compact?: boolean } = {}) {
-  const [seed, setSeed] = useState(() => getTwiceDailySeed());
+  const [seed, setSeed] = useState(INITIAL_SEED);
   const [nextPhotoCount, setNextPhotoCount] = useState(0);
-  const [customUrl, setCustomUrl] = useState<string | null>(() => getInsightBgDisplayUrl());
+  /** 서버와 동일한 초기값(null)으로 두어 hydration 오류 방지. 실제 URL은 useEffect에서 설정 */
+  const [customUrl, setCustomUrl] = useState<string | null>(null);
   const [customUrlFailed, setCustomUrlFailed] = useState(false);
 
   useEffect(() => {
@@ -67,6 +71,7 @@ export function InsightPhotoCard({ compact }: { compact?: boolean } = {}) {
   }, []);
 
   useEffect(() => {
+    setSeed((s) => (s === INITIAL_SEED ? getTwiceDailySeed() : s));
     const timeout = setTimeout(() => {
       setSeed(getTwiceDailySeed());
     }, msUntilNextPeriod());

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { localDateStr } from "@/lib/dateUtil";
@@ -172,6 +173,8 @@ function getEmptyStatePrompt(selectedDate: string, entries: { date: string }[]):
 }
 
 export default function JournalPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [draft, setDraft] = useState("");
@@ -192,13 +195,31 @@ export default function JournalPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   /** 드로어 슬라이드 인 애니메이션용 */
   const [drawerAnimated, setDrawerAnimated] = useState(false);
-  /** 일기장 | 모아보기 탭 */
+  /** 일기장 | 모아보기 탭. URL(?view=collect&year=2024)이 진실 공급원 */
   const [journalViewMode, setJournalViewMode] = useState<"journal" | "collect">("journal");
-  /** 모아보기에서 선택한 연도 (드롭다운으로 선택 후 바로 넘기기 페이지) */
   const [collectYear, setCollectYear] = useState<number | null>(null);
   /** 모아보기 연도 드롭다운 열림 */
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
+  const collectViewRef = useRef<HTMLDivElement>(null);
+
+  /** URL과 모아보기 state 동기화 (연도 선택 시 URL로 이동 → 이 effect에서 화면 전환) */
+  const selectYearOpen = searchParams.get("selectYear") === "1";
+  useEffect(() => {
+    const view = searchParams.get("view");
+    const y = searchParams.get("year");
+    setYearDropdownOpen(false);
+    if (view === "collect" && y) {
+      const yearNum = parseInt(y, 10);
+      if (!Number.isNaN(yearNum)) {
+        setJournalViewMode("collect");
+        setCollectYear(yearNum);
+        return;
+      }
+    }
+    setJournalViewMode("journal");
+    setCollectYear(null);
+  }, [searchParams]);
   /** 오늘 마음에 남은 문장 (인사이트) 입력 */
   const [insightInput, setInsightInput] = useState("");
   const [insightAuthorInput, setInsightAuthorInput] = useState("");
@@ -422,20 +443,27 @@ export default function JournalPage() {
     setSelectedDate(entryDatesInYear[collectIndex + 1]);
   };
 
-  /** 연도 선택 시 모아보기 페이지로 전환 */
+  /** 연도 선택 시 URL 변경 → useEffect에서 모아보기로 전환 (모바일에서 확실히 보이게) */
   const goToCollectYear = (y: number) => {
-    setCollectYear(y);
-    setJournalViewMode("collect");
+    setYearDropdownOpen(false);
     const dates = entries.filter((e) => e.date.startsWith(String(y))).map((e) => e.date).sort();
     if (dates.length > 0) setSelectedDate(dates[0]);
-    setYearDropdownOpen(false);
+    router.replace(`/journal?view=collect&year=${y}`, { scroll: true });
   };
 
-  /** 모아보기 화면 진입 시 스크롤을 맨 위로 (모바일에서 연도 선택 후 화면이 안 보이는 현상 방지) */
+  /** 모아보기 → 일기장으로 돌아가기 (URL 제거하면 effect에서 state 동기화) */
+  const goBackToJournal = () => {
+    router.replace("/journal", { scroll: true });
+  };
+
+  /** 모아보기 화면 진입 시 스크롤해서 보이게 (모바일에서 연도 선택 후 화면이 안 보이는 현상 방지) */
   useEffect(() => {
-    if (journalViewMode === "collect" && collectYear != null && typeof window !== "undefined") {
-      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
-    }
+    if (journalViewMode !== "collect" || collectYear == null || typeof window === "undefined") return;
+    const t = setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      collectViewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+    return () => clearTimeout(t);
   }, [journalViewMode, collectYear]);
 
   /** 모아보기 연도 진입 시 선택 날짜가 해당 연도 목록에 없으면 첫 기록으로 */
@@ -636,7 +664,7 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-4 pb-4 sm:space-y-6">
+    <div className="min-w-0 space-y-4 pb-4 pt-8 sm:space-y-6 md:pt-0">
       {/* 저장 토스트 */}
       {saveToast && (
         <div
@@ -779,6 +807,71 @@ export default function JournalPage() {
           document.body
         )}
 
+      {/* 모바일 전용: 모아보기 화면을 body에 풀스크린으로 띄움 (연도 클릭 시 무조건 보이게) */}
+      {journalViewMode === "collect" && collectYear != null && typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex flex-col bg-white overflow-auto md:hidden" style={{ paddingTop: "max(2rem, env(safe-area-inset-top))" }}>
+            <div className="flex shrink-0 items-center gap-2 border-b border-neutral-100 px-4 py-3">
+              <button type="button" onClick={goBackToJournal} className="rounded-lg p-2 text-neutral-600 -ml-2 hover:bg-neutral-100" aria-label="일기장으로">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <span className="flex-1 text-center font-semibold text-neutral-800">{collectYear}년 모아보기</span>
+              <div className="w-9" />
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto p-4">
+              {entryDatesInYear.length === 0 ? (
+                <div className="space-y-4 py-6">
+                  <p className="text-sm text-neutral-500">이 연도에는 기록된 일기가 없어요.</p>
+                  <select value={collectYear} onChange={(e) => goToCollectYear(Number(e.target.value))} className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+                    {yearOptions.map((y) => {
+                      const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                      return <option key={y} value={y}>{y}년 ({count}편)</option>;
+                    })}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <button type="button" onClick={goPrevInCollect} disabled={!canGoPrevCollect} className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <span className="text-sm text-neutral-500">{collectIndex + 1} / {entryDatesInYear.length}</span>
+                    <button type="button" onClick={goNextInCollect} disabled={!canGoNextCollect} className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                  <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6">
+                    <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
+                    {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
+                      <div className="py-12 text-center">
+                        <p className="text-neutral-500 mb-4">비밀글로 설정된 일기입니다.</p>
+                        {getStoredPinHash() ? (
+                          <button type="button" onClick={() => { setShowUnlockModal(true); setUnlockPinValue(""); setUnlockError(""); }} className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white">암호 입력하여 보기</button>
+                        ) : (
+                          <button type="button" onClick={() => setShowSetPinInline(true)} className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white">암호 설정 후 보기</button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? "") }} />
+                    )}
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => { goBackToJournal(); setViewMode("write"); }} className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700">수정</button>
+                    <span className="text-sm text-neutral-500">다른 연도:</span>
+                    <select value={collectYear} onChange={(e) => goToCollectYear(Number(e.target.value))} className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm">
+                      {yearOptions.map((y) => {
+                        const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                        return <option key={y} value={y}>{y}년 ({count}편)</option>;
+                      })}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* 모바일: 모아보기 연도 선택 모달 (sm 이상에서는 드롭다운만 사용) */}
       {yearDropdownOpen &&
         typeof document !== "undefined" &&
@@ -794,21 +887,28 @@ export default function JournalPage() {
               role="dialog"
               aria-modal="true"
               aria-label="모아보기 연도 선택"
+              onClick={(e) => e.stopPropagation()}
             >
               <p className="mb-3 text-sm font-medium text-neutral-500">연도 선택</p>
               <div className="max-h-[60vh] overflow-y-auto">
                 {yearOptions.map((y) => {
                   const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                  const href = `/journal?view=collect&year=${y}`;
                   return (
-                    <button
+                    <a
                       key={y}
-                      type="button"
-                      onClick={() => goToCollectYear(y)}
-                      className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100"
+                      href={href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setYearDropdownOpen(false);
+                        window.location.href = href;
+                      }}
+                      className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100 no-underline"
+                      style={{ minHeight: 48 }}
                     >
                       {y}년
                       <span className="text-sm font-normal text-neutral-400">{count}편</span>
-                    </button>
+                    </a>
                   );
                 })}
               </div>
@@ -821,13 +921,13 @@ export default function JournalPage() {
         <header className="mb-8 pt-4 pl-4 md:mb-10 md:pt-6 md:pl-6 !mb-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="min-w-0 flex-1 text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
-              일기장
+              {journalViewMode === "collect" && collectYear != null ? `${collectYear}년 모아보기` : "일기장"}
             </h1>
             <div className="flex shrink-0 items-center gap-1 sm:hidden">
               {journalViewMode === "collect" ? (
                 <button
                   type="button"
-                  onClick={() => setJournalViewMode("journal")}
+                  onClick={goBackToJournal}
                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800 text-white transition hover:bg-neutral-700"
                   aria-label="일기장으로"
                   title="일기장"
@@ -849,23 +949,21 @@ export default function JournalPage() {
                 </svg>
               </button>
               {journalViewMode === "journal" ? (
-                <button
-                  type="button"
-                  onClick={() => setYearDropdownOpen((o) => !o)}
+                <a
+                  href="/journal?selectYear=1"
                   className="flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
                   aria-label="모아보기"
                   title="모아보기"
-                  aria-expanded={yearDropdownOpen}
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
-                </button>
+                </a>
               ) : null}
             </div>
           </div>
           <p className="mt-3 text-sm text-neutral-500 md:text-lg">
-            하루를 돌아보고, 차분하게 감정을 정리해요.
+            {journalViewMode === "collect" && collectYear != null ? "연도별로 모은 일기를 넘기며 볼 수 있어요." : "하루를 돌아보고, 차분하게 감정을 정리해요."}
           </p>
         </header>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -885,7 +983,7 @@ export default function JournalPage() {
             {journalViewMode === "collect" ? (
               <button
                 type="button"
-                onClick={() => setJournalViewMode("journal")}
+                onClick={goBackToJournal}
                 className="hidden items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300 sm:flex"
                 aria-label="일기장으로"
               >
@@ -947,8 +1045,98 @@ export default function JournalPage() {
         <p className="text-sm text-neutral-500">불러오는 중…</p>
       )}
 
+      {/* 모바일용: 연도 선택 전용 페이지 (?selectYear=1) - 모달 없이 링크만 */}
+      {selectYearOpen && (
+        <Card className="min-w-0">
+          <h2 className="text-xl font-semibold text-neutral-800 mb-4">연도 선택</h2>
+          <p className="text-sm text-neutral-500 mb-4">볼 연도를 누르세요.</p>
+          <ul className="space-y-2">
+            {yearOptions.map((y) => {
+              const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+              return (
+                <li key={y}>
+                  <a
+                    href={`/journal?view=collect&year=${y}`}
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100 no-underline border border-neutral-200"
+                  >
+                    {y}년
+                    <span className="text-sm text-neutral-400">{count}편</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-6">
+            <a href="/journal" className="inline-block rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 no-underline hover:bg-neutral-50">
+              일기장으로
+            </a>
+          </div>
+        </Card>
+      )}
+
       <div className="min-w-0">
-        {journalViewMode === "journal" && (
+        {journalViewMode === "collect" && collectYear != null && !selectYearOpen && (
+          <div ref={collectViewRef} className="min-w-0 hidden md:block">
+            <Card className="min-w-0">
+              {entryDatesInYear.length === 0 ? (
+                <div className="space-y-4 py-6">
+                  <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
+                  <p className="text-sm text-neutral-500">이 연도에는 기록된 일기가 없어요.</p>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="collect-year-empty-top" className="text-sm font-medium text-neutral-600">다른 연도:</label>
+                    <select id="collect-year-empty-top" value={collectYear} onChange={(e) => goToCollectYear(Number(e.target.value))} className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50">
+                      {yearOptions.map((y) => {
+                        const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                        return <option key={y} value={y}>{y}년 ({count}편)</option>;
+                      })}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="min-w-0 py-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={goPrevInCollect} disabled={!canGoPrevCollect} aria-label="이전 기록" className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <span className="min-w-[4rem] text-center text-sm text-neutral-500">{collectIndex + 1} / {entryDatesInYear.length}</span>
+                      <button type="button" onClick={goNextInCollect} disabled={!canGoNextCollect} aria-label="다음 기록" className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6 md:px-6">
+                    <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
+                    {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
+                      <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                        <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
+                        {getStoredPinHash() ? (
+                          <button type="button" onClick={() => { setShowUnlockModal(true); setUnlockPinValue(""); setUnlockError(""); }} className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700">암호 입력하여 보기</button>
+                        ) : (
+                          <button type="button" onClick={() => setShowSetPinInline(true)} className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700">암호 설정 후 보기</button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? "") }} />
+                    )}
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => { goBackToJournal(); setViewMode("write"); }} className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300">수정</button>
+                    <span className="text-sm text-neutral-500">다른 연도:</span>
+                    <select value={collectYear} onChange={(e) => goToCollectYear(Number(e.target.value))} className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50">
+                      {yearOptions.map((y) => {
+                        const count = entries.filter((e) => e.date.startsWith(String(y))).length;
+                        return <option key={y} value={y}>{y}년 ({count}편)</option>;
+                      })}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+        {journalViewMode === "journal" && !selectYearOpen && (
           <>
         <Card className="relative flex min-w-0 flex-col overflow-visible">
           {/* 한 줄: 좌우 화살표 · 날짜 · 오늘 버튼 (왼쪽) | 별 아이콘 (오른쪽) */}
@@ -1353,128 +1541,6 @@ export default function JournalPage() {
           </form>
         </Card>
           </>
-        )}
-
-        {journalViewMode === "collect" && collectYear != null && (
-          <Card className="min-w-0">
-            {entryDatesInYear.length === 0 ? (
-              <div className="space-y-4 py-6">
-                <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
-                <p className="text-sm text-neutral-500">이 연도에는 기록된 일기가 없어요.</p>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="collect-year-empty" className="text-sm font-medium text-neutral-600">다른 연도:</label>
-                  <select
-                    id="collect-year-empty"
-                    value={collectYear}
-                    onChange={(e) => goToCollectYear(Number(e.target.value))}
-                    className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-                  >
-                    {yearOptions.map((y) => {
-                      const count = entries.filter((e) => e.date.startsWith(String(y))).length;
-                      return (
-                        <option key={y} value={y}>{y}년 ({count}편)</option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
-            ) : (
-              /* 해당 연도 일기 넘기기 */
-              <div className="min-w-0 py-4">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={goPrevInCollect}
-                      disabled={!canGoPrevCollect}
-                      aria-label="이전 기록"
-                      className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <span className="min-w-[4rem] text-center text-sm text-neutral-500">
-                      {collectIndex + 1} / {entryDatesInYear.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={goNextInCollect}
-                      disabled={!canGoNextCollect}
-                      aria-label="다음 기록"
-                      className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6 md:px-6">
-                  <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
-                  {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
-                    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-                      <p className="text-neutral-500">비밀글로 설정된 일기입니다.</p>
-                      {getStoredPinHash() ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUnlockModal(true);
-                            setUnlockPinValue("");
-                            setUnlockError("");
-                          }}
-                          className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-                        >
-                          암호 입력하여 보기
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setShowSetPinInline(true)}
-                          className="rounded-xl bg-neutral-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-                        >
-                          암호 설정 후 보기
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800"
-                      dangerouslySetInnerHTML={{
-                        __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? ""),
-                      }}
-                    />
-                  )}
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setJournalViewMode("journal");
-                      setViewMode("write");
-                    }}
-                    className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 hover:border-neutral-300"
-                  >
-                    수정
-                  </button>
-                  <span className="text-sm text-neutral-500">다른 연도:</span>
-                  <select
-                    value={collectYear}
-                    onChange={(e) => goToCollectYear(Number(e.target.value))}
-                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50"
-                  >
-                    {yearOptions.map((y) => {
-                      const count = entries.filter((e) => e.date.startsWith(String(y))).length;
-                      return (
-                        <option key={y} value={y}>{y}년 ({count}편)</option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
-            )}
-          </Card>
         )}
 
         {/* 드로어: 달력·검색·내보내기 (body에 포탈 → 화면 전체 어둡게, 오른쪽에서 슬라이드) */}
