@@ -254,6 +254,28 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+        <span className="text-neutral-300">|</span>
+        <button
+          type="button"
+          onClick={() => exec("formatBlock", "h2")}
+          className="rounded p-1.5 hover:bg-neutral-100"
+          title="제목 (글자 크고 두껍게)"
+        >
+          <span className="text-base font-bold text-neutral-700">H</span>
+        </button>
+        <span className="text-neutral-300">|</span>
+        <button
+          type="button"
+          onClick={() => {
+            exec("insertHorizontalRule");
+          }}
+          className="rounded p-1.5 hover:bg-neutral-100"
+          title="구분선"
+        >
+          <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16" />
+          </svg>
+        </button>
         {note.createdAt && (
           <span className="ml-auto text-xs text-neutral-300" title="최초 작성">
             {formatCreatedAt(note.createdAt)}
@@ -266,7 +288,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         ref={contentRef}
         contentEditable={!isTrashNote}
         suppressContentEditableWarning
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[19px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 md:text-[20px]"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[19px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-3xl"
         style={{ minHeight: 200 }}
         onInput={emitContent}
         onPaste={handlePaste}
