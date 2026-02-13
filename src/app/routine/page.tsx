@@ -45,33 +45,32 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 달성률 %에 따른 색 구간 (4단계): 100% 진함 → 0% 연함 */
-function getPctTier(pct: number): 0 | 1 | 2 | 3 {
-  if (pct >= 75) return 3;
-  if (pct >= 50) return 2;
-  if (pct >= 25) return 1;
+/** 달성률 %에 따른 색 구간 (3단계): 0~39% / 40~79% / 80~100% */
+function getPctTier(pct: number): 0 | 1 | 2 {
+  if (pct >= 80) return 2;
+  if (pct >= 40) return 1;
   return 0;
 }
 
-/** 카드/박스용: 배경+테두리+글자 (주별 주간 박스, 이번달 총 달성 박스 등) */
+/** 카드/박스용: 배경+테두리+글자 (이번달 총 달성 박스, 모달 등). 0%는 색 없음 */
 function getPctCardClasses(pct: number): string {
+  if (pct === 0) return "border-neutral-200 bg-neutral-100";
   const tier = getPctTier(pct);
   const classes = [
     "border-emerald-200/80 bg-emerald-50",
-    "border-emerald-300 bg-emerald-100",
-    "border-emerald-500 bg-emerald-400 text-white",
+    "border-emerald-400 bg-emerald-200 text-emerald-900",
     "border-emerald-600 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 text-white",
   ];
   return classes[tier];
 }
 
-/** 작은 셀/버튼용: 배경+글자 (주별 요일, 이번달 날짜 셀 등) */
+/** 작은 셀/버튼용: 배경+글자 (주별 요일, 이번달 날짜 셀 등). 0%는 색 없음 */
 function getPctCellClasses(pct: number): string {
+  if (pct === 0) return "bg-neutral-100 text-neutral-600";
   const tier = getPctTier(pct);
   const classes = [
     "bg-emerald-50 text-emerald-800",
     "bg-emerald-200 text-emerald-900",
-    "bg-emerald-400 text-white",
     "bg-emerald-600 text-white",
   ];
   return classes[tier];
@@ -553,16 +552,16 @@ export default function RoutinePage() {
 
       {/* 오늘의 진행률 - 가로 배치, 100%일 때 강조 */}
       <Card
-        className={`min-w-0 py-4 transition-all duration-500 ${
+        className={`min-w-0 !py-4 !md:py-6 transition-all duration-500 ${
           progress === 100 && items.length > 0
             ? "border-2 border-red-400/80 bg-gradient-to-br from-red-400 via-red-500 to-red-600"
             : "border-2 border-neutral-200 bg-gradient-to-br from-neutral-50 to-white"
         }`}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
             <span
-              className={`text-3xl font-bold tabular-nums sm:text-4xl ${
+              className={`text-2xl font-bold tabular-nums sm:text-3xl ${
                 progress === 100 && items.length > 0
                   ? "text-white"
                   : "text-neutral-900"
@@ -571,7 +570,7 @@ export default function RoutinePage() {
               {progress}%
             </span>
             <span
-              className={`text-lg ${
+              className={`text-base ${
                 progress === 100 && items.length > 0
                   ? "text-red-100 font-medium"
                   : "text-neutral-600"
@@ -579,13 +578,13 @@ export default function RoutinePage() {
             >
               {completedCount} / {items.length} 완료
               {progress === 100 && items.length > 0 && (
-                <span className="ml-1.5">🎉</span>
+                <span className="ml-1">🎉</span>
               )}
             </span>
           </div>
-          <div className="flex flex-1 items-center gap-3 sm:max-w-md">
+          <div className="flex flex-1 items-center gap-2 sm:max-w-md">
             <div
-              className={`h-3 flex-1 min-w-0 overflow-hidden rounded-full ${
+              className={`h-2 flex-1 min-w-0 overflow-hidden rounded-full ${
                 progress === 100 && items.length > 0 ? "bg-red-300/50" : "bg-neutral-200"
               }`}
             >
@@ -922,7 +921,7 @@ export default function RoutinePage() {
               key={tab}
               type="button"
               onClick={() => setStatsTab(tab)}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+              className={`flex-1 rounded-lg py-2 text-[16px] font-medium transition ${
                 statsTab === tab
                   ? "bg-white text-neutral-900 shadow-sm"
                   : "text-neutral-600 hover:text-neutral-900"
@@ -961,16 +960,14 @@ export default function RoutinePage() {
                 </svg>
               </button>
             </div>
-            <div
-              className={`rounded-2xl border-2 p-4 shadow-sm ${getPctCardClasses(viewingWeek.weekPct)}`}
-            >
+            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-baseline justify-between gap-2">
-                <span className={`text-sm ${getPctLabelClasses(viewingWeek.weekPct)}`}>
+                <span className="text-sm text-neutral-500">
                   {formatWeekRange(viewingWeek)}
                 </span>
                 <div className="text-right">
-                  <span className={getPctTier(viewingWeek.weekPct) >= 2 ? "text-xs text-white/80" : "text-xs text-neutral-400"}>주간 총</span>
-                  <span className={`ml-2 text-2xl font-bold tabular-nums ${getPctTier(viewingWeek.weekPct) >= 2 ? "text-white" : "text-neutral-900"}`}>
+                  <span className="text-xs text-neutral-400">주간 총</span>
+                  <span className="ml-2 text-2xl font-bold tabular-nums text-neutral-900">
                     {viewingWeek.weekPct}%
                   </span>
                 </div>
@@ -1078,23 +1075,21 @@ export default function RoutinePage() {
                   const displayText = isSingleItem
                     ? `${(row as { doneDays: number; daysInMonth: number }).doneDays}/${(row as { daysInMonth: number }).daysInMonth} (${rate}%)`
                     : `${rate}% (${(row as { completed: number }).completed}/${(row as { total: number }).total})`;
-                  const tier = getPctTier(rate);
-                  const isDark = tier >= 2;
                   return (
                     <div
                       key={row.month}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-2 ${getPctCardClasses(rate)}`}
+                      className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2"
                     >
-                      <span className={`w-24 text-sm font-medium ${isDark ? "text-white" : "text-neutral-700"}`}>{row.label}</span>
+                      <span className="w-24 text-sm font-medium text-neutral-700">{row.label}</span>
                       <div className="flex-1 min-w-0">
-                        <div className={`h-2 w-full overflow-hidden rounded-full ${isDark ? "bg-white/30" : "bg-neutral-200"}`}>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
                           <div
-                            className={`h-full rounded-full transition-all ${isDark ? "bg-white" : "bg-emerald-600"}`}
+                            className="h-full rounded-full bg-neutral-700 transition-all"
                             style={{ width: `${rate}%` }}
                           />
                         </div>
                       </div>
-                      <span className={`w-28 text-right text-sm tabular-nums font-medium ${isDark ? "text-white" : "text-neutral-600"}`}>
+                      <span className="w-28 text-right text-sm tabular-nums font-medium text-neutral-600">
                         {displayText}
                       </span>
                     </div>
@@ -1155,16 +1150,14 @@ export default function RoutinePage() {
                 </select>
               </div>
             </div>
-            <div
-              className={`rounded-2xl border-2 px-6 py-5 text-center ${getPctCardClasses(thisMonthCalendar.totalPct)}`}
-            >
-              <p className={`text-sm font-medium ${getPctLabelClasses(thisMonthCalendar.totalPct)}`}>
+            <div className="rounded-2xl border-2 border-neutral-200 bg-white px-6 py-5 text-center">
+              <p className="text-sm font-medium text-neutral-500">
                 {thisMonthCalendar.year}년 {thisMonthCalendar.month}월
                 {"singleItemId" in thisMonthCalendar && thisMonthCalendar.singleItemId != null
                   ? " O/X 달성"
                   : " 총 달성률"}
               </p>
-              <p className={`mt-2 text-4xl font-bold tabular-nums sm:text-5xl ${getPctTier(thisMonthCalendar.totalPct) >= 2 ? "text-white" : "text-neutral-900"}`}>
+              <p className="mt-2 text-4xl font-bold tabular-nums text-neutral-900 sm:text-5xl">
                 {"doneDays" in thisMonthCalendar && "totalDays" in thisMonthCalendar
                   ? `${thisMonthCalendar.doneDays}/${thisMonthCalendar.totalDays} (${thisMonthCalendar.totalPct}%)`
                   : `${thisMonthCalendar.totalPct}%`}
