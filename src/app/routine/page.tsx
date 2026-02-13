@@ -984,7 +984,7 @@ export default function RoutinePage() {
                       onClick={() => setDayDetailModalKey(viewingWeek.days[i].key)}
                       className={`flex flex-1 flex-col rounded-xl py-2 text-center ${getPctCellClasses(dayPct)} ${isToday ? "ring-2 ring-neutral-900 ring-offset-2 ring-offset-white" : ""} hover:opacity-90 transition-opacity`}
                     >
-                      <div className={`text-sm font-medium uppercase ${dayTier >= 2 ? "text-white/90" : "text-neutral-500"}`}>
+                      <div className={`text-sm font-medium uppercase ${dayTier >= 1 ? "text-white/90" : "text-neutral-500"}`}>
                         {name}
                       </div>
                       <div className="mt-0.5 text-sm font-semibold tabular-nums">
@@ -1199,10 +1199,10 @@ export default function RoutinePage() {
                     >
                       {cell.day != null && (
                         <>
-                          <div className={`text-base font-semibold ${cellTier >= 2 ? "text-white" : "text-neutral-800"}`}>
+                          <div className={`text-base font-semibold ${cellTier >= 1 ? "text-white" : "text-neutral-800"}`}>
                             {cell.day}
                           </div>
-                          <div className={`mt-0.5 text-sm font-medium tabular-nums ${cellTier >= 2 ? "text-white/90" : "text-neutral-600"}`}>
+                          <div className={`mt-0.5 text-sm font-medium tabular-nums ${cellTier >= 1 ? "text-white/90" : "text-neutral-600"}`}>
                             {isOX ? (cell.done ? "O" : "X") : `${cell.pct}%`}
                           </div>
                         </>
