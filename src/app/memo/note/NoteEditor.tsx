@@ -117,9 +117,42 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           e.preventDefault();
           toggleHighlight();
         }
+        return;
+      }
+      // "- " + 스페이스 → 글머리 기호(목록)
+      if (e.key === " ") {
+        const sel = document.getSelection();
+        const el = contentRef.current;
+        if (!sel || sel.rangeCount === 0 || !el || !el.contains(sel.anchorNode)) return;
+        const range = sel.getRangeAt(0);
+        if (!range.collapsed) return;
+        let block: Node | null = range.startContainer;
+        if (block.nodeType === Node.TEXT_NODE) block = block.parentNode;
+        while (block && block !== el) {
+          const tag = (block as Element).tagName;
+          if (tag === "P" || tag === "DIV" || tag === "LI" || tag === "H1" || tag === "H2" || tag === "H3") break;
+          block = block.parentNode;
+        }
+        if (!block || block === el) block = el.firstChild || el;
+        if (!block) return;
+        const tag = (block as Element).tagName;
+        if (tag === "LI") return;
+        const rangeToStart = document.createRange();
+        try {
+          rangeToStart.setStart(block, 0);
+          rangeToStart.setEnd(range.startContainer, range.startOffset);
+        } catch {
+          return;
+        }
+        const textBefore = rangeToStart.toString().replace(/\s/g, " ").trim();
+        if (textBefore !== "-") return;
+        e.preventDefault();
+        rangeToStart.deleteContents();
+        document.execCommand("insertUnorderedList", false);
+        emitContent();
       }
     },
-    [isTrashNote, toggleHighlight]
+    [isTrashNote, toggleHighlight, emitContent]
   );
 
   if (!note) {
