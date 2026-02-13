@@ -772,13 +772,22 @@ export default function JournalPage() {
           document.body
         )}
 
-      {/* 모바일: 모아보기 연도 선택 모달 */}
+      {/* 모바일: 모아보기 연도 선택 모달 (sm 이상에서는 드롭다운만 사용) */}
       {yearDropdownOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[55] sm:hidden">
-            <div className="absolute inset-0 bg-black/50" aria-hidden onClick={() => setYearDropdownOpen(false)} />
-            <div className="absolute left-1/2 top-1/2 w-[min(280px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-xl">
+          <div className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center p-4 sm:hidden">
+            <div
+              className="absolute inset-0 bg-black/50"
+              aria-hidden
+              onClick={() => setYearDropdownOpen(false)}
+            />
+            <div
+              className="relative z-10 w-[min(280px,90vw)] rounded-2xl bg-white p-4 shadow-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="모아보기 연도 선택"
+            >
               <p className="mb-3 text-sm font-medium text-neutral-500">연도 선택</p>
               <div className="max-h-[60vh] overflow-y-auto">
                 {yearOptions.map((y) => {
