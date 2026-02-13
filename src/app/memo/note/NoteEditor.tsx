@@ -116,6 +116,10 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         } else if (e.key.toLowerCase() === "h") {
           e.preventDefault();
           toggleHighlight();
+        } else if (e.key === "-" || e.key === "_") {
+          e.preventDefault();
+          document.execCommand("insertHorizontalRule", false);
+          emitContent();
         }
         return;
       }
@@ -321,7 +325,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         ref={contentRef}
         contentEditable={!isTrashNote}
         suppressContentEditableWarning
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[19px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-3xl"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[19px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_h2]:text-[22px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-[26px]"
         style={{ minHeight: 200 }}
         onInput={emitContent}
         onPaste={handlePaste}
