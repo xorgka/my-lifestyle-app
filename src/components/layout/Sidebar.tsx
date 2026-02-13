@@ -42,8 +42,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   }, []);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
-      <div className="mb-12 ml-1 px-1">
+    <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
+      <div className="mb-6 ml-1 px-1">
         <ClockWidget />
       </div>
 
@@ -91,7 +91,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </nav>
 
       <YoutubePlayerBar />
-      <div className="mt-auto flex items-center justify-between pt-4">
+      <div className="mt-auto flex items-center justify-between pt-2">
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
