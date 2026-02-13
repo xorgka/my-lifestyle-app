@@ -664,7 +664,7 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-4 pb-4 pt-8 sm:space-y-6 md:pt-0">
+    <div className="min-w-0 space-y-4 pb-4 sm:space-y-6">
       {/* 저장 토스트 */}
       {saveToast && (
         <div
@@ -951,9 +951,13 @@ export default function JournalPage() {
               {journalViewMode === "journal" ? (
                 <a
                   href="/journal?selectYear=1"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 touch-manipulation"
                   aria-label="모아보기"
                   title="모아보기"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.replace("/journal?selectYear=1", { scroll: true });
+                  }}
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -1057,7 +1061,11 @@ export default function JournalPage() {
                 <li key={y}>
                   <a
                     href={`/journal?view=collect&year=${y}`}
-                    className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100 no-underline border border-neutral-200"
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base font-medium text-neutral-800 transition hover:bg-neutral-100 no-underline border border-neutral-200 touch-manipulation"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      router.replace(`/journal?view=collect&year=${y}`, { scroll: true });
+                    }}
                   >
                     {y}년
                     <span className="text-sm text-neutral-400">{count}편</span>

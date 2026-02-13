@@ -50,6 +50,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
     }
   }, [pathname]);
 
+  // 쿼리 변경 시 모바일 메뉴 닫기 (모아보기 연도 등 링크 탭 후 고스트 클릭으로 메뉴가 열리는 현상 방지)
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname, searchParams]);
+
   // Supabase 동기화: 팝업 설정 + 날씨/인사이트 배경 (모바일·기기·브라우저 간 연동). 완료 후 리렌더로 최신 반영
   const [, setPopupConfigVersion] = useState(0);
   useEffect(() => {

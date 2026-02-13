@@ -343,51 +343,6 @@ export default function SleepPage() {
             >
               <div className="flex flex-wrap items-stretch justify-center gap-0">
                 <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
-                  <span className="text-base opacity-80" aria-hidden>☀️</span>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">기상</p>
-                  {editWake !== null && !isMobile ? (
-                    <div className="mt-2 flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <TimeInputWithAmPm
-                        value={editWake}
-                        onChange={setEditWake}
-                        onSubmit={() => saveWake(viewDateKey, editWake)}
-                        inputClassName="text-lg"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => saveWake(viewDateKey, editWake)}
-                          className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
-                        >
-                          저장
-                        </button>
-                        {viewRecord?.wakeTime != null && (
-                          <button
-                            type="button"
-                            onClick={clearViewWake}
-                            className="rounded-xl border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
-                          >
-                            삭제
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (editBed !== null) setEditBed(null);
-                        else setEditWake(viewRecord?.wakeTime ?? "07:00");
-                      }}
-                      className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
-                    >
-                      {viewRecord?.wakeTime ?? "—"}
-                    </button>
-                  )}
-                </div>
-                <div className="w-px shrink-0 bg-neutral-200/80" />
-                <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
                   <span className="text-base opacity-80" aria-hidden>🌙</span>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">취침</p>
                   {editBed !== null && !isMobile ? (
@@ -428,6 +383,51 @@ export default function SleepPage() {
                       className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
                     >
                       {viewRecord?.bedTime ?? "—"}
+                    </button>
+                  )}
+                </div>
+                <div className="w-px shrink-0 bg-neutral-200/80" />
+                <div className="flex flex-1 min-w-0 flex-col items-center justify-center px-4 py-3 sm:border-r sm:border-neutral-200/80 sm:px-6">
+                  <span className="text-base opacity-80" aria-hidden>☀️</span>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">기상</p>
+                  {editWake !== null && !isMobile ? (
+                    <div className="mt-2 flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <TimeInputWithAmPm
+                        value={editWake}
+                        onChange={setEditWake}
+                        onSubmit={() => saveWake(viewDateKey, editWake)}
+                        inputClassName="text-lg"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveWake(viewDateKey, editWake)}
+                          className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
+                        >
+                          저장
+                        </button>
+                        {viewRecord?.wakeTime != null && (
+                          <button
+                            type="button"
+                            onClick={clearViewWake}
+                            className="rounded-xl border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (editBed !== null) setEditBed(null);
+                        else setEditWake(viewRecord?.wakeTime ?? "07:00");
+                      }}
+                      className="mt-1 text-lg font-bold tabular-nums text-neutral-900 hover:text-neutral-600 sm:text-xl"
+                    >
+                      {viewRecord?.wakeTime ?? "—"}
                     </button>
                   )}
                 </div>

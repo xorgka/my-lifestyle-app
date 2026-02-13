@@ -1,9 +1,6 @@
 import { SectionTitle } from "@/components/ui/SectionTitle";
-import { HomeMemoCard } from "@/components/home/HomeMemoCard";
-import { HomeWidgets } from "@/components/home/HomeWidgets";
-import { InsightPhotoCard } from "@/components/home/InsightPhotoCard";
+import { HomeLayout } from "@/components/home/HomeLayout";
 import { TodayAlertBar } from "@/components/home/TodayAlertBar";
-import { WeatherCardWrapper } from "@/components/home/WeatherCardWrapper";
 
 export default function HomePage() {
   return (
@@ -15,36 +12,8 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-4">
         <TodayAlertBar />
-        {/* 모바일: 날씨 / 메모 / 인사이트 */}
-        <div className="grid min-h-[600px] grid-cols-1 grid-rows-[160px_1fr_1fr] gap-4 md:hidden">
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-            <WeatherCardWrapper />
-          </div>
-          <div className="flex min-h-0 min-w-0 flex-col">
-            <HomeMemoCard />
-          </div>
-          <div className="flex min-h-0 min-w-0 flex-col">
-            <InsightPhotoCard />
-          </div>
-        </div>
-        {/* PC: 왼쪽 날씨+메모, 오른쪽 인사이트 */}
-        <div className="hidden min-h-[480px] md:grid md:min-h-[600px] md:grid-cols-2 md:gap-6 md:items-stretch">
-          <div className="flex min-h-0 min-w-0 flex-col gap-4">
-            <div className="flex min-h-0 flex-1 flex-col">
-              <WeatherCardWrapper />
-            </div>
-            <div className="flex flex-shrink-0 flex-col">
-              <HomeMemoCard />
-            </div>
-          </div>
-          <div className="flex min-h-0 min-w-0 flex-col">
-            <InsightPhotoCard />
-          </div>
-        </div>
+        <HomeLayout template="B" />
       </div>
-
-      {/* 일기 / 루틴 / 타임테이블 */}
-      <HomeWidgets />
     </div>
   );
 }

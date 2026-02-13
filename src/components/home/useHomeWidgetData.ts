@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { loadJournalEntries } from "@/lib/journal";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
+import { loadSleepData } from "@/lib/sleepDb";
 import {
   loadTimetableForDate,
   saveTimetableForDate,
@@ -104,6 +105,10 @@ export function getRemainingToNextSlot(nextHour: number, now: Date): string {
 export function useHomeWidgetData() {
   const [journalWritten, setJournalWritten] = useState<boolean | null>(null);
   const [routineProgress, setRoutineProgress] = useState<number | null>(null);
+  const [routineCompleted, setRoutineCompleted] = useState<number>(0);
+  const [routineTotal, setRoutineTotal] = useState<number>(0);
+  const [todaySleepBedTime, setTodaySleepBedTime] = useState<string | undefined>(undefined);
+  const [todaySleepWakeTime, setTodaySleepWakeTime] = useState<string | undefined>(undefined);
   const [dayTimetable, setDayTimetable] = useState<DayTimetable | null>(null);
   const [routineLinks, setRoutineLinks] = useState<Record<string, number>>({});
   const [templateLinks, setTemplateLinks] = useState<Record<string, number>>({});
@@ -130,8 +135,31 @@ export function useHomeWidgetData() {
       const total = items.length;
       const pct = total === 0 ? 0 : Math.round((completed.length / total) * 100);
       setRoutineProgress(pct);
+      setRoutineCompleted(completed.length);
+      setRoutineTotal(total);
     }).catch(() => {
-      if (!cancelled) setRoutineProgress(0);
+      if (!cancelled) {
+        setRoutineProgress(0);
+        setRoutineCompleted(0);
+        setRoutineTotal(0);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSleepData().then(({ data }) => {
+      if (cancelled) return;
+      const key = getTodayKey();
+      const rec = data[key];
+      setTodaySleepBedTime(rec?.bedTime);
+      setTodaySleepWakeTime(rec?.wakeTime);
+    }).catch(() => {
+      if (!cancelled) {
+        setTodaySleepBedTime(undefined);
+        setTodaySleepWakeTime(undefined);
+      }
     });
     return () => { cancelled = true; };
   }, []);
@@ -200,6 +228,10 @@ export function useHomeWidgetData() {
   return {
     journalWritten,
     routineProgress,
+    routineCompleted,
+    routineTotal,
+    todaySleepBedTime,
+    todaySleepWakeTime,
     dayTimetable,
     currentSlot,
     currentSlotDisplayHour,

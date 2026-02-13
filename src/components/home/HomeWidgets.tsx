@@ -10,7 +10,11 @@ export function HomeWidgets() {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <DiaryCard journalWritten={data.journalWritten} />
-      <RoutineCard routineProgress={data.routineProgress} />
+      <RoutineCard
+        routineProgress={data.routineProgress}
+        routineCompleted={data.routineCompleted}
+        routineTotal={data.routineTotal}
+      />
       <TimetableCard
         dayTimetable={data.dayTimetable}
         currentSlot={data.currentSlot}
