@@ -58,7 +58,7 @@ function getPctCardClasses(pct: number): string {
   const tier = getPctTier(pct);
   const classes = [
     "border-[#F25252]/40 bg-[#FEE8E8]",
-    "border-[#F25252]/80 bg-[#F9B4B4] text-[#7F1D1D]",
+    "border-[#F87171]/90 bg-[#F87171] text-white",
     "border-[#C53030] bg-gradient-to-br from-[#F25252] via-[#E03E3E] to-[#C53030] text-white",
   ];
   return classes[tier];
@@ -70,7 +70,7 @@ function getPctCellClasses(pct: number): string {
   const tier = getPctTier(pct);
   const classes = [
     "bg-[#FEE8E8] text-[#9B2C2C]",
-    "bg-[#F9B4B4] text-[#7F1D1D]",
+    "bg-[#F87171] text-white",
     "bg-[#E03E3E] text-white",
   ];
   return classes[tier];
