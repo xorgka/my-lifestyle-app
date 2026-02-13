@@ -132,7 +132,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div className="mx-auto flex w-full max-w-7xl gap-7">
         {/* 데스크톱에만 사이드바 컬럼 (모바일은 드로어에 Sidebar 있음 → 플레이어 1개만) */}
         {!isMobile && (
-          <div className="sticky top-6 h-[calc(100vh-13rem)] max-h-[calc(100vh-13rem)] w-64 self-start">
+          <div className="sticky top-6 h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)] w-64 self-start">
             <Sidebar />
           </div>
         )}
