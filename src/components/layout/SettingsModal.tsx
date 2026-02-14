@@ -43,6 +43,14 @@ import {
   type PopupConfig,
   type PopupBenefitItem,
 } from "@/lib/popupReminderConfig";
+import {
+  getInsightBgSettings,
+  setInsightBgSettings,
+  type InsightBgMode,
+  type InsightBgSettings,
+} from "@/lib/insightBg";
+import { getWeatherBgSettings, setWeatherBgSettings, type WeatherBgSettings } from "@/lib/weatherBg";
+import type { WeatherThemeId } from "@/lib/weather";
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -170,7 +178,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 type Props = { onClose: () => void };
 
-type SettingsTab = "export" | "alertbar" | "popup" | "shortcuts" | "account";
+type SettingsTab = "export" | "alertbar" | "popup" | "background" | "shortcuts" | "account";
 
 export function SettingsModal({ onClose }: Props) {
   const now = new Date();
@@ -192,10 +200,37 @@ export function SettingsModal({ onClose }: Props) {
   const [addingNewPopup, setAddingNewPopup] = useState(false);
   const [popupDraft, setPopupDraft] = useState<Partial<PopupConfig> | null>(null);
 
+  // 배경 탭: 투데이 인사이트 + 날씨 박스
+  const [bgSettingSubTab, setBgSettingSubTab] = useState<"insight" | "weather">("insight");
+  const [insightBgMode, setInsightBgMode] = useState<InsightBgMode>("auto");
+  const [insightBgSingleUrl, setInsightBgSingleUrl] = useState("");
+  const [insightBgListUrls, setInsightBgListUrls] = useState<string[]>([""]);
+  const [insightBgSaved, setInsightBgSaved] = useState(false);
+  const [weatherBgUrls, setWeatherBgUrls] = useState<Record<WeatherThemeId, string[]>>(() => ({
+    clear: [], partlyCloudy: [], fog: [], rain: [], snow: [], showers: [], thunderstorm: [], overcast: [],
+  }));
+  const [weatherBgSaved, setWeatherBgSaved] = useState(false);
+
   useEffect(() => {
     if (activeTab === "alertbar") {
       setSystemOverrides(loadSystemOverrides());
       setCustomAlerts(loadCustomAlerts());
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "background") {
+      const s = getInsightBgSettings();
+      setInsightBgMode(s.mode);
+      if (s.mode === "single") setInsightBgSingleUrl(s.url ?? "");
+      if (s.mode === "list") setInsightBgListUrls(s.urls.length > 0 ? s.urls : [""]);
+      const w = getWeatherBgSettings();
+      const themeIds: WeatherThemeId[] = ["clear", "partlyCloudy", "fog", "rain", "snow", "showers", "thunderstorm", "overcast"];
+      setWeatherBgUrls((prev) => {
+        const next = { ...prev };
+        for (const id of themeIds) next[id] = w[id] ?? [];
+        return next;
+      });
     }
   }, [activeTab]);
 
@@ -237,6 +272,7 @@ export function SettingsModal({ onClose }: Props) {
     { id: "export", label: "내보내기" },
     { id: "alertbar", label: "알림바" },
     { id: "popup", label: "팝업" },
+    { id: "background", label: "배경" },
     { id: "shortcuts", label: "단축키" },
     { id: "account", label: "계정" },
   ];
@@ -317,19 +353,14 @@ export function SettingsModal({ onClose }: Props) {
     if (activeTab === "shortcuts") {
       const shortcutSections = [
         {
-          title: "전역 (입력창 포커스 시 제외)",
+          title: "전역",
           items: [
             { keys: "Home", desc: "홈(/)으로 이동" },
-            { keys: "Ctrl + Shift + M", desc: "메모(노트) 페이지로 이동", mac: "Mac: Cmd + Shift + M" },
-          ],
-        },
-        {
-          title: "유튜브 · 루틴 (전역)",
-          items: [
-            { keys: "0", desc: "타임테이블로 이동" },
             { keys: ". (마침표)", desc: "수면관리로 이동" },
+            { keys: "0", desc: "타임테이블로 이동" },
             { keys: "1", desc: "재생 / 일시정지" },
             { keys: "2", desc: "다음 곡" },
+            { keys: "Ctrl + Shift + M", desc: "노트 페이지로 이동", mac: "Mac: Cmd + Shift + M" },
           ],
         },
         {
@@ -344,7 +375,6 @@ export function SettingsModal({ onClose }: Props) {
         {
           title: "노트(메모) 에디터",
           items: [
-            { keys: "Ctrl + Shift + B", desc: "굵게" },
             { keys: "Ctrl + Shift + H", desc: "형광펜" },
             { keys: "Ctrl + Shift + -", desc: "구분선 삽입" },
             { keys: "- + 스페이스", desc: "해당 줄을 글머리 기호(목록)로" },
@@ -371,6 +401,267 @@ export function SettingsModal({ onClose }: Props) {
               </ul>
             </div>
           ))}
+        </section>
+      );
+    }
+    if (activeTab === "background") {
+      return (
+        <section className="space-y-8">
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">배경</h3>
+          <div className="flex shrink-0 gap-2 border-b border-neutral-200 pb-3">
+            <button
+              type="button"
+              onClick={() => setBgSettingSubTab("insight")}
+              className={`rounded-xl px-3 py-2 text-sm font-medium ${bgSettingSubTab === "insight" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+            >
+              투데이 인사이트 배경
+            </button>
+            <button
+              type="button"
+              onClick={() => setBgSettingSubTab("weather")}
+              className={`rounded-xl px-3 py-2 text-sm font-medium ${bgSettingSubTab === "weather" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+            >
+              날씨 박스 배경
+            </button>
+          </div>
+          {bgSettingSubTab === "insight" && (
+            <div className="space-y-4">
+              <p className="text-xs text-neutral-500">
+                홈 카드 배경을 자동(Picsum), 한 장 고정, 또는 내 URL 목록 순환 중에서 선택할 수 있어요.
+              </p>
+              <div className="space-y-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="insightBgModeSettings"
+                    checked={insightBgMode === "auto"}
+                    onChange={() => setInsightBgMode("auto")}
+                    className="h-4 w-4 border-neutral-300 text-neutral-700"
+                  />
+                  <span className="text-sm text-neutral-700">자동 (Picsum, 12시간마다 바뀜)</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="insightBgModeSettings"
+                    checked={insightBgMode === "single"}
+                    onChange={() => setInsightBgMode("single")}
+                    className="h-4 w-4 border-neutral-300 text-neutral-700"
+                  />
+                  <span className="text-sm text-neutral-700">한 장 고정 (URL 1개)</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="insightBgModeSettings"
+                    checked={insightBgMode === "list"}
+                    onChange={() => setInsightBgMode("list")}
+                    className="h-4 w-4 border-neutral-300 text-neutral-700"
+                  />
+                  <span className="text-sm text-neutral-700">내 URL 목록 순환 (12시간마다)</span>
+                </label>
+              </div>
+              {insightBgMode === "single" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="url"
+                    value={insightBgSingleUrl}
+                    onChange={(e) => setInsightBgSingleUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:min-w-[16rem]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => insightBgSingleUrl.trim() && window.open(insightBgSingleUrl.trim(), "_blank", "noopener,noreferrer")}
+                    disabled={!insightBgSingleUrl.trim()}
+                    className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+                    title="새 탭에서 열기"
+                  >
+                    URL 열기
+                  </button>
+                </div>
+              )}
+              {insightBgMode === "list" && (
+                <div className="space-y-2">
+                  {insightBgListUrls.map((url, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="url"
+                        value={url}
+                        onChange={(e) => {
+                          const next = [...insightBgListUrls];
+                          next[i] = e.target.value;
+                          setInsightBgListUrls(next);
+                        }}
+                        placeholder="https://..."
+                        className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:min-w-[14rem]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => url.trim() && window.open(url.trim(), "_blank", "noopener,noreferrer")}
+                        disabled={!url.trim()}
+                        className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+                        title="새 탭에서 열기"
+                      >
+                        URL 열기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInsightBgListUrls(insightBgListUrls.filter((_, j) => j !== i))}
+                        className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+                        aria-label="삭제"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setInsightBgListUrls([...insightBgListUrls, ""])}
+                    className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + URL 추가
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const settings: InsightBgSettings =
+                      insightBgMode === "auto"
+                        ? { mode: "auto" }
+                        : insightBgMode === "single"
+                          ? { mode: "single", url: insightBgSingleUrl.trim() }
+                          : {
+                              mode: "list",
+                              urls: insightBgListUrls.map((u) => u.trim()).filter(Boolean),
+                            };
+                    if (settings.mode === "list" && settings.urls.length === 0) return;
+                    setInsightBgSettings(settings);
+                    setInsightBgSaved(true);
+                    setTimeout(() => setInsightBgSaved(false), 2000);
+                  }}
+                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  저장
+                </button>
+                {insightBgMode !== "auto" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInsightBgSettings({ mode: "auto" });
+                      setInsightBgMode("auto");
+                      setInsightBgSaved(true);
+                      setTimeout(() => setInsightBgSaved(false), 2000);
+                    }}
+                    className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    자동으로 되돌리기
+                  </button>
+                )}
+              </div>
+              {insightBgSaved && (
+                <p className="text-xs text-green-600">적용되었어요. 홈에서 확인해 보세요.</p>
+              )}
+            </div>
+          )}
+          {bgSettingSubTab === "weather" && (
+            <div className="space-y-4">
+              <p className="text-xs text-neutral-500">
+                날씨별로 이미지 URL을 여러 장씩 등록할 수 있어요. 해당 날씨일 때 그중 한 장이 랜덤으로 배경에 표시돼요.
+              </p>
+              <div className="space-y-4 pr-1">
+                {(
+                  [
+                    ["clear", "맑음"],
+                    ["partlyCloudy", "구름 조금"],
+                    ["fog", "안개"],
+                    ["rain", "비"],
+                    ["snow", "눈"],
+                    ["showers", "소나기"],
+                    ["thunderstorm", "천둥·번개"],
+                    ["overcast", "흐림"],
+                  ] as const
+                ).map(([themeId, label]) => (
+                  <div key={themeId} className="space-y-2 rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                    <p className="text-sm font-medium text-neutral-700">{label}</p>
+                    {(weatherBgUrls[themeId] ?? []).map((url, i) => (
+                      <div key={i} className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="url"
+                          value={url}
+                          onChange={(e) => {
+                            const next = [...(weatherBgUrls[themeId] ?? [])];
+                            next[i] = e.target.value;
+                            setWeatherBgUrls((u) => ({ ...u, [themeId]: next }));
+                          }}
+                          placeholder="https://..."
+                          className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm md:min-w-[12rem]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => url.trim() && window.open(url.trim(), "_blank", "noopener,noreferrer")}
+                          disabled={!url.trim()}
+                          className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
+                          title="새 탭에서 열기"
+                        >
+                          URL 열기
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setWeatherBgUrls((u) => ({
+                              ...u,
+                              [themeId]: (u[themeId] ?? []).filter((_, j) => j !== i),
+                            }))
+                          }
+                          className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setWeatherBgUrls((u) => ({
+                          ...u,
+                          [themeId]: [...(u[themeId] ?? []), ""],
+                        }))
+                      }
+                      className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                    >
+                      + URL 추가
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const settings: WeatherBgSettings = {};
+                    (Object.keys(weatherBgUrls) as WeatherThemeId[]).forEach((id) => {
+                      const urls = (weatherBgUrls[id] ?? []).map((u) => u.trim()).filter(Boolean);
+                      if (urls.length > 0) settings[id] = urls;
+                    });
+                    setWeatherBgSettings(settings);
+                    if (typeof window !== "undefined") {
+                      (window as unknown as { __WEATHER_BG_SAVED?: number }).__WEATHER_BG_SAVED = Date.now();
+                      window.dispatchEvent(new CustomEvent("weather-bg-settings-changed"));
+                    }
+                    setWeatherBgSaved(true);
+                    setTimeout(() => setWeatherBgSaved(false), 2000);
+                  }}
+                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  저장
+                </button>
+                {weatherBgSaved && <p className="text-xs text-green-600">적용되었어요. 홈에서 확인해 보세요.</p>}
+              </div>
+            </div>
+          )}
         </section>
       );
     }

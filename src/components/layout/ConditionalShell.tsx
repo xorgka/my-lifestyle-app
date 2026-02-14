@@ -26,7 +26,7 @@ export function ConditionalShell({ children }: { children: React.ReactNode }) {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "m") {
         if (inInput) return;
         e.preventDefault();
-        router.push("/memo");
+        router.push("/memo/note");
         return;
       }
     };
