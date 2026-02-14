@@ -5,12 +5,11 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
-import { getPopupConfig } from "@/lib/popupReminderConfig";
+import { getPopupConfig, isInTimeWindow } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
 const MORNING_FACE_ITEM_TITLE = "아침 세안";
-const THROTTLE_MS = 30 * 60 * 1000; // 30분
-/** 첫 체크 지연(1분). 페이지 들어온 뒤 1분 뒤에 첫 검사, 이후 30분마다 */
+/** 첫 체크 지연(1분) */
 const INITIAL_DELAY_MS = 1 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
 
@@ -53,16 +52,19 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
       setOpen(true);
       return;
     }
-    if (getPopupConfig("morning_face")?.enabled === false) return;
-    const hour = new Date().getHours();
-    if (hour < 5 || hour > 15) return;
+    const config = getPopupConfig("morning_face");
+    if (config?.enabled === false) return;
+    const timeStart = config?.timeStart ?? 5;
+    const timeEnd = config?.timeEnd ?? 15;
+    if (!isInTimeWindow(timeStart, timeEnd)) return;
     if (!faceItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(faceItem.id);
       if (completedToday) return;
       const last = await getReminderLastShown("morning_face");
       const now = Date.now();
-      if (last && last.date === today && now - last.time < THROTTLE_MS) return;
+      const throttleMs = (config?.throttleMinutes ?? 30) * 60 * 1000;
+      if (last && last.date === today && now - last.time < throttleMs) return;
     }
 
     setItemId(faceItem.id);
@@ -81,10 +83,12 @@ export function MorningFaceReminderPopup({ forceShow }: MorningFaceReminderPopup
       checkAndShow();
       return;
     }
+    const config = getPopupConfig("morning_face");
+    const throttleMs = (config?.throttleMinutes ?? 30) * 60 * 1000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const timeoutId = setTimeout(() => {
       checkAndShow();
-      intervalId = setInterval(checkAndShow, THROTTLE_MS);
+      if (throttleMs > 0) intervalId = setInterval(checkAndShow, throttleMs);
     }, INITIAL_DELAY_MS);
     return () => {
       clearTimeout(timeoutId);

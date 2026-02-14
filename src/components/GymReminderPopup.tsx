@@ -5,14 +5,12 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
-import { getPopupConfig } from "@/lib/popupReminderConfig";
+import { getPopupConfig, isInTimeWindow } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
 const GYM_ITEM_TITLE = "헬스장";
-const THROTTLE_MS = 1 * 60 * 60 * 1000; // 1시간 (오후 6시 이후 1시간 단위)
-/** 첫 체크 지연(20분). 샤워 0분, 유튜브 40분과 20분 간격 유지 */
+/** 첫 체크 지연(20분) */
 const INITIAL_DELAY_MS = 20 * 60 * 1000;
-/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
 const TEST_ALWAYS_SHOW = false;
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
@@ -54,16 +52,19 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
       setOpen(true);
       return;
     }
-    if (getPopupConfig("gym")?.enabled === false) return;
-    const hour = new Date().getHours();
-    if (hour < 18) return; // 오후 6시(18:00) 이후에만 헬스장 알림
+    const config = getPopupConfig("gym");
+    if (config?.enabled === false) return;
+    const timeStart = config?.timeStart ?? 18;
+    const timeEnd = config?.timeEnd ?? 23;
+    if (!isInTimeWindow(timeStart, timeEnd)) return;
     if (!gymItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(gymItem.id);
       if (completedToday) return;
       const last = await getReminderLastShown("gym");
       const now = Date.now();
-      if (last && last.date === today && now - last.time < THROTTLE_MS) return;
+      const throttleMs = (config?.throttleMinutes ?? 60) * 60 * 1000;
+      if (last && last.date === today && now - last.time < throttleMs) return;
     }
 
     setItemId(gymItem.id);
@@ -82,10 +83,12 @@ export function GymReminderPopup({ forceShow }: GymReminderPopupProps) {
       checkAndShow();
       return;
     }
+    const config = getPopupConfig("gym");
+    const throttleMs = (config?.throttleMinutes ?? 60) * 60 * 1000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const timeoutId = setTimeout(() => {
       checkAndShow();
-      intervalId = setInterval(checkAndShow, THROTTLE_MS);
+      if (throttleMs > 0) intervalId = setInterval(checkAndShow, throttleMs);
     }, INITIAL_DELAY_MS);
     return () => {
       clearTimeout(timeoutId);

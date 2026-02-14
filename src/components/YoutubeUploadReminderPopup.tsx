@@ -5,12 +5,10 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
-import { getPopupConfig } from "@/lib/popupReminderConfig";
+import { getPopupConfig, isInTimeWindow } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
 const YOUTUBE_ITEM_TITLE = "유튜브 업로드";
-const THROTTLE_MS = 30 * 60 * 1000; // 30분마다 알림
-/** 테스트용: true면 새로고침할 때마다 무조건 팝업 표시. 테스트 후 false로 되돌리기 */
 const TEST_ALWAYS_SHOW = false;
 
 const ANTI_VISION_LINK = "https://wagle.imweb.me/87?preview_mode=1";
@@ -54,14 +52,19 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
       setOpen(true);
       return;
     }
-    if (getPopupConfig("youtube")?.enabled === false) return;
+    const config = getPopupConfig("youtube");
+    if (config?.enabled === false) return;
+    const timeStart = config?.timeStart ?? 0;
+    const timeEnd = config?.timeEnd ?? 23;
+    if (!isInTimeWindow(timeStart, timeEnd)) return;
     if (!youtubeItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(youtubeItem.id);
       if (completedToday) return;
       const last = await getReminderLastShown("youtube");
       const now = Date.now();
-      if (last && last.date === today && now - last.time < THROTTLE_MS) return;
+      const throttleMs = (config?.throttleMinutes ?? 30) * 60 * 1000;
+      if (last && last.date === today && now - last.time < throttleMs) return;
     }
 
     setItemId(youtubeItem.id);
@@ -80,9 +83,11 @@ export function YoutubeUploadReminderPopup({ forceShow }: YoutubeUploadReminderP
       checkAndShow();
       return;
     }
+    const config = getPopupConfig("youtube");
+    const throttleMs = (config?.throttleMinutes ?? 30) * 60 * 1000;
     checkAndShow();
-    const intervalId = setInterval(checkAndShow, THROTTLE_MS);
-    return () => clearInterval(intervalId);
+    const intervalId = throttleMs > 0 ? setInterval(checkAndShow, throttleMs) : null;
+    return () => (intervalId ? clearInterval(intervalId) : undefined);
   }, [forceShow, checkAndShow]);
 
   const handleYes = useCallback(async () => {

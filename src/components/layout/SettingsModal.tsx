@@ -901,6 +901,7 @@ export function SettingsModal({ onClose }: Props) {
           routineTitle: popupDraft.routineTitle ?? "",
           timeStart: popupDraft.timeStart ?? 22,
           timeEnd: popupDraft.timeEnd ?? 3,
+          throttleMinutes: popupDraft.throttleMinutes ?? 120,
         });
         setPopupListVersion((v) => v + 1);
         closePopupForm();
@@ -1039,44 +1040,56 @@ export function SettingsModal({ onClose }: Props) {
                 />
                 <span className="text-sm text-neutral-700">사용</span>
               </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-neutral-500">노출 시간</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={popupDraft.timeStart ?? 0}
+                  onChange={(e) =>
+                    updateDraft({ timeStart: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                  }
+                  className="w-14 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
+                />
+                <span className="text-xs text-neutral-400">시 ~</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={popupDraft.timeEnd ?? 23}
+                  onChange={(e) =>
+                    updateDraft({ timeEnd: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                  }
+                  className="w-14 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
+                />
+                <span className="text-xs text-neutral-400">시 (자정 넘기면 다음날까지)</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs font-medium text-neutral-500">재확인 주기(분)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={1440}
+                  value={popupDraft.throttleMinutes ?? 30}
+                  onChange={(e) =>
+                    updateDraft({ throttleMinutes: Math.min(1440, Math.max(0, parseInt(e.target.value, 10) || 0)) })
+                  }
+                  className="w-20 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
+                />
+                <span className="text-xs text-neutral-400">0이면 당일 1회만</span>
+              </div>
               {customOnly && (
-                <>
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-500">루틴 제목에 포함될 문자열</label>
-                    <input
-                      type="text"
-                      value={popupDraft.routineTitle ?? ""}
-                      onChange={(e) => updateDraft({ routineTitle: e.target.value })}
-                      placeholder="루틴 항목 제목에 이 글자가 있으면 이 팝업 표시"
-                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-neutral-500">노출 시간</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={popupDraft.timeStart ?? 22}
-                      onChange={(e) =>
-                        updateDraft({ timeStart: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
-                      }
-                      className="w-14 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
-                    />
-                    <span className="text-xs text-neutral-400">시 ~</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={popupDraft.timeEnd ?? 3}
-                      onChange={(e) =>
-                        updateDraft({ timeEnd: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) })
-                      }
-                      className="w-14 rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-800"
-                    />
-                    <span className="text-xs text-neutral-400">시</span>
-                  </div>
-                </>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">루틴 제목에 포함될 문자열</label>
+                  <input
+                    type="text"
+                    value={popupDraft.routineTitle ?? ""}
+                    onChange={(e) => updateDraft({ routineTitle: e.target.value })}
+                    placeholder="루틴 항목 제목에 이 글자가 있으면 이 팝업 표시"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
+                  />
+                </div>
               )}
             </div>
             <div className="mt-4 flex gap-2">

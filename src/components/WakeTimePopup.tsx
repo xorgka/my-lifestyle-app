@@ -4,18 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadSleepData, saveSleepRecord } from "@/lib/sleepDb";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
-import { getPopupConfig } from "@/lib/popupReminderConfig";
+import { getPopupConfig, isInTimeWindow } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 import { TimeInputWithAmPm } from "@/components/ui/TimeInputWithAmPm";
-
-/** 아침으로 볼 시간대 (로컬 시각): 오전 5시 ~ 오후 1시 */
-const MORNING_START_HOUR = 5;
-const MORNING_END_HOUR = 13;
-
-function isMorningNow(): boolean {
-  const h = new Date().getHours();
-  return h >= MORNING_START_HOUR && h < MORNING_END_HOUR;
-}
 
 interface WakeTimePopupProps {
   /** 홈 '알림 테스트' 클릭 시 기상 시간 팝업만 강제 표시 */
@@ -32,8 +23,11 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
       setOpen(true);
       return;
     }
-    if (getPopupConfig("wake")?.enabled === false) return;
-    if (!isMorningNow()) return;
+    const config = getPopupConfig("wake");
+    if (config?.enabled === false) return;
+    const timeStart = config?.timeStart ?? 5;
+    const timeEnd = config?.timeEnd ?? 13;
+    if (!isInTimeWindow(timeStart, timeEnd)) return;
     const today = todayStr();
     const { data } = await loadSleepData();
     if (data[today]?.wakeTime) return;

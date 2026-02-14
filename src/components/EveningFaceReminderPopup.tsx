@@ -5,20 +5,13 @@ import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
-import { getPopupConfig } from "@/lib/popupReminderConfig";
+import { getPopupConfig, isInTimeWindow } from "@/lib/popupReminderConfig";
 import { todayStr } from "@/lib/dateUtil";
 
 const EVENING_FACE_ITEM_TITLE = "저녁 세안";
-const THROTTLE_MS = 30 * 60 * 1000; // 30분
-/** 첫 체크 지연(1분). 페이지 들어온 뒤 1분 뒤에 첫 검사, 이후 30분마다 */
+/** 첫 체크 지연(1분) */
 const INITIAL_DELAY_MS = 1 * 60 * 1000;
 const TEST_ALWAYS_SHOW = false;
-
-/** 저녁 9시 ~ 새벽 3시 */
-function isEveningFaceTime(): boolean {
-  const hour = new Date().getHours();
-  return hour >= 21 || hour < 3;
-}
 
 function benefitLineWithBold(text: string, boldWords: string[]) {
   if (boldWords.length === 0) return text;
@@ -59,15 +52,19 @@ export function EveningFaceReminderPopup({ forceShow }: EveningFaceReminderPopup
       setOpen(true);
       return;
     }
-    if (getPopupConfig("evening_face")?.enabled === false) return;
-    if (!isEveningFaceTime()) return;
+    const config = getPopupConfig("evening_face");
+    if (config?.enabled === false) return;
+    const timeStart = config?.timeStart ?? 21;
+    const timeEnd = config?.timeEnd ?? 3;
+    if (!isInTimeWindow(timeStart, timeEnd)) return;
     if (!faceItem) return;
     if (!TEST_ALWAYS_SHOW) {
       const completedToday = (completions[today] ?? []).includes(faceItem.id);
       if (completedToday) return;
       const last = await getReminderLastShown("evening_face");
       const now = Date.now();
-      if (last && last.date === today && now - last.time < THROTTLE_MS) return;
+      const throttleMs = (config?.throttleMinutes ?? 30) * 60 * 1000;
+      if (last && last.date === today && now - last.time < throttleMs) return;
     }
 
     setItemId(faceItem.id);
@@ -86,10 +83,12 @@ export function EveningFaceReminderPopup({ forceShow }: EveningFaceReminderPopup
       checkAndShow();
       return;
     }
+    const config = getPopupConfig("evening_face");
+    const throttleMs = (config?.throttleMinutes ?? 30) * 60 * 1000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const timeoutId = setTimeout(() => {
       checkAndShow();
-      intervalId = setInterval(checkAndShow, THROTTLE_MS);
+      if (throttleMs > 0) intervalId = setInterval(checkAndShow, throttleMs);
     }, INITIAL_DELAY_MS);
     return () => {
       clearTimeout(timeoutId);

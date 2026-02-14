@@ -10,6 +10,13 @@ const STORAGE_KEY = "popup-reminder-config";
 const CUSTOM_IDS_KEY = "popup-reminder-custom-ids";
 const SUPABASE_ROW_ID = "default";
 
+/** 노출 시간대(시 0~23). start > end면 자정 넘김(예: 22~3) */
+export function isInTimeWindow(start: number, end: number): boolean {
+  const h = new Date().getHours();
+  if (start <= end) return h >= start && h <= end;
+  return h >= start || h <= end;
+}
+
 export type PopupBenefitItem = { text: string; bold: string[] };
 
 export type PopupConfig = {
@@ -25,26 +32,15 @@ export type PopupConfig = {
   enabled: boolean;
   /** 커스텀 팝업만: 루틴 제목에 포함될 문자열 */
   routineTitle?: string;
-  /** 커스텀 팝업만: 노출 시작 시(0~23) */
+  /** 노출 시작 시(0~23). 시스템/커스텀 공통 */
   timeStart?: number;
-  /** 커스텀 팝업만: 노출 끝 시(0~23, 자정 넘기면 다음날까지) */
+  /** 노출 끝 시(0~23, 자정 넘기면 다음날까지). 시스템/커스텀 공통 */
   timeEnd?: number;
+  /** 재확인 주기(분). 0이면 당일 1회만. 시스템/커스텀 공통 */
+  throttleMinutes?: number;
 };
 
 const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
-  shower: {
-    title: "기상 후 샤워 하셨나요?",
-    benefitsSubtitle: "지금 샤워를 하면,",
-    benefits: [
-      { text: "뇌가 깨어나 인지기능 상승!", bold: ["인지기능"] },
-      { text: "창의적 사고 촉진", bold: ["창의적 사고"] },
-      { text: "문제 해결능력 UP", bold: ["문제 해결능력"] },
-      { text: "자는동안 쌓인 피지, 땀, 먼지 제거", bold: ["피지, 땀, 먼지"] },
-      { text: "혈액순환 촉진으로 붓기 완화", bold: ["혈액순환", "붓기"] },
-      { text: "하루 시작을 알리는 신호!", bold: ["하루 시작"] },
-    ],
-    enabled: true,
-  },
   morning_face: {
     title: "아침 세안 하셨나요?",
     benefitsSubtitle: "아침 세안도 안하시게요?",
@@ -55,6 +51,9 @@ const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
       { text: "피부 보습 윤기 좔좔!", bold: ["피부", "보습", "윤기"] },
     ],
     enabled: true,
+    timeStart: 5,
+    timeEnd: 15,
+    throttleMinutes: 30,
   },
   evening_face: {
     title: "저녁 세안 하셨나요?",
@@ -66,6 +65,9 @@ const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
       { text: "입 속 찌꺼기 말끔 제거", bold: ["찌꺼기", "말끔 제거"] },
     ],
     enabled: true,
+    timeStart: 21,
+    timeEnd: 3,
+    throttleMinutes: 30,
   },
   gym: {
     title: "오늘 헬스장 가셨나요?",
@@ -79,6 +81,9 @@ const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
       { text: "후회 없고, 보람 찬 하루 추가!", bold: ["후회", "보람"] },
     ],
     enabled: true,
+    timeStart: 18,
+    timeEnd: 23,
+    throttleMinutes: 60,
   },
   youtube: {
     title: "오늘 유튜브 업로드 하셨나요?",
@@ -92,16 +97,21 @@ const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
       { text: "홈피 할래? 유튜브 할래?", bold: ["유튜브"] },
     ],
     enabled: true,
+    timeStart: 0,
+    timeEnd: 23,
+    throttleMinutes: 30,
   },
   wake: {
     title: "오늘 몇 시에 깼나요?",
     benefits: [],
     enabled: true,
+    timeStart: 5,
+    timeEnd: 13,
+    throttleMinutes: 0,
   },
 };
 
 export const SYSTEM_POPUP_IDS: ReminderPopupId[] = [
-  "shower",
   "morning_face",
   "evening_face",
   "gym",
@@ -110,7 +120,6 @@ export const SYSTEM_POPUP_IDS: ReminderPopupId[] = [
 ];
 
 export const SYSTEM_POPUP_LABELS: Record<ReminderPopupId, string> = {
-  shower: "기상 후 샤워",
   morning_face: "아침 세안",
   evening_face: "저녁 세안",
   gym: "헬스장",
@@ -208,6 +217,7 @@ export function getPopupConfig(id: string): PopupConfig | null {
     routineTitle: "",
     timeStart: 22,
     timeEnd: 3,
+    throttleMinutes: 120,
   };
   const ov = overrides[id];
   if (!ov) return base as PopupConfig;

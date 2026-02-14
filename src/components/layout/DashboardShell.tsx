@@ -18,7 +18,6 @@ function useIsMobile(): boolean {
 import { EveningFaceReminderPopup } from "@/components/EveningFaceReminderPopup";
 import { GymReminderPopup } from "@/components/GymReminderPopup";
 import { MorningFaceReminderPopup } from "@/components/MorningFaceReminderPopup";
-import { ShowerReminderPopup } from "@/components/ShowerReminderPopup";
 import { WakeTimePopup } from "@/components/WakeTimePopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
 import { CustomReminderPopups } from "@/components/CustomReminderPopups";
@@ -67,7 +66,6 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-5 md:px-10 md:pt-10 md:pb-4">
-      <ShowerReminderPopup />
       <MorningFaceReminderPopup />
       <EveningFaceReminderPopup />
       <GymReminderPopup />

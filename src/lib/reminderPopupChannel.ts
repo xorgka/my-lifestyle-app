@@ -8,7 +8,7 @@ export const REMINDER_POPUP_Z_INDEX = 9999;
 export const REMINDER_BACKDROP_OPACITY = 0.88;
 export const REMINDER_OPEN_EVENT = "reminderPopupOpen";
 
-export type ReminderPopupId = "shower" | "morning_face" | "evening_face" | "gym" | "youtube" | "wake";
+export type ReminderPopupId = "morning_face" | "evening_face" | "gym" | "youtube" | "wake";
 
 export function dispatchReminderOpen(id: ReminderPopupId): void {
   if (typeof window === "undefined") return;

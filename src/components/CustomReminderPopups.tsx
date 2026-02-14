@@ -13,7 +13,7 @@ import { getReminderLastShownAny, setReminderLastShownAny } from "@/lib/reminder
 import { dispatchReminderOpenAny, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { todayStr } from "@/lib/dateUtil";
 
-const CUSTOM_THROTTLE_MS = 2 * 60 * 60 * 1000; // 2시간
+const CHECK_INTERVAL_MS = 60 * 1000; // 1분마다 조건 검사 (각 팝업은 설정의 재확인 주기 적용)
 
 function isInTimeWindow(start: number, end: number): boolean {
   const h = new Date().getHours();
@@ -62,7 +62,8 @@ export function CustomReminderPopups() {
       if (!match || completedToday.has(match.id)) continue;
       const last = await getReminderLastShownAny(id);
       const now = Date.now();
-      if (last?.date === today && now - last.time < CUSTOM_THROTTLE_MS) continue;
+      const throttleMs = (c.throttleMinutes ?? 120) * 60 * 1000;
+      if (last?.date === today && now - last.time < throttleMs) continue;
 
       setPopupId(id);
       setConfig(c);
@@ -82,7 +83,7 @@ export function CustomReminderPopups() {
 
   useEffect(() => {
     checkAndShow();
-    const t = setInterval(checkAndShow, CUSTOM_THROTTLE_MS);
+    const t = setInterval(checkAndShow, CHECK_INTERVAL_MS);
     return () => clearInterval(t);
   }, [checkAndShow]);
 
