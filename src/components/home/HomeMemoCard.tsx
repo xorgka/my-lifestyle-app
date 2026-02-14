@@ -82,7 +82,7 @@ export function HomeMemoCard() {
                   {currentMemo.title?.trim() || "제목 없음"}
                 </h3>
                 <div
-                  className="whitespace-pre-wrap break-words text-[17px] font-normal leading-relaxed text-neutral-700"
+                  className="whitespace-pre-wrap break-words text-[15px] font-normal leading-relaxed text-neutral-700 md:text-[17px]"
                   style={{ lineHeight: "1.5" }}
                 >
                   {currentMemo.content.trim() || "내용 없음"}
