@@ -64,6 +64,7 @@ RLS(행 수준 보안) 정책이 없으면 Supabase에서 insert/select가 막�
 
 1. **`migration-timetable.sql`** — 테이블 `timetable_days` (날짜별 슬롯·완료)
 2. **`migration-timetable-routine-links.sql`** — 테이블 `timetable_routine_links` (타임테이블 항목 id → 루틴 항목 id)
+3. **`migration-timetable-extras.sql`** — 날짜별 시작시간 오버라이드, 저장 템플릿, (시간+텍스트) 루틴 연동 테이블. **이걸 실행해야** 위 세 가지가 기기/브라우저 간 동기화됩니다.
 
 환경 변수 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`가 설정된 상태에서 사용하면 새로고침해도 데이터가 유지되고, 다른 기기에서도 동일하게 보입니다.
 

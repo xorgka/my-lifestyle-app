@@ -10,6 +10,7 @@ import {
   getTodayKey,
   sortTimetableSlots,
   getStartTimeOverrideForKey,
+  syncStartTimeOverridesFromSupabase,
   getSlotDisplayHour,
   type DayTimetable,
   type TimetableSlot,
@@ -174,7 +175,8 @@ export function useHomeWidgetData() {
 
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
-    setTemplateLinks(loadTimetableTemplateLinks());
+    loadTimetableTemplateLinks().then(setTemplateLinks);
+    syncStartTimeOverridesFromSupabase();
   }, []);
 
   useEffect(() => {

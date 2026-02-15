@@ -8,6 +8,7 @@ import { supabase } from "./supabase";
 const STORAGE_KEY = "timetable-routine-links";
 const TEMPLATE_STORAGE_KEY = "timetable-routine-template-links"; // (시간대\0텍스트) → 루틴 ID. 항목 구성이 다른 날에도 같은 시간·텍스트면 연동 적용
 const TABLE_NAME = "timetable_routine_links";
+const TEMPLATE_LINKS_TABLE = "timetable_routine_template_links";
 
 function loadFromStorage(): Record<string, number> {
   if (typeof window === "undefined") return {};
@@ -107,9 +108,56 @@ function saveTemplateToStorage(template: Record<string, number>): void {
   } catch {}
 }
 
-/** (시간대+텍스트) 템플릿 연동 로드. 항목 구성이 다른 날에도 같은 시간·텍스트면 연동 적용 */
-export function loadTimetableTemplateLinks(): Record<string, number> {
-  return loadTemplateFromStorage();
+async function loadTemplateLinksFromSupabase(): Promise<Record<string, number>> {
+  if (!supabase) return loadTemplateFromStorage();
+  const { data, error } = await supabase.from(TEMPLATE_LINKS_TABLE).select("time_text_key, routine_item_id");
+  if (error) {
+    console.warn("[timetableRoutineLinks] loadTemplateLinksFromSupabase", error.message);
+    return loadTemplateFromStorage();
+  }
+  const out: Record<string, number> = {};
+  (data ?? []).forEach((row: { time_text_key: string; routine_item_id: number }) => {
+    const rid = Number(row.routine_item_id);
+    if (!Number.isNaN(rid)) out[row.time_text_key] = rid;
+  });
+  return out;
+}
+
+async function saveTemplateLinksToSupabase(template: Record<string, number>): Promise<void> {
+  if (!supabase) return;
+  try {
+    const rows = Object.entries(template).map(([time_text_key, routine_item_id]) => ({
+      time_text_key,
+      routine_item_id,
+    }));
+    const keys = Object.keys(template);
+    const { data: existing } = await supabase.from(TEMPLATE_LINKS_TABLE).select("time_text_key");
+    const toDelete = (existing ?? [])
+      .map((r: { time_text_key: string }) => r.time_text_key)
+      .filter((id) => !keys.includes(id));
+    if (toDelete.length > 0) {
+      await supabase.from(TEMPLATE_LINKS_TABLE).delete().in("time_text_key", toDelete);
+    }
+    if (rows.length > 0) {
+      await supabase.from(TEMPLATE_LINKS_TABLE).upsert(rows, { onConflict: "time_text_key" });
+    }
+  } catch (e) {
+    console.warn("[timetableRoutineLinks] saveTemplateLinksToSupabase", e);
+  }
+}
+
+/** (시간대+텍스트) 템플릿 연동 로드. Supabase 우선, 없으면 localStorage. 기기/브라우저 동기화 */
+export async function loadTimetableTemplateLinks(): Promise<Record<string, number>> {
+  const fromDb = await loadTemplateLinksFromSupabase();
+  const fromStorage = loadTemplateFromStorage();
+  const merged = { ...fromStorage, ...fromDb };
+  if (typeof window !== "undefined") {
+    saveTemplateToStorage(merged);
+    if (Object.keys(fromDb).length === 0 && Object.keys(fromStorage).length > 0) {
+      await saveTemplateLinksToSupabase(fromStorage);
+    }
+  }
+  return merged;
 }
 
 /** 타임테이블 항목에 연동된 루틴 항목 ID. links는 loadTimetableRoutineLinks() 결과. slotTime+itemText 있으면 템플릿 연동도 조회 */
@@ -178,6 +226,7 @@ export async function setTimetableRoutineLink(
     if (routineItemId == null) delete template[key];
     else template[key] = routineItemId;
     saveTemplateToStorage(template);
+    await saveTemplateLinksToSupabase(template);
   }
 }
 

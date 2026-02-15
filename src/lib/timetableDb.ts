@@ -21,8 +21,9 @@ export function sortTimetableSlots(slots: TimetableSlot[]): TimetableSlot[] {
   return [...slots].sort((a, b) => timetableSlotOrderKey(a.time) - timetableSlotOrderKey(b.time));
 }
 
-/** 해당 날짜만 적용되는 시작시간 오버라이드(0~23). null이면 기존 슬롯 시간 그대로 */
+/** 해당 날짜만 적용되는 시작시간 오버라이드(0~23). null이면 기존 슬롯 시간 그대로. Supabase 연결 시 기기/브라우저 동기화 */
 const START_TIME_OVERRIDE_KEY = "timetable-start-time";
+const START_TIME_OVERRIDE_TABLE = "timetable_start_time_overrides";
 
 export function getStartTimeOverrideForKey(key: string): number | null {
   if (typeof window === "undefined") return null;
@@ -37,9 +38,30 @@ export function setStartTimeOverrideForKey(key: string, hour: number | null): vo
   if (typeof window === "undefined") return;
   if (hour == null) {
     window.localStorage.removeItem(`${START_TIME_OVERRIDE_KEY}-${key}`);
+    if (supabase) {
+      supabase.from(START_TIME_OVERRIDE_TABLE).delete().eq("date_key", key).then(() => {});
+    }
     return;
   }
   window.localStorage.setItem(`${START_TIME_OVERRIDE_KEY}-${key}`, String(hour));
+  if (supabase) {
+    supabase.from(START_TIME_OVERRIDE_TABLE).upsert({ date_key: key, hour }, { onConflict: "date_key" }).then(() => {});
+  }
+}
+
+/** Supabase에서 날짜별 시작시간 오버라이드를 가져와 localStorage에 반영. 타임테이블 페이지 로드 시 호출 권장 */
+export async function syncStartTimeOverridesFromSupabase(): Promise<void> {
+  if (!supabase || typeof window === "undefined") return;
+  try {
+    const { data, error } = await supabase.from(START_TIME_OVERRIDE_TABLE).select("date_key, hour");
+    if (error || !Array.isArray(data)) return;
+    data.forEach((row: { date_key: string; hour: number }) => {
+      const h = Number(row.hour);
+      if (!Number.isNaN(h) && h >= 0 && h <= 23) {
+        window.localStorage.setItem(`${START_TIME_OVERRIDE_KEY}-${row.date_key}`, String(h));
+      }
+    });
+  } catch {}
 }
 
 /** 오버라이드가 있을 때 슬롯의 표시 시각(0~23) */
@@ -151,9 +173,24 @@ export function templateToDay(template: TimetableTemplate): DayTimetable {
   };
 }
 
-export function loadTimetableTemplate(): TimetableTemplate | null {
+const SAVED_TEMPLATE_TABLE = "timetable_saved_template";
+const SAVED_TEMPLATE_ROW_ID = "default";
+
+export async function loadTimetableTemplate(): Promise<TimetableTemplate | null> {
   if (typeof window === "undefined") return null;
   try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(SAVED_TEMPLATE_TABLE)
+        .select("slots")
+        .eq("id", SAVED_TEMPLATE_ROW_ID)
+        .maybeSingle();
+      if (!error && data?.slots && Array.isArray(data.slots) && data.slots.length > 0) {
+        const t = { slots: data.slots as TimetableTemplate["slots"] };
+        window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(t));
+        return t;
+      }
+    }
     const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
     if (!raw) return null;
     const t = JSON.parse(raw) as TimetableTemplate;
@@ -164,10 +201,16 @@ export function loadTimetableTemplate(): TimetableTemplate | null {
   }
 }
 
-export function saveTimetableTemplate(template: TimetableTemplate): void {
+export async function saveTimetableTemplate(template: TimetableTemplate): Promise<void> {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(template));
+    if (supabase) {
+      await supabase.from(SAVED_TEMPLATE_TABLE).upsert(
+        { id: SAVED_TEMPLATE_ROW_ID, slots: template.slots },
+        { onConflict: "id" }
+      );
+    }
   } catch {}
 }
 

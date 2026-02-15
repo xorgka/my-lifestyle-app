@@ -12,6 +12,7 @@ import {
   sortTimetableSlots,
   getStartTimeOverrideForKey,
   setStartTimeOverrideForKey,
+  syncStartTimeOverridesFromSupabase,
   getSlotDisplayHour,
   dayToTemplate,
   templateToDay,
@@ -91,20 +92,29 @@ export default function TimetablePage() {
   const longPressTargetRef = useRef<Element | null>(null);
   const longPressPointerIdRef = useRef<number>(0);
   const dayRef = useRef<DayTimetable | null>(null);
+  const dateKeyRef = useRef<string>(dateKey);
 
   useEffect(() => {
     dayRef.current = day;
   }, [day]);
+  useEffect(() => {
+    dateKeyRef.current = dateKey;
+  }, [dateKey]);
 
   useEffect(() => {
     loadRoutineItems().then(setRoutineItems);
   }, []);
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
-    setTemplateLinks(loadTimetableTemplateLinks());
+    loadTimetableTemplateLinks().then(setTemplateLinks);
   }, []);
   useEffect(() => {
-    setHasSavedTemplate(!!loadTimetableTemplate());
+    loadTimetableTemplate().then((t) => setHasSavedTemplate(!!t));
+  }, []);
+  useEffect(() => {
+    syncStartTimeOverridesFromSupabase().then(() =>
+      setStartTimeOverride(getStartTimeOverrideForKey(dateKeyRef.current))
+    );
   }, []);
 
   const load = useCallback(async (key: string) => {
@@ -162,14 +172,14 @@ export default function TimetablePage() {
   const goPrev = () => setDateKey((k) => getDateKeyOffset(k, -1));
   const goNext = () => setDateKey((k) => getDateKeyOffset(k, 1));
 
-  const saveAsTemplate = useCallback(() => {
+  const saveAsTemplate = useCallback(async () => {
     if (!day) return;
-    saveTimetableTemplate(dayToTemplate(day));
+    await saveTimetableTemplate(dayToTemplate(day));
     setHasSavedTemplate(true);
   }, [day]);
 
-  const applyTemplate = useCallback(() => {
-    const t = loadTimetableTemplate();
+  const applyTemplate = useCallback(async () => {
+    const t = await loadTimetableTemplate();
     if (!t) return;
     const newDay = templateToDay(t);
     persist(newDay, false);
@@ -270,7 +280,7 @@ export default function TimetablePage() {
           const text = newItems[i].text;
           setTimetableRoutineLink(tid, rid, { ...routineLinks, [tid]: rid }, t, text).then(() => {
             setRoutineLinks((prev) => ({ ...prev, [tid]: rid }));
-            setTemplateLinks(loadTimetableTemplateLinks());
+            loadTimetableTemplateLinks().then(setTemplateLinks);
           });
         }
       });
@@ -588,7 +598,7 @@ export default function TimetablePage() {
                   else nextLinks[itemModal.itemId] = routineId;
                   setTimetableRoutineLink(itemModal.itemId, routineId ?? null, routineLinks, slotTime, text).then(() => {
                     setRoutineLinks(nextLinks);
-                    setTemplateLinks(loadTimetableTemplateLinks());
+                    loadTimetableTemplateLinks().then(setTemplateLinks);
                   });
                   setItemModal(null);
                 }}

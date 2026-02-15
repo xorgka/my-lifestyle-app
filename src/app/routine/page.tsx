@@ -137,7 +137,7 @@ export default function RoutinePage() {
 
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
-    setTemplateLinks(loadTimetableTemplateLinks());
+    loadTimetableTemplateLinks().then(setTemplateLinks);
   }, []);
 
   useEffect(() => {
