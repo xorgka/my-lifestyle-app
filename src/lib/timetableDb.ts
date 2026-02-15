@@ -34,18 +34,18 @@ export function getStartTimeOverrideForKey(key: string): number | null {
   return n;
 }
 
-export function setStartTimeOverrideForKey(key: string, hour: number | null): void {
+export async function setStartTimeOverrideForKey(key: string, hour: number | null): Promise<void> {
   if (typeof window === "undefined") return;
   if (hour == null) {
     window.localStorage.removeItem(`${START_TIME_OVERRIDE_KEY}-${key}`);
     if (supabase) {
-      supabase.from(START_TIME_OVERRIDE_TABLE).delete().eq("date_key", key).then(() => {});
+      await supabase.from(START_TIME_OVERRIDE_TABLE).delete().eq("date_key", key);
     }
     return;
   }
   window.localStorage.setItem(`${START_TIME_OVERRIDE_KEY}-${key}`, String(hour));
   if (supabase) {
-    supabase.from(START_TIME_OVERRIDE_TABLE).upsert({ date_key: key, hour }, { onConflict: "date_key" }).then(() => {});
+    await supabase.from(START_TIME_OVERRIDE_TABLE).upsert({ date_key: key, hour }, { onConflict: "date_key" });
   }
 }
 

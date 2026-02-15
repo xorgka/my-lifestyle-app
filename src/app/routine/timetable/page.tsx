@@ -551,12 +551,12 @@ export default function TimetablePage() {
               <StartTimeModal
                 currentOverride={startTimeOverride}
                 firstSlotHour={sortedSlots.length > 0 ? parseInt(String(sortedSlots[0].time).trim(), 10) : 9}
-                onSave={(hour) => {
+                onSave={async (hour) => {
                   if (hour != null) {
-                    setStartTimeOverrideForKey(dateKey, hour);
+                    await setStartTimeOverrideForKey(dateKey, hour);
                     setStartTimeOverride(hour);
                   } else {
-                    setStartTimeOverrideForKey(dateKey, null);
+                    await setStartTimeOverrideForKey(dateKey, null);
                     setStartTimeOverride(null);
                   }
                   setStartTimeModalOpen(false);
