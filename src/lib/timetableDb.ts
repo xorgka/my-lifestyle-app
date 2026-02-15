@@ -126,15 +126,49 @@ function getDefaultDay(): DayTimetable {
   return deepCopyDay({ slots: DEFAULT_SLOTS, completedIds: [] });
 }
 
-/** 슬롯 시간+항목 텍스트만으로 구조 키 (기본과 동일 여부 판별용) */
-function getStructureKey(day: DayTimetable): string {
-  return sortTimetableSlots(day.slots)
-    .map((s) => s.time + "|" + s.items.map((i) => i.text).sort().join(","))
-    .join(";");
+// --- 사용자 저장 템플릿 (시간대·항목 구조만, 다른 날짜에 적용용) ---
+const TEMPLATE_STORAGE_KEY = "timetable-saved-template";
+
+export type TimetableTemplate = { slots: { time: string; items: { text: string }[] }[] };
+
+export function dayToTemplate(day: DayTimetable): TimetableTemplate {
+  return {
+    slots: day.slots.map((s) => ({
+      time: s.time,
+      items: s.items.map((i) => ({ text: i.text })),
+    })),
+  };
 }
 
-function isSameStructureAsDefault(day: DayTimetable): boolean {
-  return getStructureKey(day) === getStructureKey({ slots: DEFAULT_SLOTS, completedIds: [] });
+export function templateToDay(template: TimetableTemplate): DayTimetable {
+  return {
+    slots: template.slots.map((s) => ({
+      id: genId(),
+      time: s.time,
+      items: s.items.map((i) => ({ id: genId(), text: i.text })),
+    })),
+    completedIds: [],
+  };
+}
+
+export function loadTimetableTemplate(): TimetableTemplate | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    if (!raw) return null;
+    const t = JSON.parse(raw) as TimetableTemplate;
+    if (!t?.slots || !Array.isArray(t.slots)) return null;
+    return t;
+  } catch {
+    return null;
+  }
+}
+
+export function saveTimetableTemplate(template: TimetableTemplate): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(template));
+  } catch {}
 }
 
 // --- Supabase (optional) ---
@@ -169,24 +203,21 @@ async function saveToSupabase(data: Record<string, DayTimetable>): Promise<void>
 /** 특정 날짜 타임테이블 로드 결과. copiedFrom이 있으면 어제 데이터를 복사한 것 */
 export type LoadTimetableResult = { day: DayTimetable; copiedFrom: string | null };
 
-/** 특정 날짜 타임테이블 로드. 오늘·미래는 오늘 구조 기준, 과거는 저장된 그대로. 오늘 데이터 없으면 어제 복사 */
+/** 특정 날짜 타임테이블 로드. 오늘은 저장된 것이 있으면 무조건 유지(덮어쓰지 않음). 오늘 데이터가 없을 때만 어제 복사. 미래는 오늘 구조 기준. */
 export async function loadTimetableForDate(key: string): Promise<LoadTimetableResult> {
   const all = await loadAllTimetables();
   const todayKey = getTodayKey();
 
   if (key === todayKey) {
-    const yesterdayKey = getDateKeyOffset(todayKey, -1);
-    const hasYesterday = !!all[yesterdayKey];
     const today = all[key];
-    if (today && (!hasYesterday || !isSameStructureAsDefault(today))) {
-      return { day: today, copiedFrom: null };
-    }
-    const template = hasYesterday ? all[yesterdayKey]! : getDefaultDay();
+    if (today) return { day: today, copiedFrom: null };
+    const yesterdayKey = getDateKeyOffset(todayKey, -1);
+    const template = all[yesterdayKey] ?? getDefaultDay();
     const newDay = deepCopyDay(template);
     const nextAll = { ...all, [key]: newDay };
     saveToStorage(nextAll);
     await saveToSupabase(nextAll);
-    return { day: newDay, copiedFrom: hasYesterday ? yesterdayKey : null };
+    return { day: newDay, copiedFrom: all[yesterdayKey] ? yesterdayKey : null };
   }
 
   if (key < todayKey) {

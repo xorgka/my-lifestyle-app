@@ -13,6 +13,10 @@ import {
   getStartTimeOverrideForKey,
   setStartTimeOverrideForKey,
   getSlotDisplayHour,
+  dayToTemplate,
+  templateToDay,
+  loadTimetableTemplate,
+  saveTimetableTemplate,
   type DayTimetable,
   type TimetableSlot,
 } from "@/lib/timetableDb";
@@ -70,6 +74,7 @@ export default function TimetablePage() {
   /** 해당 날짜만 적용되는 시작시간 오버라이드(0~23). null이면 기존 슬롯 시간 그대로 표시 */
   const [startTimeOverride, setStartTimeOverride] = useState<number | null>(() => getStartTimeOverrideForKey(getTodayKey()));
   const [startTimeModalOpen, setStartTimeModalOpen] = useState(false);
+  const [hasSavedTemplate, setHasSavedTemplate] = useState(false);
 
   /** 항목 ID로 슬롯 시간·텍스트 찾기 (템플릿 연동 조회용) */
   const getSlotTimeAndText = useCallback((d: DayTimetable | null, itemId: string): { time: string; text: string } | null => {
@@ -97,6 +102,9 @@ export default function TimetablePage() {
   useEffect(() => {
     loadTimetableRoutineLinks().then(setRoutineLinks);
     setTemplateLinks(loadTimetableTemplateLinks());
+  }, []);
+  useEffect(() => {
+    setHasSavedTemplate(!!loadTimetableTemplate());
   }, []);
 
   const load = useCallback(async (key: string) => {
@@ -153,6 +161,19 @@ export default function TimetablePage() {
 
   const goPrev = () => setDateKey((k) => getDateKeyOffset(k, -1));
   const goNext = () => setDateKey((k) => getDateKeyOffset(k, 1));
+
+  const saveAsTemplate = useCallback(() => {
+    if (!day) return;
+    saveTimetableTemplate(dayToTemplate(day));
+    setHasSavedTemplate(true);
+  }, [day]);
+
+  const applyTemplate = useCallback(() => {
+    const t = loadTimetableTemplate();
+    if (!t) return;
+    const newDay = templateToDay(t);
+    persist(newDay, false);
+  }, [persist]);
 
   const toggleComplete = useCallback(
     (itemId: string) => {
@@ -439,6 +460,26 @@ export default function TimetablePage() {
               </svg>
             </span>
             <span className="hidden sm:inline">시작시간</span>
+          </button>
+          <button
+            type="button"
+            onClick={saveAsTemplate}
+            disabled={!day || day.slots.length === 0}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white px-2 py-2.5 text-xs text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-50 sm:min-w-0 sm:px-4 sm:py-3 sm:text-sm"
+            title="현재 날짜 타임테이블을 템플릿으로 저장"
+          >
+            <span className="sm:hidden">저장</span>
+            <span className="hidden sm:inline">템플릿 저장</span>
+          </button>
+          <button
+            type="button"
+            onClick={applyTemplate}
+            disabled={!hasSavedTemplate}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white px-2 py-2.5 text-xs text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-50 sm:min-w-0 sm:px-4 sm:py-3 sm:text-sm"
+            title="저장된 템플릿을 이 날짜에 적용"
+          >
+            <span className="sm:hidden">적용</span>
+            <span className="hidden sm:inline">템플릿 적용</span>
           </button>
           <button
             type="button"
