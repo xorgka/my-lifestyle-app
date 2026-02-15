@@ -158,14 +158,20 @@ async function saveToSupabase(data: Record<string, DayTimetable>): Promise<void>
 /** 특정 날짜 타임테이블 로드 결과. copiedFrom이 있으면 어제 데이터를 복사한 것 */
 export type LoadTimetableResult = { day: DayTimetable; copiedFrom: string | null };
 
-/** 특정 날짜 타임테이블 로드. 오늘·미래는 오늘 구조 기준, 과거는 저장된 그대로 */
+/** 특정 날짜 타임테이블 로드. 오늘·미래는 오늘 구조 기준, 과거는 저장된 그대로. 오늘 데이터 없으면 어제 복사 */
 export async function loadTimetableForDate(key: string): Promise<LoadTimetableResult> {
   const all = await loadAllTimetables();
   const todayKey = getTodayKey();
 
   if (key === todayKey) {
-    const day = all[key] ?? getDefaultDay();
-    return { day, copiedFrom: null };
+    if (all[key]) return { day: all[key], copiedFrom: null };
+    const yesterdayKey = getDateKeyOffset(todayKey, -1);
+    const template = all[yesterdayKey] ?? getDefaultDay();
+    const newDay = deepCopyDay(template);
+    const nextAll = { ...all, [key]: newDay };
+    saveToStorage(nextAll);
+    await saveToSupabase(nextAll);
+    return { day: newDay, copiedFrom: yesterdayKey };
   }
 
   if (key < todayKey) {
