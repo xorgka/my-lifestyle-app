@@ -126,6 +126,17 @@ function getDefaultDay(): DayTimetable {
   return deepCopyDay({ slots: DEFAULT_SLOTS, completedIds: [] });
 }
 
+/** 슬롯 시간+항목 텍스트만으로 구조 키 (기본과 동일 여부 판별용) */
+function getStructureKey(day: DayTimetable): string {
+  return sortTimetableSlots(day.slots)
+    .map((s) => s.time + "|" + s.items.map((i) => i.text).sort().join(","))
+    .join(";");
+}
+
+function isSameStructureAsDefault(day: DayTimetable): boolean {
+  return getStructureKey(day) === getStructureKey({ slots: DEFAULT_SLOTS, completedIds: [] });
+}
+
 // --- Supabase (optional) ---
 const TABLE_NAME = "timetable_days";
 
@@ -164,14 +175,18 @@ export async function loadTimetableForDate(key: string): Promise<LoadTimetableRe
   const todayKey = getTodayKey();
 
   if (key === todayKey) {
-    if (all[key]) return { day: all[key], copiedFrom: null };
     const yesterdayKey = getDateKeyOffset(todayKey, -1);
-    const template = all[yesterdayKey] ?? getDefaultDay();
+    const hasYesterday = !!all[yesterdayKey];
+    const today = all[key];
+    if (today && (!hasYesterday || !isSameStructureAsDefault(today))) {
+      return { day: today, copiedFrom: null };
+    }
+    const template = hasYesterday ? all[yesterdayKey]! : getDefaultDay();
     const newDay = deepCopyDay(template);
     const nextAll = { ...all, [key]: newDay };
     saveToStorage(nextAll);
     await saveToSupabase(nextAll);
-    return { day: newDay, copiedFrom: yesterdayKey };
+    return { day: newDay, copiedFrom: hasYesterday ? yesterdayKey : null };
   }
 
   if (key < todayKey) {
