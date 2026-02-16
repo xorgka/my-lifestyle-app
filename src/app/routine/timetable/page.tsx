@@ -53,6 +53,13 @@ function formatDateShort(key: string): string {
   return `${y}. ${m}. ${d}. (${WEEKDAY[date.getDay()]})`;
 }
 
+/** 간단 표기: 2.16(월) */
+function formatDateCompact(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${m}.${d}(${WEEKDAY[date.getDay()]})`;
+}
+
 /** 시간 숫자 → "9시", "10시" 표기 */
 function formatTimeDisplay(time: string): string {
   const n = parseInt(String(time).trim(), 10);
@@ -389,6 +396,11 @@ export default function TimetablePage() {
 
   const sortedSlots = sortTimetableSlots(day.slots);
   const firstSlotHour = sortedSlots.length > 0 ? parseInt(String(sortedSlots[0].time).trim(), 10) : 0;
+  const todayKey = getTodayKey();
+  const isTodayOrAdjacent =
+    dateKey === todayKey ||
+    dateKey === getDateKeyOffset(todayKey, -1) ||
+    dateKey === getDateKeyOffset(todayKey, 1);
   const getDisplayTime = (slot: TimetableSlot): string => {
     if (startTimeOverride == null || Number.isNaN(firstSlotHour)) return slot.time;
     const displayHour = getSlotDisplayHour(slot.time, firstSlotHour, startTimeOverride);
@@ -397,10 +409,10 @@ export default function TimetablePage() {
 
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+      <div className="flex flex-nowrap items-center justify-between gap-2 sm:flex-wrap sm:gap-3 sm:gap-4">
         <Link
           href="/routine"
-          className="flex min-h-[44px] min-w-[44px] items-center gap-2 text-neutral-600 hover:text-neutral-900 sm:min-h-0 sm:min-w-0"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-2 text-neutral-600 hover:text-neutral-900 sm:min-h-0 sm:min-w-0"
           aria-label="루틴으로"
         >
           <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,9 +420,18 @@ export default function TimetablePage() {
           </svg>
           <span className="hidden sm:inline">루틴으로</span>
         </Link>
-        <div className="order-last w-full text-center sm:order-none sm:w-auto">
-          <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">{formatDateLabel(dateKey)}</h1>
-          <p className="mt-0.5 text-xs text-neutral-400 sm:text-sm">{formatDateShort(dateKey)}</p>
+        <div className="min-w-0 flex-1 text-center">
+          <h1 className="truncate text-base font-bold text-neutral-900 sm:text-2xl">
+            {isTodayOrAdjacent ? (
+              <>
+                <span className="text-lg sm:text-2xl">{formatDateLabel(dateKey)}</span>
+                <span className="ml-1 text-sm font-normal text-neutral-400 sm:ml-1.5 sm:text-base">{formatDateCompact(dateKey)}</span>
+              </>
+            ) : (
+              <span className="font-normal text-neutral-400 sm:text-neutral-500">{formatDateCompact(dateKey)}</span>
+            )}
+          </h1>
+          <p className="mt-0.5 hidden text-xs text-neutral-400 sm:block sm:text-sm">{formatDateShort(dateKey)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
@@ -437,10 +458,16 @@ export default function TimetablePage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-        <div className="min-w-0 max-w-[55%] shrink-0 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-600 sm:max-w-none sm:flex-initial sm:px-4 sm:py-3 sm:text-sm">
-          총 <span className="font-semibold text-neutral-800">{totalItems}</span>개 항목 중{" "}
-          <span className="font-semibold text-neutral-800">{completedCount}</span>개 완료
-          {saving && <span className="ml-1 text-neutral-400 sm:ml-2">· 저장 중</span>}
+        <div className="min-w-0 max-w-[55%] shrink-0 px-1 py-2.5 text-xs text-neutral-600 sm:max-w-none sm:flex-initial sm:rounded-xl sm:border sm:border-neutral-200 sm:bg-white sm:px-4 sm:py-3 sm:text-sm">
+          <span className="sm:hidden">
+            완료 <span className="font-semibold text-neutral-800">{completedCount}/{totalItems}</span>
+            {saving && <span className="ml-1 text-neutral-400">· 저장 중</span>}
+          </span>
+          <span className="hidden sm:inline">
+            총 <span className="font-semibold text-neutral-800">{totalItems}</span>개 항목 중{" "}
+            <span className="font-semibold text-neutral-800">{completedCount}</span>개 완료
+            {saving && <span className="ml-2 text-neutral-400">· 저장 중</span>}
+          </span>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
