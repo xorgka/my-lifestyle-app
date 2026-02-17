@@ -852,7 +852,7 @@ export default function JournalPage() {
                         )}
                       </div>
                     ) : (
-                      <div className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? "") }} />
+                      <div className="prose prose-neutral min-w-0 text-[16px] leading-relaxed text-neutral-800" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? "") }} />
                     )}
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -1126,7 +1126,7 @@ export default function JournalPage() {
                         )}
                       </div>
                     ) : (
-                      <div className="prose prose-neutral min-w-0 text-[18px] leading-relaxed text-neutral-800" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? "") }} />
+                      <div className="prose prose-neutral min-w-0 text-[16px] leading-relaxed text-neutral-800" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(entriesByDate[selectedDate]?.content ?? "") }} />
                     )}
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -1400,7 +1400,7 @@ export default function JournalPage() {
                       }
                     }}
                     placeholder="오늘 하루를 적어보세요. 볼드는 Ctrl+B(⌘+B)로 적용해요."
-                    className="min-h-[560px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
+                    className="min-h-[560px] w-full resize-y rounded-xl border border-neutral-200 bg-[#FCFCFC] pt-14 pb-10 text-[16px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/50 md:pl-12 md:pr-10"
                     rows={20}
                   />
                 ) : (
@@ -1418,7 +1418,7 @@ export default function JournalPage() {
                         setTimeout(() => textareaRef.current?.focus(), 0);
                       }
                     }}
-                    className="min-h-[360px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[20px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
+                    className="min-h-[360px] w-full cursor-text rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 pt-14 pb-10 text-[16px] leading-relaxed text-neutral-800 transition hover:border-neutral-300 md:pl-12 md:pr-10"
                     title="클릭하면 글쓰기 모드로 전환"
                     aria-label="본문 영역. 클릭하면 편집 모드로 전환"
                   >
