@@ -217,16 +217,17 @@ export async function saveTimetableTemplate(template: TimetableTemplate): Promis
 // --- Supabase (optional) ---
 const TABLE_NAME = "timetable_days";
 
-async function loadFromSupabase(): Promise<Record<string, DayTimetable>> {
-  if (!supabase) return loadFromStorage();
+/** Supabase 로드 결과. ok면 DB에서 온 데이터, 아니면 로컬 폴백 */
+async function loadFromSupabase(): Promise<{ ok: boolean; data: Record<string, DayTimetable> }> {
+  if (!supabase) return { ok: false, data: loadFromStorage() };
   const { data, error } = await supabase.from(TABLE_NAME).select("date_key, slots, completed_ids");
-  if (error || !Array.isArray(data)) return loadFromStorage();
+  if (error || !Array.isArray(data)) return { ok: false, data: loadFromStorage() };
   const out: Record<string, DayTimetable> = {};
   data.forEach((row: { date_key: string; slots: unknown; completed_ids: string[] }) => {
     const slots = row.slots as DayTimetable["slots"];
     if (slots && Array.isArray(slots)) out[row.date_key] = { slots, completedIds: row.completed_ids ?? [] };
   });
-  return out;
+  return { ok: true, data: out };
 }
 
 async function saveToSupabase(data: Record<string, DayTimetable>): Promise<void> {
@@ -258,8 +259,8 @@ export async function loadTimetableForDate(key: string): Promise<LoadTimetableRe
     const template = all[yesterdayKey] ?? getDefaultDay();
     const newDay = deepCopyDay(template);
     const nextAll = { ...all, [key]: newDay };
-    saveToStorage(nextAll);
     await saveToSupabase(nextAll);
+    saveToStorage(nextAll);
     return { day: newDay, copiedFrom: all[yesterdayKey] ? yesterdayKey : null };
   }
 
@@ -275,25 +276,31 @@ export async function loadTimetableForDate(key: string): Promise<LoadTimetableRe
     newDay = applyCompletedSet(newDay, completedSet);
   }
   const nextAll = { ...all, [key]: newDay };
-  saveToStorage(nextAll);
   await saveToSupabase(nextAll);
+  saveToStorage(nextAll);
   return { day: newDay, copiedFrom: todayKey };
 }
 
-/** 전체 날짜별 데이터 로드 (Supabase 우선, 없으면 localStorage) */
+/**
+ * 전체 날짜별 데이터 로드.
+ * Supabase 연결 시: DB를 단일 소스로 사용하고, 성공 시 로컬 캐시를 덮어써 기기 간 동기화 보장.
+ * Supabase 없거나 요청 실패 시: localStorage 사용(오프라인).
+ */
 export async function loadAllTimetables(): Promise<Record<string, DayTimetable>> {
-  const fromDb = await loadFromSupabase();
-  const fromStorage = loadFromStorage();
-  const merged = { ...fromStorage, ...fromDb };
-  return merged;
+  const result = await loadFromSupabase();
+  if (result.ok) {
+    saveToStorage(result.data);
+    return result.data;
+  }
+  return result.data;
 }
 
-/** 특정 날짜 저장. 해당 날짜만 갱신하고 과거는 건드리지 않음 */
+/** 특정 날짜 저장. Supabase 있으면 먼저 DB 저장 후 로컬 반영해 기기 간 일관 유지 */
 export async function saveTimetableForDate(key: string, day: DayTimetable): Promise<void> {
   const all = await loadAllTimetables();
   all[key] = day;
-  saveToStorage(all);
   await saveToSupabase(all);
+  saveToStorage(all);
 }
 
 export function getTodayKey(): string {
