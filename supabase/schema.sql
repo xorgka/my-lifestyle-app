@@ -84,10 +84,11 @@ create table if not exists youtube_channels (
   password text not null default '',
   memo text not null default '',
   monthly_revenues jsonb not null default '{}',
+  sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
+create index if not exists idx_youtube_channels_sort on youtube_channels (sort_order);
 comment on table youtube_channels is '유튜브 채널 목록. monthly_revenues: {"YYYY-MM": 금액(원)}';
 comment on column youtube_channels.monthly_revenues is '월별 수익 원. 예: {"2026-01": 100000}';
 

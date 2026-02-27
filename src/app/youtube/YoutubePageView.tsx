@@ -76,6 +76,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const closeModal = p.closeModal as () => void;
   const save = p.save as () => void;
   const remove = p.remove as (id: number) => void;
+  const moveUp = p.moveUp as (index: number) => void;
+  const moveDown = p.moveDown as (index: number) => void;
   const formatted = p.formatted as (n: number) => string;
   const channelMonthRevenue = p.channelMonthRevenue as (c: ChannelRecord, yyyyMm: string) => number;
   const channelTotalRevenue = p.channelTotalRevenue as (c: ChannelRecord) => number;
@@ -106,6 +108,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const currentYear = now.getFullYear();
   const [showExportModal, setShowExportModal] = useState(false);
   const [showYoutubeSettingsMenu, setShowYoutubeSettingsMenu] = useState(false);
+  const [showChannelOrderInSettings, setShowChannelOrderInSettings] = useState(false);
   const [exportRange, setExportRange] = useState<"month" | "year" | "range" | "all">("year");
   const [exportYear, setExportYear] = useState(currentYear);
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
@@ -251,7 +254,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
           <button
             type="button"
             onClick={() => setShowYoutubeSettingsMenu(true)}
-            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 md:hidden"
+            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
             aria-label="설정"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -359,41 +362,112 @@ export function YoutubePageView(props: Record<string, unknown>) {
             </div>
           </Card>
 
-          {/* 모바일: 설정 메뉴 (내보내기) */}
+          {/* 설정 메뉴 (채널 순서, 내보내기) */}
       {showYoutubeSettingsMenu &&
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4 md:hidden"
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4"
             style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-            onClick={() => setShowYoutubeSettingsMenu(false)}
+            onClick={() => { setShowYoutubeSettingsMenu(false); setShowChannelOrderInSettings(false); }}
           >
             <div
-              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-5 shadow-xl"
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-5 shadow-xl max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-semibold text-neutral-900">설정</h3>
-              <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowYoutubeSettingsMenu(false);
-                    setShowExportModal(true);
-                  }}
-                  className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  내보내기
-                </button>
-              </div>
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowYoutubeSettingsMenu(false)}
-                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
-                >
-                  닫기
-                </button>
-              </div>
+              {!showChannelOrderInSettings ? (
+                <>
+                  <h3 className="text-lg font-semibold text-neutral-900">설정</h3>
+                  <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowChannelOrderInSettings(true)}
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                    >
+                      채널 목록 순서
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowYoutubeSettingsMenu(false);
+                        setShowExportModal(true);
+                      }}
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                    >
+                      내보내기
+                    </button>
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowYoutubeSettingsMenu(false)}
+                      className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowChannelOrderInSettings(false)}
+                      className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100"
+                      aria-label="뒤로"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <h3 className="text-lg font-semibold text-neutral-900">채널 목록 순서</h3>
+                  </div>
+                  <p className="mt-1 text-sm text-neutral-500">표시 순서를 바꾸려면 위·아래 버튼을 사용하세요.</p>
+                  <ul className="mt-4 flex flex-col gap-1 border-t border-neutral-100 pt-4">
+                    {channels.map((ch, index) => (
+                      <li
+                        key={ch.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50/50 px-3 py-2"
+                      >
+                        <span className="min-w-0 truncate text-sm font-medium text-neutral-800">{ch.name || "—"}</span>
+                        <div className="flex shrink-0 gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => moveUp(index)}
+                            disabled={index <= 0}
+                            className="rounded p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
+                            aria-label="위로"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveDown(index)}
+                            disabled={index >= channels.length - 1}
+                            className="rounded p-1.5 text-neutral-500 hover:bg-neutral-200 disabled:opacity-40"
+                            aria-label="아래로"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setShowYoutubeSettingsMenu(false); setShowChannelOrderInSettings(false); }}
+                      className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>,
           document.body

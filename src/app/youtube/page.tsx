@@ -40,6 +40,7 @@ const emptyChannel = (): YouTubeChannel => ({
   password: "",
   monthlyRevenues: {},
   memo: "",
+  sortOrder: 0,
 });
 
 export default function YoutubePage() {
@@ -312,11 +313,12 @@ export default function YoutubePage() {
       const newChannel: YouTubeChannel = {
         ...form,
         id: Date.now(),
+        sortOrder: channels.length,
       };
       setChannels((prev) => [...prev, newChannel]);
     } else {
       setChannels((prev) =>
-        prev.map((c) => (c.id === editingId ? { ...form, id: c.id } : c))
+        prev.map((c) => (c.id === editingId ? { ...form, id: c.id, sortOrder: c.sortOrder } : c))
       );
     }
     closeModal();
@@ -330,6 +332,17 @@ export default function YoutubePage() {
     setRevealAccountId((prev) => (prev === id ? null : prev));
     setMemoModalChannelId((prev) => (prev === id ? null : prev));
   };
+
+  const moveChannel = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= channels.length) return;
+    const next = [...channels];
+    const [removed] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, removed);
+    setChannels(next);
+    saveYoutubeChannels(next).catch(console.error);
+  };
+  const moveUp = (index: number) => moveChannel(index, index - 1);
+  const moveDown = (index: number) => moveChannel(index, index + 1);
 
   const formatted = (n: number) =>
     n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
@@ -387,6 +400,8 @@ export default function YoutubePage() {
     closeModal,
     save,
     remove,
+    moveUp,
+    moveDown,
     formatted,
     channelMonthRevenue,
     channelTotalRevenue,
