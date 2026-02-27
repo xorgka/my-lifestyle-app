@@ -103,6 +103,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const setStatsTab = p.setStatsTab as React.Dispatch<React.SetStateAction<"월별" | "연도">>;
   const statsYear = (p.statsYear as number) ?? 2026;
   const setStatsYear = p.setStatsYear as React.Dispatch<React.SetStateAction<number>>;
+  const [statsMode, setStatsMode] = useState<"actual" | "youtube">("actual");
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -997,8 +998,20 @@ export function YoutubePageView(props: Record<string, unknown>) {
           </Card>
 
           <Card className="overflow-hidden border border-slate-200 bg-gradient-to-br from-slate-50/90 to-neutral-100/80 p-0 shadow-sm">
-            <h2 className="mb-4 px-4 pt-4 text-lg font-semibold text-neutral-900">
-              통계 <span className="font-normal text-neutral-400">(실제 입금 금액)</span>
+            <h2 className="mb-3 flex items-center justify-between gap-2 px-4 pt-4 text-lg font-semibold text-neutral-900">
+              <span>
+                통계{" "}
+                <span className="font-normal text-neutral-400">
+                  {statsMode === "actual" ? "(실제 입금 금액)" : "(유튜브 집계 수익 · USD)"}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setStatsMode((m) => (m === "actual" ? "youtube" : "actual"))}
+                className="shrink-0 rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 shadow-sm transition hover:border-neutral-400 hover:text-neutral-800"
+              >
+                {statsMode === "actual" ? "집계 수익 보기" : "실제 입금 보기"}
+              </button>
             </h2>
             <div className="flex gap-2 px-4">
               <button
@@ -1049,6 +1062,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
                     const yyyyMm = `${statsYear}-${String(m).padStart(2, "0")}`;
                     const amountKrw = getDepositForMonth(yyyyMm);
+                    const amountUsd = monthlyAggregate[yyyyMm] ?? 0;
                     return (
                       <button
                         key={m}
@@ -1058,7 +1072,16 @@ export function YoutubePageView(props: Record<string, unknown>) {
                       >
                         <div className="text-xs text-neutral-500 md:text-sm">{m}월</div>
                         <div className="mt-0.5 text-sm font-semibold text-neutral-800 md:text-lg">
-                          <AmountToggle amount={amountKrw} className="text-neutral-800" />
+                          {statsMode === "actual" ? (
+                            <AmountToggle amount={amountKrw} className="text-neutral-800" />
+                          ) : (
+                            <AmountToggle
+                              amount={amountUsd}
+                              usdToKrw={usdToKrw}
+                              defaultShowUsd
+                              className="text-neutral-800"
+                            />
+                          )}
                         </div>
                       </button>
                     );
@@ -1066,25 +1089,41 @@ export function YoutubePageView(props: Record<string, unknown>) {
                 </div>
                 <div className="mt-4 border-t border-neutral-200 pt-4 text-sm font-semibold text-neutral-700">
                   {statsYear}년 합계:{" "}
-                  <AmountToggle
-                    amount={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
-                      (s, m) => s + getDepositForMonth(`${statsYear}-${String(m).padStart(2, "0")}`),
-                      0
-                    )}
-                    className="text-neutral-700"
-                  />
+                  {statsMode === "actual" ? (
+                    <AmountToggle
+                      amount={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+                        (s, m) => s + getDepositForMonth(`${statsYear}-${String(m).padStart(2, "0")}`),
+                        0
+                      )}
+                      className="text-neutral-700"
+                    />
+                  ) : (
+                    <AmountToggle
+                      amount={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+                        (s, m) => s + (monthlyAggregate[`${statsYear}-${String(m).padStart(2, "0")}`] ?? 0),
+                        0
+                      )}
+                      usdToKrw={usdToKrw}
+                      defaultShowUsd
+                      className="text-neutral-700"
+                    />
+                  )}
                 </div>
               </div>
             )}
             {statsTab === "연도" && (
               <div className="mt-4 px-4 pb-4">
                 <div className="text-base font-semibold text-neutral-800">
-                  연도별 (실제 입금 원)
+                  {statsMode === "actual" ? "연도별 (실제 입금 원)" : "연도별 (유튜브 집계 수익 · USD)"}
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
                   {[2026, 2027].map((y) => {
                     const yearTotalKrw = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
                       (s, m) => s + getDepositForMonth(`${y}-${String(m).padStart(2, "0")}`),
+                      0
+                    );
+                    const yearTotalUsd = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].reduce(
+                      (s, m) => s + (monthlyAggregate[`${y}-${String(m).padStart(2, "0")}`] ?? 0),
                       0
                     );
                     return (
@@ -1094,14 +1133,33 @@ export function YoutubePageView(props: Record<string, unknown>) {
                       >
                         <div className="text-xs text-neutral-500 md:text-sm">{y}년</div>
                         <div className="mt-0.5 text-sm font-semibold text-neutral-800 md:text-lg">
-                          <AmountToggle amount={yearTotalKrw} className="text-neutral-800" />
+                          {statsMode === "actual" ? (
+                            <AmountToggle amount={yearTotalKrw} className="text-neutral-800" />
+                          ) : (
+                            <AmountToggle
+                              amount={yearTotalUsd}
+                              usdToKrw={usdToKrw}
+                              defaultShowUsd
+                              className="text-neutral-800"
+                            />
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-4 border-t border-neutral-200 pt-4 text-sm font-semibold text-neutral-700">
-                  전체 합계: <AmountToggle amount={totalActualDepositKrw} className="text-neutral-700" />
+                  전체 합계:{" "}
+                  {statsMode === "actual" ? (
+                    <AmountToggle amount={totalActualDepositKrw} className="text-neutral-700" />
+                  ) : (
+                    <AmountToggle
+                      amount={Object.values(monthlyAggregate).reduce((a, b) => a + b, 0)}
+                      usdToKrw={usdToKrw}
+                      defaultShowUsd
+                      className="text-neutral-700"
+                    />
+                  )}
                 </div>
               </div>
             )}
