@@ -36,6 +36,8 @@ const emptyChannel = (): YouTubeChannel => ({
   channelUrl: "",
   category: "",
   adsenseAccount: "",
+  address: "",
+  taxInfo: "",
   accountEmail: "",
   password: "",
   monthlyRevenues: {},

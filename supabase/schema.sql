@@ -81,6 +81,8 @@ create table if not exists youtube_channels (
   channel_url text not null default '',
   category text not null default '',
   adsense_account text not null default '',
+  address text not null default '',
+  tax_info text not null default '',
   account_email text not null default '',
   password text not null default '',
   memo text not null default '',
@@ -91,6 +93,8 @@ create table if not exists youtube_channels (
 );
 -- 기존 테이블에 adsense_account 컬럼이 없으면 추가 (마이그레이션)
 alter table youtube_channels add column if not exists adsense_account text not null default '';
+alter table youtube_channels add column if not exists address text not null default '';
+alter table youtube_channels add column if not exists tax_info text not null default '';
 create index if not exists idx_youtube_channels_sort on youtube_channels (sort_order);
 comment on table youtube_channels is '유튜브 채널 목록. monthly_revenues: {"YYYY-MM": 금액(원)}';
 comment on column youtube_channels.monthly_revenues is '월별 수익 원. 예: {"2026-01": 100000}';

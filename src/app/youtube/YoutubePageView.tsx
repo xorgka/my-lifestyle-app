@@ -13,6 +13,8 @@ type ChannelRecord = {
   channelUrl: string;
   category: string;
   adsenseAccount: string;
+  address: string;
+  taxInfo: string;
   accountEmail: string;
   password: string;
   monthlyRevenues: Record<string, number>;
@@ -1361,6 +1363,30 @@ export function YoutubePageView(props: Record<string, unknown>) {
                     />
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-neutral-600">주소</label>
+                    <input
+                      type="text"
+                      value={form.address}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, address: e.target.value }))
+                      }
+                      placeholder="주소"
+                      className="mt-1 w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600">세금정보</label>
+                    <input
+                      type="text"
+                      value={form.taxInfo}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, taxInfo: e.target.value }))
+                      }
+                      placeholder="세금정보"
+                      className="mt-1 w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    />
+                  </div>
+                  <div>
                     <label className="text-xs font-medium text-neutral-600">구글 계정 (이메일)</label>
                     <input
                       type="text"
@@ -1445,6 +1471,18 @@ export function YoutubePageView(props: Record<string, unknown>) {
                   <label className="text-xs font-medium text-neutral-500">애드센스 계정</label>
                   <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
                     {channels.find((c) => c.id === accountModalChannelId)?.adsenseAccount || "—"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">주소</label>
+                  <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
+                    {channels.find((c) => c.id === accountModalChannelId)?.address || "—"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">세금정보</label>
+                  <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
+                    {channels.find((c) => c.id === accountModalChannelId)?.taxInfo || "—"}
                   </p>
                 </div>
                 <div>

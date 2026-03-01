@@ -11,6 +11,10 @@ export type YouTubeChannel = {
   category: string;
   /** 애드센스 계정 (이메일 등) */
   adsenseAccount: string;
+  /** 주소 */
+  address: string;
+  /** 세금정보 */
+  taxInfo: string;
   accountEmail: string;
   password: string;
   /** 월별 수익. 키: "YYYY-MM", 값: 달러(USD) */
@@ -35,6 +39,8 @@ function loadFromStorage(): YouTubeChannel[] {
       channelUrl: c.channelUrl ?? "",
       category: c.category ?? "",
       adsenseAccount: (c as { adsenseAccount?: string }).adsenseAccount ?? "",
+      address: (c as { address?: string }).address ?? "",
+      taxInfo: (c as { taxInfo?: string }).taxInfo ?? "",
       accountEmail: c.accountEmail ?? "",
       password: c.password ?? "",
       monthlyRevenues: c.monthlyRevenues && Object.keys(c.monthlyRevenues).length > 0
@@ -73,6 +79,8 @@ function rowToChannel(row: {
   monthly_revenues: Record<string, number> | null;
   sort_order?: number | null;
   adsense_account?: string | null;
+  address?: string | null;
+  tax_info?: string | null;
 }): YouTubeChannel {
   const id = typeof row.id === "string" ? parseInt(row.id, 10) : row.id;
   return {
@@ -81,6 +89,8 @@ function rowToChannel(row: {
     channelUrl: row.channel_url ?? "",
     category: row.category ?? "",
     adsenseAccount: row.adsense_account ?? "",
+    address: row.address ?? "",
+    taxInfo: row.tax_info ?? "",
     accountEmail: row.account_email ?? "",
     password: row.password ?? "",
     monthlyRevenues: (row.monthly_revenues && typeof row.monthly_revenues === "object") ? row.monthly_revenues : {},
@@ -96,13 +106,13 @@ export async function loadYoutubeChannels(): Promise<YouTubeChannel[]> {
     let error: { message?: string } | null = null;
     const withSort = await supabase
       .from("youtube_channels")
-      .select("id, name, channel_url, category, adsense_account, account_email, password, memo, monthly_revenues, sort_order")
+      .select("id, name, channel_url, category, adsense_account, address, tax_info, account_email, password, memo, monthly_revenues, sort_order")
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true });
     if (withSort.error && /column|sort_order/i.test(String(withSort.error.message))) {
       const withoutSort = await supabase
         .from("youtube_channels")
-        .select("id, name, channel_url, category, adsense_account, account_email, password, memo, monthly_revenues")
+        .select("id, name, channel_url, category, adsense_account, address, tax_info, account_email, password, memo, monthly_revenues")
         .order("id", { ascending: true });
       data = withoutSort.data ?? null;
       error = withoutSort.error;
@@ -137,6 +147,8 @@ export async function saveYoutubeChannels(channels: YouTubeChannel[]): Promise<v
       channel_url: c.channelUrl,
       category: c.category,
       adsense_account: c.adsenseAccount ?? "",
+      address: c.address ?? "",
+      tax_info: c.taxInfo ?? "",
       account_email: c.accountEmail,
       password: c.password,
       memo: c.memo,
@@ -150,6 +162,8 @@ export async function saveYoutubeChannels(channels: YouTubeChannel[]): Promise<v
       channel_url: c.channelUrl,
       category: c.category,
       adsense_account: c.adsenseAccount ?? "",
+      address: c.address ?? "",
+      tax_info: c.taxInfo ?? "",
       account_email: c.accountEmail,
       password: c.password,
       memo: c.memo,
