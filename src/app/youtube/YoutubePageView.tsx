@@ -1437,7 +1437,9 @@ export function YoutubePageView(props: Record<string, unknown>) {
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <h3 className="text-sm font-medium text-neutral-500">계정정보</h3>
+              <h3 className="text-lg font-bold text-neutral-900">
+                {channels.find((c) => c.id === accountModalChannelId)?.name ?? ""}
+              </h3>
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="text-xs font-medium text-neutral-500">애드센스 계정</label>
