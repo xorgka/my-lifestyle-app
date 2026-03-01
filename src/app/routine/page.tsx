@@ -1261,12 +1261,12 @@ export default function RoutinePage() {
                 const total = items.length || 1;
                 const pct = Math.round((completedIds.length / total) * 100);
                 const tier = getPctTier(pct);
-                const isDark = tier >= 2;
+                const isDark = tier >= 1;
                 return (
                   <div className={`mt-3 rounded-xl border px-4 py-2.5 ${getPctCardClasses(pct)}`}>
-                    <span className={`text-sm font-medium ${isDark ? "text-white/90" : "text-neutral-600"}`}>이날 달성률</span>
+                    <span className={`text-sm font-medium ${isDark ? "text-white" : "text-neutral-600"}`}>이날 달성률</span>
                     <span className={`ml-2 text-xl font-bold tabular-nums ${isDark ? "text-white" : "text-neutral-900"}`}>{pct}%</span>
-                    <span className={`ml-1 text-sm ${isDark ? "text-white/80" : "text-neutral-500"}`}>({completedIds.length}/{total})</span>
+                    <span className={`ml-1 text-sm ${isDark ? "text-white/90" : "text-neutral-500"}`}>({completedIds.length}/{total})</span>
                   </div>
                 );
               })()}

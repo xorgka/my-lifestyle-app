@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { YoutubePageView } from "./YoutubePageView";
 import {
   type YouTubeChannel,
@@ -14,7 +14,6 @@ import {
 } from "@/lib/youtubeActualDepositsDb";
 import { supabase } from "@/lib/supabase";
 
-const ACCOUNT_VIEW_PIN = "2013";
 /** 수익 입력·저장 단위: 달러. 원 표시 시 이 환율로 곱함 */
 export const USD_TO_KRW = 1350;
 
@@ -36,6 +35,7 @@ const emptyChannel = (): YouTubeChannel => ({
   name: "",
   channelUrl: "",
   category: "",
+  adsenseAccount: "",
   accountEmail: "",
   password: "",
   monthlyRevenues: {},
@@ -48,11 +48,7 @@ export default function YoutubePage() {
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [revealAccountId, setRevealAccountId] = useState<number | null>(null);
   const [accountModalChannelId, setAccountModalChannelId] = useState<number | null>(null);
-  const [accountPinInput, setAccountPinInput] = useState("");
-  const [accountPinError, setAccountPinError] = useState(false);
-  const accountPinInputRef = useRef<HTMLInputElement>(null);
   const [memoModalChannelId, setMemoModalChannelId] = useState<number | null>(null);
   const [memoEditValue, setMemoEditValue] = useState("");
   const [form, setForm] = useState<YouTubeChannel>(emptyChannel());
@@ -104,33 +100,9 @@ export default function YoutubePage() {
   const [statsTab, setStatsTab] = useState<"월별" | "연도">("월별");
   const [statsYear, setStatsYear] = useState<number>(2026);
 
-  const checkAccountPin = (channelId: number) => {
-    if (accountPinInput.trim() === ACCOUNT_VIEW_PIN) {
-      setRevealAccountId(channelId);
-      setAccountPinInput("");
-      setAccountPinError(false);
-    } else {
-      setAccountPinError(true);
-    }
-  };
-
   const closeAccountModal = () => {
     setAccountModalChannelId(null);
-    setRevealAccountId(null);
-    setAccountPinInput("");
-    setAccountPinError(false);
   };
-
-  // 계정정보 모달이 열리고 PIN 입력 화면일 때 입력란에 자동 포커스
-  useEffect(() => {
-    if (
-      accountModalChannelId != null &&
-      revealAccountId !== accountModalChannelId
-    ) {
-      const t = setTimeout(() => accountPinInputRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [accountModalChannelId, revealAccountId]);
 
   useEffect(() => {
     setChannelsLoading(true);
@@ -356,15 +328,8 @@ export default function YoutubePage() {
     setModal,
     editingId,
     setEditingId,
-    revealAccountId,
-    setRevealAccountId,
     accountModalChannelId,
     setAccountModalChannelId,
-    accountPinInput,
-    setAccountPinInput,
-    accountPinError,
-    setAccountPinError,
-    accountPinInputRef,
     memoModalChannelId,
     setMemoModalChannelId,
     memoEditValue,
@@ -383,7 +348,6 @@ export default function YoutubePage() {
     setAggregateYear,
     channelRevenueYear,
     setChannelRevenueYear,
-    checkAccountPin,
     closeAccountModal,
     saveQuickRevenue,
     currentYearMonth,

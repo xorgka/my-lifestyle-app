@@ -12,6 +12,7 @@ type ChannelRecord = {
   name: string;
   channelUrl: string;
   category: string;
+  adsenseAccount: string;
   accountEmail: string;
   password: string;
   monthlyRevenues: Record<string, number>;
@@ -28,15 +29,8 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const setModal = p.setModal as React.Dispatch<React.SetStateAction<"add" | "edit" | null>>;
   const editingId = p.editingId as number | null;
   const setEditingId = p.setEditingId as React.Dispatch<React.SetStateAction<number | null>>;
-  const revealAccountId = p.revealAccountId as number | null;
-  const setRevealAccountId = p.setRevealAccountId as React.Dispatch<React.SetStateAction<number | null>>;
   const accountModalChannelId = p.accountModalChannelId as number | null;
   const setAccountModalChannelId = p.setAccountModalChannelId as React.Dispatch<React.SetStateAction<number | null>>;
-  const accountPinInput = (p.accountPinInput as string) ?? "";
-  const setAccountPinInput = p.setAccountPinInput as React.Dispatch<React.SetStateAction<string>>;
-  const accountPinError = (p.accountPinError as boolean) ?? false;
-  const setAccountPinError = p.setAccountPinError as React.Dispatch<React.SetStateAction<boolean>>;
-  const accountPinInputRef = p.accountPinInputRef as React.RefObject<HTMLInputElement | null>;
   const memoModalChannelId = p.memoModalChannelId as number | null;
   const setMemoModalChannelId = p.setMemoModalChannelId as React.Dispatch<React.SetStateAction<number | null>>;
   const memoEditValue = (p.memoEditValue as string) ?? "";
@@ -55,7 +49,6 @@ export function YoutubePageView(props: Record<string, unknown>) {
   const setAggregateYear = p.setAggregateYear as React.Dispatch<React.SetStateAction<number | null>>;
   const channelRevenueYear = p.channelRevenueYear as number | null;
   const setChannelRevenueYear = p.setChannelRevenueYear as React.Dispatch<React.SetStateAction<number | null>>;
-  const checkAccountPin = p.checkAccountPin as (channelId: number) => void;
   const closeAccountModal = p.closeAccountModal as () => void;
   const saveQuickRevenue = p.saveQuickRevenue as () => void;
   const currentYearMonth = p.currentYearMonth as string;
@@ -702,12 +695,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                       <td className="px-5 py-3">
                         <button
                           type="button"
-                          onClick={() => {
-                            setAccountModalChannelId(ch.id);
-                            setAccountPinInput("");
-                            setAccountPinError(false);
-                            setRevealAccountId(null);
-                          }}
+                          onClick={() => setAccountModalChannelId(ch.id)}
                           className="rounded-xl bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
                         >
                           보기
@@ -1361,6 +1349,18 @@ export function YoutubePageView(props: Record<string, unknown>) {
                     />
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-neutral-600">애드센스 계정</label>
+                    <input
+                      type="text"
+                      value={form.adsenseAccount}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, adsenseAccount: e.target.value }))
+                      }
+                      placeholder="애드센스 계정 (이메일 등)"
+                      className="mt-1 w-full rounded-2xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    />
+                  </div>
+                  <div>
                     <label className="text-xs font-medium text-neutral-600">구글 계정 (이메일)</label>
                     <input
                       type="text"
@@ -1441,68 +1441,33 @@ export function YoutubePageView(props: Record<string, unknown>) {
               <p className="mt-1 text-sm text-neutral-500">
                 {channels.find((c) => c.id === accountModalChannelId)?.name ?? ""} 채널
               </p>
-              {revealAccountId === accountModalChannelId ? (
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">이메일</label>
-                    <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
-                      {channels.find((c) => c.id === accountModalChannelId)?.accountEmail || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-neutral-500">비밀번호</label>
-                    <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900 font-mono">
-                      {channels.find((c) => c.id === accountModalChannelId)?.password || "—"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={closeAccountModal}
-                    className="mt-4 w-full rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
-                  >
-                    닫기
-                  </button>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">애드센스 계정</label>
+                  <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
+                    {channels.find((c) => c.id === accountModalChannelId)?.adsenseAccount || "—"}
+                  </p>
                 </div>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-neutral-600">PIN</label>
-                    <input
-                      ref={accountPinInputRef as React.RefObject<HTMLInputElement>}
-                      type="password"
-                      value={accountPinInput}
-                      onChange={(e) => {
-                        setAccountPinInput(e.target.value);
-                        setAccountPinError(false);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") checkAccountPin(accountModalChannelId);
-                      }}
-                      placeholder="PIN 입력"
-                      className="mt-1 w-full rounded-xl border border-soft-border bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
-                    />
-                    {accountPinError && (
-                      <p className="mt-1 text-xs text-red-600">PIN이 올바르지 않아요.</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={closeAccountModal}
-                      className="flex-1 rounded-xl border border-soft-border px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => checkAccountPin(accountModalChannelId)}
-                      className="flex-1 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
-                    >
-                      확인
-                    </button>
-                  </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">이메일</label>
+                  <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
+                    {channels.find((c) => c.id === accountModalChannelId)?.accountEmail || "—"}
+                  </p>
                 </div>
-              )}
+                <div>
+                  <label className="text-xs font-medium text-neutral-500">비밀번호</label>
+                  <p className="mt-1 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-900 font-mono">
+                    {channels.find((c) => c.id === accountModalChannelId)?.password || "—"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeAccountModal}
+                  className="mt-4 w-full rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+                >
+                  닫기
+                </button>
+              </div>
             </Card>
           </div>,
           document.body
