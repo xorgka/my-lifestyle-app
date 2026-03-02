@@ -22,6 +22,12 @@ function getCurrentYearMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function getPreviousYearMonth(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function channelTotalRevenue(c: YouTubeChannel): number {
   return Object.values(c.monthlyRevenues || {}).reduce((a, b) => a + b, 0);
 }
@@ -176,8 +182,8 @@ export default function YoutubePage() {
   const currentYearMonth = getCurrentYearMonth();
   const currentMonthLabel = `${new Date().getMonth() + 1}월`;
 
-  /** 채널 LIST 테이블에서 보는 월 (이전/다음으로 변경 가능) */
-  const [channelListViewYearMonth, setChannelListViewYearMonth] = useState(getCurrentYearMonth);
+  /** 채널 LIST 테이블에서 보는 월 (이전/다음으로 변경 가능). 기본값: 이전달 */
+  const [channelListViewYearMonth, setChannelListViewYearMonth] = useState(getPreviousYearMonth);
 
   const totals = channels.reduce(
     (acc, c) => ({

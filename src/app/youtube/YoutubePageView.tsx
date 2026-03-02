@@ -293,7 +293,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
           <Card className="bg-gradient-to-br from-white via-neutral-50 to-white ring-1 ring-neutral-100">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xl font-semibold text-neutral-900 md:text-2xl">
-                {Number(channelListViewYearMonth.slice(5, 7))}월 수익
+                이전달 수익 <span className="text-neutral-400 font-normal">{Number(channelListViewYearMonth.slice(5, 7))}월</span>
               </h2>
               <span className="inline-flex items-center gap-0.5">
                 <button
@@ -652,7 +652,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
                         className="rounded px-1 py-0.5 hover:bg-neutral-200"
                         title={monthColumnShowUsd ? "클릭 시 이 열 전부 원화로" : "클릭 시 이 열 전부 달러로"}
                       >
-                        {Number(channelListViewYearMonth.slice(5, 7))}월 수익
+                        이전달 수익 <span className="text-neutral-400 font-normal">({Number(channelListViewYearMonth.slice(5, 7))}월)</span>
                       </button>
                     </th>
                     <th className="px-5 py-3 font-semibold text-neutral-700">
