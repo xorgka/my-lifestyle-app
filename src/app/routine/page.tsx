@@ -223,9 +223,10 @@ export default function RoutinePage() {
         return { ...prev, [dateKey]: next };
       });
       if (!isCompleted && dateKey === todayKey) fireConfetti();
+      const routineTitle = items.find((i) => i.id === id)?.title;
       loadTimetableForDate(dateKey).then((result) => {
           const day = result.day;
-          const timetableIds = getTimetableItemIdsForRoutineInDay(day, routineLinks, templateLinks, id);
+          const timetableIds = getTimetableItemIdsForRoutineInDay(day, routineLinks, templateLinks, id, routineTitle);
           if (timetableIds.length === 0) return;
           const completed = new Set(day.completedIds);
           if (newCompleted) timetableIds.forEach((tid) => completed.add(tid));
@@ -233,7 +234,7 @@ export default function RoutinePage() {
           saveTimetableForDate(dateKey, { ...day, completedIds: Array.from(completed) }).catch(() => {});
         });
     },
-    [listViewDateKey, dailyCompletions, todayKey, isDragging, routineLinks, templateLinks]
+    [listViewDateKey, dailyCompletions, todayKey, isDragging, routineLinks, templateLinks, items]
   );
 
   const startEdit = (item: RoutineItem) => {

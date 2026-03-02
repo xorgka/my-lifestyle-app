@@ -185,12 +185,13 @@ export function getTimetableIdsByRoutineId(links: Record<string, number>, routin
     .map(([tid]) => tid);
 }
 
-/** 해당 날짜(day)에서 이 루틴과 연동된 타임테이블 항목 ID 목록. item-id 연동 + (시간·텍스트) 템플릿 연동 포함 */
+/** 해당 날짜(day)에서 이 루틴과 연동된 타임테이블 항목 ID 목록. item-id 연동 + (시간·텍스트) 템플릿 연동 포함. 연동 없을 때 routineTitle으로 텍스트 매칭 fallback */
 export function getTimetableItemIdsForRoutineInDay(
   day: { slots: { time: string; items: { id: string; text: string }[] }[] },
   links: Record<string, number>,
   templateLinks: Record<string, number>,
-  routineItemId: number
+  routineItemId: number,
+  routineTitle?: string
 ): string[] {
   const byId = getTimetableIdsByRoutineId(links, routineItemId);
   const inDay = new Set(day.slots.flatMap((s) => s.items.map((i) => i.id)));
@@ -201,7 +202,19 @@ export function getTimetableItemIdsForRoutineInDay(
       if (templateLinks[`${s.time}\0${i.text}`] === routineItemId) fromTemplate.push(i.id);
     });
   });
-  return [...new Set([...fromIds, ...fromTemplate])];
+  const explicit = [...new Set([...fromIds, ...fromTemplate])];
+  if (explicit.length > 0) return explicit;
+  // 연동이 없을 때: 타임테이블 항목 텍스트가 루틴 제목을 포함하면 같은 항목으로 간주 (예: 루틴 "독서" ↔ 타임테이블 "독서 30P 이상")
+  if (routineTitle == null || routineTitle.trim() === "") return [];
+  const title = routineTitle.trim();
+  const fromTitleMatch: string[] = [];
+  day.slots.forEach((s) => {
+    s.items.forEach((i) => {
+      const t = i.text.trim();
+      if (t === title || t.includes(title) || title.includes(t)) fromTitleMatch.push(i.id);
+    });
+  });
+  return [...new Set(fromTitleMatch)];
 }
 
 /** 연동 설정/해제. routineItemId null이면 연동 해제. slotTime+itemText 주면 템플릿에도 저장(다른 날 같은 시간·텍스트 항목에 적용) */
