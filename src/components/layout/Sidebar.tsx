@@ -14,7 +14,7 @@ const menuItems = [
   { href: "/", label: "홈" },
   { href: "/schedule", label: "스케줄", badge: true },
   { href: "/routine", label: "루틴" },
-  { href: "/memo", label: "메모" },
+  { href: "/memo", label: "메모 · 노트", memoNote: true },
   { href: "/journal", label: "일기장" },
   { href: "/youtube", label: "유튜브", exact: true },
   { href: "/finance", label: "가계부" },
@@ -56,6 +56,53 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 ? pathname === item.href
                 : pathname.startsWith(item.href);
           const showBadge = "badge" in item && item.badge && scheduleBadge > 0;
+          const isMemoNote = "memoNote" in item && item.memoNote;
+
+          if (isMemoNote) {
+            const noteActive = pathname.startsWith("/memo/note");
+            return (
+              <div
+                key={item.href}
+                className={clsx(
+                  "group flex min-h-[44px] items-center justify-between gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6",
+                  active
+                    ? "bg-neutral-900 text-white shadow-[0_14px_34px_rgba(0,0,0,0.35)]"
+                    : "text-neutral-600 hover:bg-neutral-100 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]"
+                )}
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-0">
+                  <Link
+                    href="/memo"
+                    onClick={onNavigate}
+                    className="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-l-xl pr-1"
+                  >
+                    메모
+                  </Link>
+                  <span className="flex-shrink-0 select-none" aria-hidden>
+                    {" · "}
+                  </span>
+                  <Link
+                    href="/memo/note"
+                    onClick={onNavigate}
+                    className={clsx(
+                      "flex flex-shrink-0 items-center self-stretch rounded-r-xl pl-1 font-medium",
+                      noteActive && active && "underline decoration-2 underline-offset-2"
+                    )}
+                  >
+                    노트
+                  </Link>
+                </span>
+                <span
+                  className={clsx(
+                    "flex-shrink-0 text-xs transition-transform",
+                    active ? "translate-x-0.5" : "translate-x-0"
+                  )}
+                >
+                  ⌘
+                </span>
+              </div>
+            );
+          }
 
           return (
             <Link
