@@ -431,7 +431,9 @@ export default function TimetablePage() {
               <span className="font-normal text-neutral-400 sm:text-neutral-500">{formatDateCompact(dateKey)}</span>
             )}
           </h1>
-          <p className="mt-0.5 hidden text-xs text-neutral-400 sm:block sm:text-sm">{formatDateShort(dateKey)}</p>
+          {!isTodayOrAdjacent && (
+            <p className="mt-0.5 hidden text-xs text-neutral-400 sm:block sm:text-sm">{formatDateShort(dateKey)}</p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
