@@ -74,7 +74,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   <Link
                     href="/memo"
                     onClick={onNavigate}
-                    className="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-l-xl pr-1"
+                    className="flex-shrink-0 self-stretch rounded-l-xl pr-0.5"
                   >
                     메모
                   </Link>
@@ -85,12 +85,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     href="/memo/note"
                     onClick={onNavigate}
                     className={clsx(
-                      "flex flex-shrink-0 items-center self-stretch rounded-r-xl pl-1 font-medium",
+                      "flex flex-shrink-0 items-center self-stretch rounded-r-xl pl-0.5 font-medium",
                       noteActive && active && "underline decoration-2 underline-offset-2"
                     )}
                   >
                     노트
                   </Link>
+                  <Link
+                    href="/memo"
+                    onClick={onNavigate}
+                    className="min-w-0 flex-1 self-stretch"
+                    aria-label="메모 페이지로 이동"
+                  />
                 </span>
                 <span
                   className={clsx(
