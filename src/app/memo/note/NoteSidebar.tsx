@@ -164,7 +164,8 @@ export function NoteSidebar({
 
   return (
     <aside className="flex h-full min-w-0 flex-col border-r border-neutral-200 bg-neutral-50/60">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* 전체 사이드바를 하나의 스크롤 컨테이너로 만들어 모바일에서도 끝까지 스크롤 가능하게 함 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {notebooks.map((nb) => (
           <NotebookSection
             key={nb.id}
@@ -195,7 +196,7 @@ export function NoteSidebar({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="shrink-0">
           <button
             type="button"
             onClick={() => setTrashOpen((o) => !o)}
