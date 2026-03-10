@@ -113,6 +113,9 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         if (e.key.toLowerCase() === "b") {
           e.preventDefault();
           exec("bold");
+        } else if (e.key.toLowerCase() === "u") {
+          e.preventDefault();
+          exec("underline");
         } else if (e.key.toLowerCase() === "h") {
           e.preventDefault();
           toggleHighlight();
@@ -232,9 +235,17 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={() => exec("bold")}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="굵게"
+          title="굵게 (Ctrl+Shift+B)"
         >
           <span className="text-sm font-bold">B</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => exec("underline")}
+          className="rounded p-1.5 hover:bg-neutral-100"
+          title="밑줄 (Ctrl+Shift+U)"
+        >
+          <span className="text-sm underline underline-offset-2">U</span>
         </button>
         <span className="text-neutral-300">|</span>
         <div className="relative" ref={colorPickerRef}>
