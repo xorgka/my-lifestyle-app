@@ -254,6 +254,19 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         >
           <span className="text-sm underline underline-offset-2">U</span>
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            document.execCommand("foreColor", false, "#2563eb");
+            document.execCommand("insertText", false, "▶ ");
+            contentRef.current?.focus();
+            emitContent();
+          }}
+          className="rounded p-1.5 hover:bg-neutral-100"
+          title="▶ (Ctrl+Shift+>)"
+        >
+          <span className="text-sm font-semibold text-blue-600">▶</span>
+        </button>
         <span className="text-neutral-300">|</span>
         <div className="relative" ref={colorPickerRef}>
           <button
@@ -289,7 +302,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={toggleHighlight}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="형광펜"
+          title="형광펜 (Ctrl+Shift+H)"
         >
           <span
             className="inline-flex h-5 w-5 items-center justify-center rounded text-xs font-medium"
@@ -325,7 +338,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
             exec("insertHorizontalRule");
           }}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="구분선"
+          title="구분선 (Ctrl+Shift+-)"
         >
           <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16" />
