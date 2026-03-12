@@ -113,6 +113,13 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         if (e.key.toLowerCase() === "b") {
           e.preventDefault();
           exec("bold");
+        } else if (e.key === ">") {
+          e.preventDefault();
+          // 파란색 ▶ + 이후 입력도 파란색 유지
+          document.execCommand("foreColor", false, "#2563eb");
+          document.execCommand("insertText", false, "▶ ");
+          contentRef.current?.focus();
+          emitContent();
         } else if (e.key.toLowerCase() === "u") {
           e.preventDefault();
           exec("underline");
