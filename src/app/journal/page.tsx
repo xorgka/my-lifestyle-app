@@ -469,17 +469,10 @@ export default function JournalPage() {
     const entry = entriesByDate[date];
     if (!entry) return "";
     const raw = entry.content || "";
-    // 1줄로 만들고, 마크다운 기호 일부 제거해서 더 자연스럽게 보이게
-    let oneLine = raw.replace(/\s+/g, " ").trim();
-    // 굵게/기울임/인라인 코드 기호 제거
-    oneLine = oneLine
-      .replace(/[*_`]+/g, "")
-      // 헤딩/리스트 기호 제거
-      .replace(/^#+\s*/g, "")
-      .replace(/^[-+*]\s*/g, "")
-      .replace(/^>\s*/g, "");
-    if (oneLine.length <= 18) return oneLine;
-    return `${oneLine.slice(0, 18)}…`;
+    // 한 줄로 압축한 뒤 일정 길이까지만 자르고, 보기 모드와 동일한 마크다운 렌더 적용
+    const oneLine = raw.replace(/\s+/g, " ").trim();
+    const sliced = oneLine.length <= 18 ? oneLine : `${oneLine.slice(0, 18)}…`;
+    return renderSimpleMarkdown(sliced);
   };
   const collectIndex = entryDatesInYear.indexOf(selectedDate);
   const canGoPrevCollect = collectIndex > 0;
@@ -910,9 +903,10 @@ export default function JournalPage() {
                             <span className="mb-0.5 text-[15px] font-semibold">
                               {formatShortDateLabel(d)}
                             </span>
-                            <span className="line-clamp-1 text-[14px] opacity-90">
-                              {getCollectPreview(d) || "내용 없음"}
-                            </span>
+                            <span
+                              className="line-clamp-1 text-[14px] opacity-90"
+                              dangerouslySetInnerHTML={{ __html: getCollectPreview(d) || "내용 없음" }}
+                            />
                           </button>
                         ))}
                       </div>
@@ -1257,9 +1251,10 @@ export default function JournalPage() {
                               <span className="mb-0.5 text-[16px] font-semibold">
                                 {formatShortDateLabel(d)}
                               </span>
-                              <span className="line-clamp-1 text-[15px] opacity-90">
-                                {getCollectPreview(d) || "내용 없음"}
-                              </span>
+                              <span
+                                className="line-clamp-1 text-[15px] opacity-90"
+                                dangerouslySetInnerHTML={{ __html: getCollectPreview(d) || "내용 없음" }}
+                              />
                             </button>
                           );
                         })}
