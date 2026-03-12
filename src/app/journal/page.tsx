@@ -431,6 +431,14 @@ export default function JournalPage() {
           .map((e) => e.date)
           .sort()
       : [];
+  const getCollectPreview = (date: string) => {
+    const entry = entriesByDate[date];
+    if (!entry) return "";
+    const raw = entry.content || "";
+    const oneLine = raw.replace(/\s+/g, " ").trim();
+    if (oneLine.length <= 40) return oneLine;
+    return `${oneLine.slice(0, 40)}…`;
+  };
   const collectIndex = entryDatesInYear.indexOf(selectedDate);
   const canGoPrevCollect = collectIndex > 0;
   const canGoNextCollect = collectIndex >= 0 && collectIndex < entryDatesInYear.length - 1;
@@ -841,23 +849,34 @@ export default function JournalPage() {
                     </button>
                   </div>
                   {entryDatesInYear.length > 1 && (
-                    <div className="mb-3">
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">
-                        날짜 점프
-                      </label>
-                      <select
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-                      >
-                        {entryDatesInYear.map((d, idx) => (
-                          <option key={d} value={d}>
-                            {formatDateLabel(d)} ({idx + 1}/{entryDatesInYear.length})
-                          </option>
+                    <div className="mb-4">
+                      <div className="mb-2 text-xs font-medium text-neutral-500">
+                        이 연도 기록 한눈에 보기
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {entryDatesInYear.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setSelectedDate(d)}
+                            className={`flex flex-col rounded-lg border px-2 py-1.5 text-left text-xs ${
+                              d === selectedDate
+                                ? "border-neutral-900 bg-neutral-900 text-white"
+                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
+                            }`}
+                          >
+                            <span className="mb-0.5 text-[11px] font-medium opacity-70">
+                              {formatDateLabel(d)}
+                            </span>
+                            <span className="line-clamp-2 text-[11px]">
+                              {getCollectPreview(d) || "내용 없음"}
+                            </span>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
                   )}
+
                   <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6">
                     <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
                     {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
@@ -1122,55 +1141,64 @@ export default function JournalPage() {
                 <div className="min-w-0 py-4">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {entryDatesInYear.length > 1 && (
-                        <div className="flex items-center gap-2">
-                          <label htmlFor="collect-date-jump-desktop" className="text-xs font-medium text-neutral-500">
-                            날짜 점프
-                          </label>
-                          <select
-                            id="collect-date-jump-desktop"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/40"
-                          >
-                            {entryDatesInYear.map((d, idx) => (
-                              <option key={d} value={d}>
-                                {formatDateLabel(d)} ({idx + 1}/{entryDatesInYear.length})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={goPrevInCollect}
-                          disabled={!canGoPrevCollect}
-                          aria-label="이전 기록"
-                          className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
-                        >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                        <span className="min-w-[4rem] text-center text-sm text-neutral-500">
-                          {collectIndex + 1} / {entryDatesInYear.length}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={goNextInCollect}
-                          disabled={!canGoNextCollect}
-                          aria-label="다음 기록"
-                          className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
-                        >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={goPrevInCollect}
+                        disabled={!canGoPrevCollect}
+                        aria-label="이전 기록"
+                        className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <span className="min-w-[4rem] text-center text-sm text-neutral-500">
+                        {collectIndex + 1} / {entryDatesInYear.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={goNextInCollect}
+                        disabled={!canGoNextCollect}
+                        aria-label="다음 기록"
+                        className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
+
+                  {entryDatesInYear.length > 1 && (
+                    <div className="mb-4">
+                      <div className="mb-2 text-xs font-medium text-neutral-500">
+                        이 연도 기록 한눈에 보기
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
+                        {entryDatesInYear.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setSelectedDate(d)}
+                            className={`flex flex-col rounded-lg border px-2 py-1.5 text-left text-xs ${
+                              d === selectedDate
+                                ? "border-neutral-900 bg-neutral-900 text-white"
+                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
+                            }`}
+                          >
+                            <span className="mb-0.5 text-[11px] font-medium opacity-70">
+                              {formatDateLabel(d)}
+                            </span>
+                            <span className="line-clamp-2 text-[11px]">
+                              {getCollectPreview(d) || "내용 없음"}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6 md:px-6">
                     <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
                     {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
