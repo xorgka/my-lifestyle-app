@@ -469,9 +469,17 @@ export default function JournalPage() {
     const entry = entriesByDate[date];
     if (!entry) return "";
     const raw = entry.content || "";
-    const oneLine = raw.replace(/\s+/g, " ").trim();
-    if (oneLine.length <= 28) return oneLine;
-    return `${oneLine.slice(0, 28)}…`;
+    // 1줄로 만들고, 마크다운 기호 일부 제거해서 더 자연스럽게 보이게
+    let oneLine = raw.replace(/\s+/g, " ").trim();
+    // 굵게/기울임/인라인 코드 기호 제거
+    oneLine = oneLine
+      .replace(/[*_`]+/g, "")
+      // 헤딩/리스트 기호 제거
+      .replace(/^#+\s*/g, "")
+      .replace(/^[-+*]\s*/g, "")
+      .replace(/^>\s*/g, "");
+    if (oneLine.length <= 18) return oneLine;
+    return `${oneLine.slice(0, 18)}…`;
   };
   const collectIndex = entryDatesInYear.indexOf(selectedDate);
   const canGoPrevCollect = collectIndex > 0;
@@ -899,10 +907,10 @@ export default function JournalPage() {
                                 : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
                             }`}
                           >
-                            <span className="mb-0.5 text-[13px] font-semibold">
+                            <span className="mb-0.5 text-[15px] font-semibold">
                               {formatShortDateLabel(d)}
                             </span>
-                            <span className="line-clamp-2 text-[12px] opacity-90">
+                            <span className="line-clamp-1 text-[14px] opacity-90">
                               {getCollectPreview(d) || "내용 없음"}
                             </span>
                           </button>
@@ -1246,10 +1254,10 @@ export default function JournalPage() {
                                   : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300 hover:bg-neutral-50"
                               }`}
                             >
-                              <span className="mb-0.5 text-[14px] font-semibold">
+                              <span className="mb-0.5 text-[16px] font-semibold">
                                 {formatShortDateLabel(d)}
                               </span>
-                              <span className="line-clamp-2 text-[13px] opacity-90">
+                              <span className="line-clamp-1 text-[15px] opacity-90">
                                 {getCollectPreview(d) || "내용 없음"}
                               </span>
                             </button>
