@@ -840,6 +840,24 @@ export default function JournalPage() {
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                   </div>
+                  {entryDatesInYear.length > 1 && (
+                    <div className="mb-3">
+                      <label className="mb-1 block text-xs font-medium text-neutral-500">
+                        날짜 점프
+                      </label>
+                      <select
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                      >
+                        {entryDatesInYear.map((d, idx) => (
+                          <option key={d} value={d}>
+                            {formatDateLabel(d)} ({idx + 1}/{entryDatesInYear.length})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6">
                     <p className="mb-2 text-sm font-medium text-neutral-500">{formatDateLabel(selectedDate)}</p>
                     {entriesByDate[selectedDate]?.secret && !secretUnlocked ? (
