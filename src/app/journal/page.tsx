@@ -432,6 +432,13 @@ export default function JournalPage() {
           .map((e) => e.date)
           .sort()
       : [];
+  function formatShortDateLabel(dateStr: string): string {
+    const d = new Date(dateStr + "T12:00:00");
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const week = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+    return `${m}월 ${day}일 (${week})`;
+  }
   const collectMonths =
     journalViewMode === "collect" && collectYear != null
       ? Array.from(
@@ -463,8 +470,8 @@ export default function JournalPage() {
     if (!entry) return "";
     const raw = entry.content || "";
     const oneLine = raw.replace(/\s+/g, " ").trim();
-    if (oneLine.length <= 40) return oneLine;
-    return `${oneLine.slice(0, 40)}…`;
+    if (oneLine.length <= 28) return oneLine;
+    return `${oneLine.slice(0, 28)}…`;
   };
   const collectIndex = entryDatesInYear.indexOf(selectedDate);
   const canGoPrevCollect = collectIndex > 0;
@@ -886,16 +893,16 @@ export default function JournalPage() {
                             key={d}
                             type="button"
                             onClick={() => setSelectedDate(d)}
-                            className={`flex flex-col rounded-lg border px-2 py-1.5 text-left text-xs ${
+                            className={`flex flex-col rounded-lg border px-2 py-2 text-left text-xs ${
                               d === selectedDate
                                 ? "border-neutral-900 bg-neutral-900 text-white"
                                 : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
                             }`}
                           >
-                            <span className="mb-0.5 text-[11px] font-medium opacity-70">
-                              {formatDateLabel(d)}
+                            <span className="mb-0.5 text-[13px] font-semibold">
+                              {formatShortDateLabel(d)}
                             </span>
-                            <span className="line-clamp-2 text-[11px]">
+                            <span className="line-clamp-2 text-[12px] opacity-90">
                               {getCollectPreview(d) || "내용 없음"}
                             </span>
                           </button>
@@ -1227,8 +1234,6 @@ export default function JournalPage() {
                     <div className="mb-4 max-h-64 overflow-y-auto pr-1">
                       <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
                         {entryDatesInMonth.map((d) => {
-                          const [, m, day] = d.split("-");
-                          const label = `${Number(m)}월 ${Number(day)}일`;
                           const isActive = d === selectedDate;
                           return (
                             <button
@@ -1241,10 +1246,10 @@ export default function JournalPage() {
                                   : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300 hover:bg-neutral-50"
                               }`}
                             >
-                              <span className="mb-0.5 text-[12px] font-semibold">
-                                {label}
+                              <span className="mb-0.5 text-[14px] font-semibold">
+                                {formatShortDateLabel(d)}
                               </span>
-                              <span className="line-clamp-2 text-[12px] opacity-80">
+                              <span className="line-clamp-2 text-[13px] opacity-90">
                                 {getCollectPreview(d) || "내용 없음"}
                               </span>
                             </button>
