@@ -198,6 +198,7 @@ export default function JournalPage() {
   /** 일기장 | 모아보기 탭. URL(?view=collect&year=2024)이 진실 공급원 */
   const [journalViewMode, setJournalViewMode] = useState<"journal" | "collect">("journal");
   const [collectYear, setCollectYear] = useState<number | null>(null);
+  const [collectMonth, setCollectMonth] = useState<number | null>(null);
   /** 모아보기 연도 드롭다운 열림 */
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
@@ -431,6 +432,32 @@ export default function JournalPage() {
           .map((e) => e.date)
           .sort()
       : [];
+  const collectMonths =
+    journalViewMode === "collect" && collectYear != null
+      ? Array.from(
+          new Set(
+            entryDatesInYear.map((d) => {
+              const [, m] = d.split("-");
+              return Number(m);
+            })
+          )
+        ).sort((a, b) => a - b)
+      : [];
+  const effectiveCollectMonth =
+    collectMonth && collectMonths.includes(collectMonth)
+      ? collectMonth
+      : (() => {
+          const [, m] = selectedDate.split("-");
+          const mNum = Number(m);
+          return collectMonths.includes(mNum) ? mNum : collectMonths[0] ?? null;
+        })();
+  const entryDatesInMonth =
+    effectiveCollectMonth != null
+      ? entryDatesInYear.filter((d) => {
+          const [, m] = d.split("-");
+          return Number(m) === effectiveCollectMonth;
+        })
+      : entryDatesInYear;
   const getCollectPreview = (date: string) => {
     const entry = entriesByDate[date];
     if (!entry) return "";
@@ -1139,7 +1166,7 @@ export default function JournalPage() {
                 </div>
               ) : (
                 <div className="min-w-0 py-4">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
                     <div className="flex items-center gap-2">
                       <button
@@ -1170,31 +1197,59 @@ export default function JournalPage() {
                     </div>
                   </div>
 
-                  {entryDatesInYear.length > 1 && (
-                    <div className="mb-4">
-                      <div className="mb-2 text-xs font-medium text-neutral-500">
-                        이 연도 기록 한눈에 보기
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
-                        {entryDatesInYear.map((d) => (
+                  {collectMonths.length > 0 && (
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      {collectMonths.map((m) => {
+                        const isActive = effectiveCollectMonth === m;
+                        return (
                           <button
-                            key={d}
+                            key={m}
                             type="button"
-                            onClick={() => setSelectedDate(d)}
-                            className={`flex flex-col rounded-lg border px-2 py-1.5 text-left text-xs ${
-                              d === selectedDate
-                                ? "border-neutral-900 bg-neutral-900 text-white"
-                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
+                            onClick={() => {
+                              setCollectMonth(m);
+                              const firstInMonth = entryDatesInYear.find((d) => Number(d.split("-")[1]) === m);
+                              if (firstInMonth) setSelectedDate(firstInMonth);
+                            }}
+                            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                              isActive
+                                ? "bg-neutral-900 text-white"
+                                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
                             }`}
                           >
-                            <span className="mb-0.5 text-[11px] font-medium opacity-70">
-                              {formatDateLabel(d)}
-                            </span>
-                            <span className="line-clamp-2 text-[11px]">
-                              {getCollectPreview(d) || "내용 없음"}
-                            </span>
+                            {m}월
                           </button>
-                        ))}
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {entryDatesInMonth.length > 0 && (
+                    <div className="mb-4 max-h-64 overflow-y-auto pr-1">
+                      <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
+                        {entryDatesInMonth.map((d) => {
+                          const [, m, day] = d.split("-");
+                          const label = `${Number(m)}월 ${Number(day)}일`;
+                          const isActive = d === selectedDate;
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => setSelectedDate(d)}
+                              className={`flex flex-col rounded-lg border px-2 py-2 text-left text-xs ${
+                                isActive
+                                  ? "border-neutral-900 bg-neutral-900 text-white"
+                                  : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300 hover:bg-neutral-50"
+                              }`}
+                            >
+                              <span className="mb-0.5 text-[12px] font-semibold">
+                                {label}
+                              </span>
+                              <span className="line-clamp-2 text-[12px] opacity-80">
+                                {getCollectPreview(d) || "내용 없음"}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
