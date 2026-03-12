@@ -1122,14 +1122,53 @@ export default function JournalPage() {
                 <div className="min-w-0 py-4">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold text-neutral-800">{collectYear}년 모아보기</h2>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={goPrevInCollect} disabled={!canGoPrevCollect} aria-label="이전 기록" className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none">
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                      </button>
-                      <span className="min-w-[4rem] text-center text-sm text-neutral-500">{collectIndex + 1} / {entryDatesInYear.length}</span>
-                      <button type="button" onClick={goNextInCollect} disabled={!canGoNextCollect} aria-label="다음 기록" className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none">
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                      </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {entryDatesInYear.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <label htmlFor="collect-date-jump-desktop" className="text-xs font-medium text-neutral-500">
+                            날짜 점프
+                          </label>
+                          <select
+                            id="collect-date-jump-desktop"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300/40"
+                          >
+                            {entryDatesInYear.map((d, idx) => (
+                              <option key={d} value={d}>
+                                {formatDateLabel(d)} ({idx + 1}/{entryDatesInYear.length})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={goPrevInCollect}
+                          disabled={!canGoPrevCollect}
+                          aria-label="이전 기록"
+                          className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <span className="min-w-[4rem] text-center text-sm text-neutral-500">
+                          {collectIndex + 1} / {entryDatesInYear.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={goNextInCollect}
+                          disabled={!canGoNextCollect}
+                          aria-label="다음 기록"
+                          className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div className="rounded-xl border border-neutral-200 bg-[#FCFCFC] px-4 py-6 md:px-6">
