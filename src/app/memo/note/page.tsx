@@ -37,26 +37,9 @@ export default function NotePage() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
-    if (typeof window !== "undefined" && !window.localStorage.getItem("my-lifestyle-note-reset-done-v1")) {
-      resetNoteLocalData();
-      window.localStorage.setItem("my-lifestyle-note-reset-done-v1", "1");
-    }
-    let nbList = await loadNotebooks();
-    let noteList = await loadNotes();
+    const nbList = await loadNotebooks();
+    const noteList = await loadNotes();
     const trashList = await loadTrashNotes();
-
-    const resetKey = "my-lifestyle-note-one-notebook-reset";
-    if (typeof window !== "undefined" && !window.localStorage.getItem(resetKey) && nbList.length > 1) {
-      const keep = nbList[0];
-      const removeIds = new Set(nbList.slice(1).map((n) => n.id));
-      await saveNotebooks([keep]);
-      for (const n of noteList) {
-        if (n.notebookId && removeIds.has(n.notebookId)) await moveNoteToTrash(n.id);
-      }
-      window.localStorage.setItem(resetKey, "1");
-      nbList = [keep];
-      noteList = await loadNotes();
-    }
 
     setNotebooks(nbList);
     setNotes(noteList);
