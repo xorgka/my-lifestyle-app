@@ -25,7 +25,7 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
     }
     const config = getPopupConfig("wake");
     if (config?.enabled === false) return;
-    const timeStart = config?.timeStart ?? 5;
+    const timeStart = config?.timeStart ?? 7;
     const timeEnd = config?.timeEnd ?? 13;
     if (!isInTimeWindow(timeStart, timeEnd)) return;
     const today = todayStr();
@@ -64,6 +64,9 @@ export function WakeTimePopup({ forceShow }: WakeTimePopupProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="wake-time-title"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) setOpen(false);
+      }}
     >
       <div className="relative w-full max-w-sm rounded-2xl px-6 py-10 shadow-xl" style={{ ...cardStyle, backgroundColor: cardStyle.backgroundColor ?? "#fff" }}>
         <div className="flex justify-center mb-4">

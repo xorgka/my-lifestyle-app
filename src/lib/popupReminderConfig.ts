@@ -105,7 +105,7 @@ const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
     title: "오늘 몇 시에 깼나요?",
     benefits: [],
     enabled: true,
-    timeStart: 5,
+    timeStart: 7,
     timeEnd: 13,
     throttleMinutes: 0,
   },
