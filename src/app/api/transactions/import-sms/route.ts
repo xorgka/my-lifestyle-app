@@ -9,13 +9,43 @@ type ImportSmsRequest = {
   receivedAt?: string;
 };
 
-function toDateOnly(input?: string): string {
-  const d = input ? new Date(input) : new Date();
-  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
-  const year = safe.getFullYear();
-  const month = String(safe.getMonth() + 1).padStart(2, "0");
-  const day = String(safe.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+const SEOUL_TZ = "Asia/Seoul";
+
+/** Vercel은 UTC 기본이라 getDate()만 쓰면 한국 새벽에 하루 밀림 → 항상 서울 달력 기준 */
+function formatDateOnlyInSeoul(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SEOUL_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === "year")?.value ?? "";
+  const m = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  return `${y}-${m}-${day}`;
+}
+
+function todayDateOnlyInSeoul(): string {
+  return formatDateOnlyInSeoul(new Date());
+}
+
+function toDateOnlyFromReceivedAt(input?: string): string {
+  const trimmed = String(input ?? "").trim();
+  if (!trimmed) return todayDateOnlyInSeoul();
+  const d = new Date(trimmed);
+  if (Number.isNaN(d.getTime())) return todayDateOnlyInSeoul();
+  return formatDateOnlyInSeoul(d);
+}
+
+function yearMonthInSeoul(d: Date): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SEOUL_TZ,
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(d);
+  const year = Number(parts.find((p) => p.type === "year")?.value ?? "0");
+  const month = Number(parts.find((p) => p.type === "month")?.value ?? "0");
+  return { year, month };
 }
 
 function buildExternalId(sender: string, message: string): string {
@@ -56,7 +86,7 @@ export async function POST(req: Request) {
 
       const item = parsed.itemName?.trim() || (sender ? `출금(${sender})` : "출금");
       const { error } = await supabase.from("budget_entries").insert({
-        date: toDateOnly(receivedAt),
+        date: toDateOnlyFromReceivedAt(receivedAt),
         item,
         amount: parsed.amount,
         source: "app",
@@ -67,10 +97,10 @@ export async function POST(req: Request) {
     }
 
     const incomeId = `sms-${externalId.slice(0, 24)}`;
-    const d = receivedAt ? new Date(receivedAt) : new Date();
-    const safe = Number.isNaN(d.getTime()) ? new Date() : d;
-    const year = safe.getFullYear();
-    const month = safe.getMonth() + 1;
+    const rawReceived = String(receivedAt ?? "").trim();
+    const parsedReceived = rawReceived ? new Date(rawReceived) : new Date();
+    const safe = Number.isNaN(parsedReceived.getTime()) ? new Date() : parsedReceived;
+    const { year, month } = yearMonthInSeoul(safe);
     const item = sender ? `입금(${sender})` : "입금";
 
     const { data: existingIncome, error: incomeExistingErr } = await supabase
