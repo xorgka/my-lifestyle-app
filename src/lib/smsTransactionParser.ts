@@ -42,6 +42,42 @@ function parseAmountFromLines(lines: string[]): number | null {
   return null;
 }
 
+function parseAmountFromTextLoose(text: string, anchorIndex: number): number | null {
+  // 한 줄 문자에서 "테스트 1000 입금"처럼 원/줄분리 없이 온 경우 보정
+  const numberRegex = /\d{1,3}(?:,\d{3})+|\d+/g;
+  const candidates: Array<{ value: number; index: number }> = [];
+  for (const m of text.matchAll(numberRegex)) {
+    const raw = m[0] ?? "";
+    const index = m.index ?? -1;
+    if (index < 0) continue;
+    const value = Number(raw.replace(/,/g, ""));
+    if (!Number.isFinite(value) || value <= 0) continue;
+
+    // 날짜/시간 조각(03, 19, 22 등) 오탐을 줄이기 위해 100원 미만은 제외
+    if (value < 100) continue;
+
+    // 숫자 주변이 시간/날짜 구분자인 경우는 우선 제외 (예: 03/19, 22:12)
+    const prev = index > 0 ? text[index - 1] : "";
+    const next = index + raw.length < text.length ? text[index + raw.length] : "";
+    if (prev === "/" || prev === ":" || next === "/" || next === ":") continue;
+
+    candidates.push({ value: Math.floor(value), index });
+  }
+  if (candidates.length === 0) return null;
+
+  // 거래 키워드 위치와 가장 가까운 숫자를 금액으로 간주
+  let picked = candidates[0];
+  let bestDist = Math.abs((candidates[0]?.index ?? 0) - anchorIndex);
+  for (const c of candidates.slice(1)) {
+    const dist = Math.abs(c.index - anchorIndex);
+    if (dist < bestDist) {
+      bestDist = dist;
+      picked = c;
+    }
+  }
+  return picked.value;
+}
+
 function isNoiseLine(line: string): boolean {
   const t = line.replace(/\s+/g, " ").trim();
   if (!t) return true;
@@ -81,7 +117,11 @@ export function parseBankSmsTransaction(message: string): ParsedSmsTransaction |
       ? "withdrawal"
       : "deposit";
 
-  const amount = parseAmount(text) ?? parseAmountFromLines(lines);
+  const anchorIndex = kind === "withdrawal" ? withdrawalIdx : depositIdx;
+  const amount =
+    parseAmount(text) ??
+    parseAmountFromLines(lines) ??
+    parseAmountFromTextLoose(text, anchorIndex);
   if (!amount) return null;
   const itemName = kind === "withdrawal" ? parseWithdrawalItemName(lines) : undefined;
 
