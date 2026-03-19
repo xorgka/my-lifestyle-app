@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       if (existingErr) throw existingErr;
       if (existing) return NextResponse.json({ ok: true, duplicated: true, type: "withdrawal" });
 
-      const item = sender ? `출금(${sender})` : "출금";
+      const item = parsed.itemName?.trim() || (sender ? `출금(${sender})` : "출금");
       const { error } = await supabase.from("budget_entries").insert({
         date: toDateOnly(receivedAt),
         item,
