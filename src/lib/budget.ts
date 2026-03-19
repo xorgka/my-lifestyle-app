@@ -16,12 +16,19 @@ import {
   saveMonthExtrasToDb,
   loadEntryDetailsFromDb,
   saveEntryDetailsToDb,
+  loadSmsGroupRulesFromDb,
+  saveSmsGroupRulesToDb,
+  type SmsGroupRuleRow,
 } from "./budgetDb";
 
 export const BUDGET_ENTRIES_KEY = "my-lifestyle-budget-entries";
 export const BUDGET_KEYWORDS_KEY = "my-lifestyle-budget-keywords";
 export const BUDGET_MONTH_EXTRAS_KEY = "my-lifestyle-budget-month-extras";
 export const BUDGET_ENTRY_DETAILS_KEY = "my-lifestyle-budget-entry-details";
+export const BUDGET_SMS_GROUP_RULES_KEY = "my-lifestyle-budget-sms-group-rules";
+
+/** SMS 자동입력 항목 묶음: match 포함 시 "groupLabel (원문항목)" 으로 저장 (가계부 groupByBaseName 과 호환) */
+export type SmsGroupRule = SmsGroupRuleRow;
 
 export type CategoryId = "고정비" | "사업경비" | "세금" | "생활비" | "기타";
 
@@ -387,6 +394,62 @@ export async function saveEntryDetails(details: BudgetEntryDetail[]): Promise<Bu
   if (supabase) return saveEntryDetailsToDb(details);
   saveJson(BUDGET_ENTRY_DETAILS_KEY, details);
   return details;
+}
+
+export async function loadSmsGroupRules(): Promise<SmsGroupRule[]> {
+  if (supabase) {
+    return loadSmsGroupRulesFromDb();
+  }
+  const data = loadJson<unknown>(BUDGET_SMS_GROUP_RULES_KEY, []);
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((r: unknown, i: number) => {
+      const o = r as Record<string, unknown>;
+      return {
+        match: String(o.match ?? "").trim(),
+        groupLabel: String(o.groupLabel ?? "").trim(),
+        sortOrder: Number(o.sortOrder ?? i) || i,
+      };
+    })
+    .filter((r) => r.match && r.groupLabel)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export async function saveSmsGroupRules(rules: SmsGroupRule[]): Promise<void> {
+  const payload = rules
+    .map((r) => ({
+      match: r.match.trim(),
+      groupLabel: r.groupLabel.trim(),
+      sortOrder: r.sortOrder,
+    }))
+    .filter((r) => r.match && r.groupLabel)
+    .map((r, i) => ({ ...r, sortOrder: i }));
+  if (supabase) {
+    await saveSmsGroupRulesToDb(payload);
+    return;
+  }
+  saveJson(BUDGET_SMS_GROUP_RULES_KEY, payload);
+}
+
+/**
+ * 은행 문자에서 나온 상호 문자열에 규칙 적용.
+ * 이미 "○○ (상세)" 형태면 중복 접두사 방지를 위해 그대로 둠.
+ */
+export function applySmsGroupRulesToItem(item: string, rules: SmsGroupRule[]): string {
+  const t = item.trim();
+  if (!t) return item;
+  if (t.includes(" (")) return t;
+  const lower = t.toLowerCase();
+  const sorted = [...rules].sort((a, b) => a.sortOrder - b.sortOrder);
+  for (const r of sorted) {
+    const m = r.match.trim().toLowerCase();
+    if (!m) continue;
+    if (lower.includes(m)) {
+      const label = r.groupLabel.trim() || "기타";
+      return `${label} (${t})`;
+    }
+  }
+  return t;
 }
 
 /** 항목명이 키워드 목록에 매칭되는지 (포함 여부) */

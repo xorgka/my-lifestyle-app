@@ -2,6 +2,8 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseBankSmsTransaction } from "@/lib/smsTransactionParser";
+import { loadSmsGroupRulesFromDb } from "@/lib/budgetDb";
+import { applySmsGroupRulesToItem } from "@/lib/budget";
 
 type ImportSmsRequest = {
   sender?: string;
@@ -149,6 +151,7 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
     const externalId = buildExternalId(sender, message);
+    const smsGroupRules = await loadSmsGroupRulesFromDb();
 
     if (parsed.kind === "withdrawal") {
       const { data: existing, error: existingErr } = await supabase
@@ -160,7 +163,12 @@ export async function POST(req: Request) {
       if (existingErr) throw existingErr;
       if (existing) return NextResponse.json({ ok: true, duplicated: true, type: "withdrawal" });
 
-      const item = parsed.itemName?.trim() || (sender ? `출금(${sender})` : "출금");
+      const rawItem = parsed.itemName?.trim() || "";
+      const item = rawItem
+        ? applySmsGroupRulesToItem(rawItem, smsGroupRules)
+        : sender
+          ? `출금(${sender})`
+          : "출금";
       const { error } = await supabase.from("budget_entries").insert({
         date: toDateOnlyFromReceivedAt(receivedAt),
         item,

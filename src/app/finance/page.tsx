@@ -30,8 +30,11 @@ import {
   saveEntryDetails,
   saveKeywords,
   saveMonthExtras,
+  loadSmsGroupRules,
+  saveSmsGroupRules,
   todayStr,
   toYearMonth,
+  type SmsGroupRule,
 } from "@/lib/budget";
 import { type IncomeEntry, loadIncomeEntries } from "@/lib/income";
 import { supabase } from "@/lib/supabase";
@@ -132,6 +135,10 @@ export default function FinancePage() {
   const [addKeywordValue, setAddKeywordValue] = useState("");
   const [addKeywordPersist, setAddKeywordPersist] = useState<boolean | null>(null);
   const [pendingKeyword, setPendingKeyword] = useState<{ cat: CategoryId; value: string } | null>(null);
+  /** SMS 자동입력 항목 묶음 규칙 (은행 문자 상호 → "편의점 (상호)" 등) */
+  const [smsGroupRules, setSmsGroupRules] = useState<SmsGroupRule[]>([]);
+  const [smsRuleMatch, setSmsRuleMatch] = useState("");
+  const [smsRuleLabel, setSmsRuleLabel] = useState("");
   const [categoryDetailModal, setCategoryDetailModal] = useState<DisplayCategoryId | null>(null);
   const [showCardExpenseDetailModal, setShowCardExpenseDetailModal] = useState(false);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
@@ -207,16 +214,18 @@ export default function FinancePage() {
   const load = useCallback(async () => {
     setBudgetLoading(true);
     try {
-      const [e, ed, k, m] = await Promise.all([
+      const [e, ed, k, m, smsRules] = await Promise.all([
         loadEntries(),
         loadEntryDetails(),
         loadKeywords(),
         loadMonthExtras(),
+        loadSmsGroupRules(),
       ]);
       setEntries(Array.isArray(e) ? e : []);
       setEntryDetails(Array.isArray(ed) ? ed : []);
       setKeywords(k);
       setMonthExtras(m);
+      setSmsGroupRules(Array.isArray(smsRules) ? smsRules : []);
       setIncomeEntries(await loadIncomeEntries());
     } finally {
       setBudgetLoading(false);
@@ -818,6 +827,33 @@ export default function FinancePage() {
     const base = keywords[cat] ?? [];
     const extra = monthExtras[yearMonth]?.[cat] ?? [];
     return { base, extra, all: [...base, ...extra] };
+  };
+
+  const persistSmsGroupRules = useCallback((next: SmsGroupRule[]) => {
+    const ordered = next.map((r, i) => ({ ...r, sortOrder: i }));
+    setSmsGroupRules(ordered);
+    saveSmsGroupRules(ordered).catch((err) => console.error("[finance] saveSmsGroupRules", err));
+  }, []);
+
+  const addSmsGroupRule = () => {
+    const m = smsRuleMatch.trim();
+    const g = smsRuleLabel.trim();
+    if (!m || !g) return;
+    persistSmsGroupRules([...smsGroupRules, { match: m, groupLabel: g, sortOrder: smsGroupRules.length }]);
+    setSmsRuleMatch("");
+    setSmsRuleLabel("");
+  };
+
+  const removeSmsGroupRule = (index: number) => {
+    persistSmsGroupRules(smsGroupRules.filter((_, i) => i !== index));
+  };
+
+  const moveSmsGroupRule = (index: number, dir: -1 | 1) => {
+    const j = index + dir;
+    if (j < 0 || j >= smsGroupRules.length) return;
+    const next = [...smsGroupRules];
+    [next[index], next[j]] = [next[j], next[index]];
+    persistSmsGroupRules(next);
   };
 
   /** 내보내기 연도: 2026년부터 올해까지 (올해가 2026이면 [2026], 2027이면 [2026, 2027] …) */
@@ -2690,6 +2726,84 @@ placeholder="항목"
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-8 rounded-xl border border-sky-200 bg-sky-50/60 p-4">
+              <h4 className="text-base font-semibold text-neutral-900">SMS 문자 — 항목 묶음</h4>
+              <p className="mt-1 text-sm text-neutral-600">
+                은행 출금 문자의 <strong>상호</strong>에 아래 문구가 <strong>포함</strong>되면, 가계부에는{" "}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">묶음이름 (원문상호)</code> 로 저장돼요.
+                카테고리 상세에서 같은 묶음이름끼리 한 줄로 합쳐져요. 위에서부터 <strong>첫 매칭</strong>만 적용됩니다.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {smsGroupRules.map((r, idx) => (
+                  <li
+                    key={`${r.match}-${idx}`}
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium text-neutral-800">
+                      포함: <span className="text-sky-800">{r.match}</span>
+                    </span>
+                    <span className="text-neutral-400">→</span>
+                    <span className="text-neutral-700">묶음: {r.groupLabel}</span>
+                    <span className="ml-auto flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveSmsGroupRule(idx, -1)}
+                        disabled={idx === 0}
+                        className="rounded border border-neutral-200 px-2 py-0.5 text-xs disabled:opacity-40"
+                        aria-label="위로"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveSmsGroupRule(idx, 1)}
+                        disabled={idx === smsGroupRules.length - 1}
+                        className="rounded border border-neutral-200 px-2 py-0.5 text-xs disabled:opacity-40"
+                        aria-label="아래로"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeSmsGroupRule(idx)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        삭제
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">포함 문구</label>
+                  <input
+                    type="text"
+                    value={smsRuleMatch}
+                    onChange={(e) => setSmsRuleMatch(e.target.value)}
+                    placeholder="예: 이마트"
+                    className="mt-0.5 w-36 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm md:w-44"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">묶음 이름</label>
+                  <input
+                    type="text"
+                    value={smsRuleLabel}
+                    onChange={(e) => setSmsRuleLabel(e.target.value)}
+                    placeholder="예: 편의점"
+                    className="mt-0.5 w-36 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm md:w-44"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addSmsGroupRule}
+                  className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800"
+                >
+                  규칙 추가
+                </button>
+              </div>
             </div>
             <div className="mt-6 flex justify-end">
               <button

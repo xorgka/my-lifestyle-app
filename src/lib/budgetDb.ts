@@ -203,3 +203,43 @@ export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Pro
   }
   return loadEntryDetailsFromDb();
 }
+
+/** SMS 출금 항목명 → "묶음이름 (원문)" 규칙 (budget_sms_group_config.rules JSON) */
+export type SmsGroupRuleRow = { match: string; groupLabel: string; sortOrder: number };
+
+export async function loadSmsGroupRulesFromDb(): Promise<SmsGroupRuleRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("budget_sms_group_config")
+    .select("rules")
+    .eq("id", "default")
+    .maybeSingle();
+  if (error || data == null) {
+    if (error) console.error("[budgetDb] loadSmsGroupRules", error);
+    return [];
+  }
+  const raw = data.rules;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r: Record<string, unknown>, i: number) => ({
+      match: String(r.match ?? "").trim(),
+      groupLabel: String(r.groupLabel ?? r.group_label ?? "").trim(),
+      sortOrder: Number(r.sortOrder ?? r.sort_order ?? i) || i,
+    }))
+    .filter((r) => r.match && r.groupLabel)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export async function saveSmsGroupRulesToDb(rules: SmsGroupRuleRow[]): Promise<void> {
+  if (!supabase) return;
+  const payload = rules.map((r, i) => ({
+    match: r.match.trim(),
+    groupLabel: r.groupLabel.trim(),
+    sortOrder: i,
+  }));
+  const { error } = await supabase.from("budget_sms_group_config").upsert(
+    { id: "default", rules: payload, updated_at: new Date().toISOString() },
+    { onConflict: "id" }
+  );
+  if (error) throw error;
+}

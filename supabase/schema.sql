@@ -56,6 +56,15 @@ create table if not exists budget_month_extras (
 
 comment on column budget_month_extras.extras is '예: {"사업경비": ["노션"], "생활비": ["이달의것"]}';
 
+-- SMS 출금 자동입력 시 상호명 묶음 (예: 이마트 → 편의점 (이마트24…))
+create table if not exists budget_sms_group_config (
+  id text primary key default 'default',
+  rules jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+comment on table budget_sms_group_config is 'rules: [{"match":"이마트","groupLabel":"편의점","sortOrder":0}]';
+insert into budget_sms_group_config (id, rules) values ('default', '[]') on conflict (id) do nothing;
+
 -- ------------------------------------------------------------
 -- 2. 일기
 -- ------------------------------------------------------------
@@ -305,6 +314,7 @@ alter table budget_entries enable row level security;
 alter table budget_entry_details enable row level security;
 alter table budget_keywords enable row level security;
 alter table budget_month_extras enable row level security;
+alter table budget_sms_group_config enable row level security;
 alter table journal_entries enable row level security;
 alter table youtube_channels enable row level security;
 alter table youtube_playlist enable row level security;
@@ -329,6 +339,7 @@ create policy "allow all budget_entries" on budget_entries for all using (true) 
 create policy "allow all budget_entry_details" on budget_entry_details for all using (true) with check (true);
 create policy "allow all budget_keywords" on budget_keywords for all using (true) with check (true);
 create policy "allow all budget_month_extras" on budget_month_extras for all using (true) with check (true);
+create policy "allow all budget_sms_group_config" on budget_sms_group_config for all using (true) with check (true);
 create policy "allow all journal_entries" on journal_entries for all using (true) with check (true);
 create policy "allow all youtube_channels" on youtube_channels for all using (true) with check (true);
 create policy "allow all youtube_playlist" on youtube_playlist for all using (true) with check (true);
@@ -363,6 +374,8 @@ create trigger budget_keywords_updated_at
   before update on budget_keywords for each row execute function set_updated_at();
 create trigger budget_month_extras_updated_at
   before update on budget_month_extras for each row execute function set_updated_at();
+create trigger budget_sms_group_config_updated_at
+  before update on budget_sms_group_config for each row execute function set_updated_at();
 create trigger journal_entries_updated_at
   before update on journal_entries for each row execute function set_updated_at();
 create trigger youtube_channels_updated_at
