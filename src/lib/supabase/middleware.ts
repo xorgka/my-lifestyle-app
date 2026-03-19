@@ -48,6 +48,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup") ||
     request.nextUrl.pathname.startsWith("/auth");
+  const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/transactions/import-sms");
 
   // /signup 접근 시 로그인으로 (회원가입은 대시보드에서만)
   if (request.nextUrl.pathname === "/signup") {
@@ -56,7 +57,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (!hasSession && !isAuthRoute) {
+  if (!hasSession && !isAuthRoute && !isPublicApiRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
