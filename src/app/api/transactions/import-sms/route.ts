@@ -52,12 +52,88 @@ function buildExternalId(sender: string, message: string): string {
   return createHash("sha256").update(`${sender}||${message}`).digest("hex");
 }
 
+const INVALID_JSON_MULTILINE = "invalid_json_multiline_sms";
+
+/** 줄바꿈이 많은 은행 문자는 JSON 본문에서 따옴표 밖 줄바꿈으로 깨지기 쉬움 → 폼/플레인도 지원 */
+async function readImportSmsPayload(req: Request): Promise<{
+  sender: string;
+  message: string;
+  receivedAt: string;
+}> {
+  const raw = await req.text();
+  const ct = (req.headers.get("content-type") ?? "").toLowerCase();
+
+  if (ct.includes("application/x-www-form-urlencoded")) {
+    const params = new URLSearchParams(raw);
+    return {
+      sender: String(params.get("sender") ?? "").trim(),
+      message: String(params.get("message") ?? "").trim(),
+      receivedAt: String(params.get("receivedAt") ?? "").trim(),
+    };
+  }
+
+  if (ct.includes("text/plain")) {
+    return { sender: "", message: raw.trim(), receivedAt: "" };
+  }
+
+  if (ct.includes("application/json")) {
+    try {
+      const body = JSON.parse(raw) as ImportSmsRequest;
+      return {
+        sender: String(body.sender ?? "").trim(),
+        message: String(body.message ?? "").trim(),
+        receivedAt: String(body.receivedAt ?? "").trim(),
+      };
+    } catch {
+      const err = new Error(INVALID_JSON_MULTILINE);
+      err.name = INVALID_JSON_MULTILINE;
+      throw err;
+    }
+  }
+
+  try {
+    const body = JSON.parse(raw) as ImportSmsRequest;
+    return {
+      sender: String(body.sender ?? "").trim(),
+      message: String(body.message ?? "").trim(),
+      receivedAt: String(body.receivedAt ?? "").trim(),
+    };
+  } catch {
+    const params = new URLSearchParams(raw);
+    if (params.has("message")) {
+      return {
+        sender: String(params.get("sender") ?? "").trim(),
+        message: String(params.get("message") ?? "").trim(),
+        receivedAt: String(params.get("receivedAt") ?? "").trim(),
+      };
+    }
+    return { sender: "", message: raw.trim(), receivedAt: "" };
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as ImportSmsRequest;
-    const sender = String(body.sender ?? "").trim();
-    const message = String(body.message ?? "").trim();
-    const receivedAt = String(body.receivedAt ?? "").trim();
+    let sender: string;
+    let message: string;
+    let receivedAt: string;
+    try {
+      const parsedBody = await readImportSmsPayload(req);
+      sender = parsedBody.sender;
+      message = parsedBody.message;
+      receivedAt = parsedBody.receivedAt;
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === INVALID_JSON_MULTILINE) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "invalid_json_multiline_sms: use Content-Type application/x-www-form-urlencoded with fields sender, message, receivedAt",
+          },
+          { status: 400 }
+        );
+      }
+      throw e;
+    }
 
     if (!message) {
       return NextResponse.json({ ok: false, error: "message is required" }, { status: 400 });
