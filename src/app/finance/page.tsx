@@ -32,6 +32,7 @@ import {
   saveMonthExtras,
   loadSmsGroupRules,
   saveSmsGroupRules,
+  applySmsGroupRulesToItem,
   todayStr,
   toYearMonth,
   type SmsGroupRule,
@@ -444,9 +445,11 @@ export default function FinancePage() {
         const detailSum = details.reduce((s, d) => s + d.amount, 0);
         details.forEach((d) => {
           const cat = getCategoryForEntry(d.item.trim(), kw);
-          if (!out[cat][d.item]) out[cat][d.item] = { total: 0, entries: [] };
-          out[cat][d.item].total += d.amount;
-          out[cat][d.item].entries.push({ date: e.date, amount: d.amount, item: d.item });
+          const rawItem = d.item.trim();
+          const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+          if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
+          out[cat][itemKey].total += d.amount;
+          out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
         });
         const unclassified = e.amount - detailSum;
         if (unclassified > 0) {
@@ -457,9 +460,11 @@ export default function FinancePage() {
         }
       } else {
         const cat = getCategoryForEntry(e.item, kw);
-        if (!out[cat][e.item]) out[cat][e.item] = { total: 0, entries: [] };
-        out[cat][e.item].total += e.amount;
-        out[cat][e.item].entries.push({ date: e.date, amount: e.amount, item: e.item });
+        const rawItem = e.item.trim();
+        const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+        if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
+        out[cat][itemKey].total += e.amount;
+        out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem });
       }
     });
     (Object.keys(out) as DisplayCategoryId[]).forEach((cat) => {
@@ -468,7 +473,7 @@ export default function FinancePage() {
       });
     });
     return out;
-  }, [viewMonthEntries, entryDetails, keywords, monthExtras]);
+  }, [viewMonthEntries, entryDetails, keywords, monthExtras, smsGroupRules]);
 
   /** 기간별 보기: 해당 월 카드출금(세부 있는 건) 총합·세부·미분류 한눈에 */
   const viewMonthCardExpenseSummary = useMemo(() => {
@@ -2730,9 +2735,11 @@ placeholder="항목"
             <div className="mt-8 rounded-xl border border-sky-200 bg-sky-50/60 p-4">
               <h4 className="text-base font-semibold text-neutral-900">SMS 문자 — 항목 묶음</h4>
               <p className="mt-1 text-sm text-neutral-600">
-                은행 출금 문자의 <strong>상호</strong>에 아래 문구가 <strong>포함</strong>되면, 가계부에는{" "}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">묶음이름 (원문상호)</code> 로 저장돼요.
-                카테고리 상세에서 같은 묶음이름끼리 한 줄로 합쳐져요. 위에서부터 <strong>첫 매칭</strong>만 적용됩니다.
+                항목명에 아래 문구가 <strong>포함</strong>되면{" "}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">묶음이름 (원문)</code> 형태로{" "}
+                <strong>카테고리 상세</strong>에서 묶입니다(직접 입력·과거 내역 포함). 은행 문자 자동 입력 시에는 이 형태로{" "}
+                <strong>저장</strong>되기도 해요. 이미 <code className="rounded bg-white px-1 py-0.5 text-xs">○○ (상세)</code>{" "}
+                인 항목은 그대로 둡니다. 위에서부터 <strong>첫 매칭</strong>만 적용됩니다.
               </p>
               <ul className="mt-3 space-y-2">
                 {smsGroupRules.map((r, idx) => (
