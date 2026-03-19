@@ -134,8 +134,6 @@ export default function FinancePage() {
   const [showKeywordModal, setShowKeywordModal] = useState(false);
   const [addKeywordCategory, setAddKeywordCategory] = useState<CategoryId | null>(null);
   const [addKeywordValue, setAddKeywordValue] = useState("");
-  const [addKeywordPersist, setAddKeywordPersist] = useState<boolean | null>(null);
-  const [pendingKeyword, setPendingKeyword] = useState<{ cat: CategoryId; value: string } | null>(null);
   /** SMS 자동입력 항목 묶음 규칙 (은행 문자 상호 → "편의점 (상호)" 등) */
   const [smsGroupRules, setSmsGroupRules] = useState<SmsGroupRule[]>([]);
   const [smsRuleMatch, setSmsRuleMatch] = useState("");
@@ -762,7 +760,7 @@ export default function FinancePage() {
     setTimeout(() => lastDetailItemRef.current?.focus(), 50);
   };
 
-  const addKeywordToCategory = (cat: CategoryId, word: string, persist: boolean) => {
+  const addKeywordToCategory = (cat: CategoryId, word: string) => {
     const w = word.trim();
     if (!w) return;
     const base = keywords[cat];
@@ -772,34 +770,19 @@ export default function FinancePage() {
     if (alreadyInBase || alreadyInExtra) {
       setAddKeywordCategory(null);
       setAddKeywordValue("");
-      setPendingKeyword(null);
       return;
     }
-    if (persist) {
-      // 한 키워드는 한 카테고리에만 속하도록: 다른 카테고리에서는 제거 (고정비↔세금 이동 등)
-      const categoryIds = Object.keys(keywords) as CategoryId[];
-      const nextKeywords: CategoryKeywords = { ...keywords };
-      for (const c of categoryIds) {
-        if (c === cat) nextKeywords[c] = [...(nextKeywords[c] ?? []), w];
-        else nextKeywords[c] = (nextKeywords[c] ?? []).filter((x) => x !== w);
-      }
-      setKeywords(nextKeywords);
-      saveKeywords(nextKeywords).catch(console.error);
-    } else {
-      const nextExtras: MonthExtraKeywords = {
-        ...monthExtras,
-        [ym]: {
-          ...monthExtras[ym],
-          [cat]: [...(monthExtras[ym]?.[cat] ?? []), w],
-        },
-      };
-      setMonthExtras(nextExtras);
-      saveMonthExtras(nextExtras).catch(console.error);
+    // 한 키워드는 한 카테고리에만 속하도록: 다른 카테고리에서는 제거 (고정비↔세금 이동 등)
+    const categoryIds = Object.keys(keywords) as CategoryId[];
+    const nextKeywords: CategoryKeywords = { ...keywords };
+    for (const c of categoryIds) {
+      if (c === cat) nextKeywords[c] = [...(nextKeywords[c] ?? []), w];
+      else nextKeywords[c] = (nextKeywords[c] ?? []).filter((x) => x !== w);
     }
+    setKeywords(nextKeywords);
+    saveKeywords(nextKeywords).catch(console.error);
     setAddKeywordCategory(null);
     setAddKeywordValue("");
-    setAddKeywordPersist(null);
-    setPendingKeyword(null);
   };
 
   const removeKeyword = (cat: CategoryId, word: string, isMonthOnly: boolean) => {
@@ -2614,7 +2597,6 @@ placeholder="항목"
               setShowKeywordModal(false);
               setAddKeywordCategory(null);
               setAddKeywordValue("");
-              setPendingKeyword(null);
             }}
           >
             <div className="flex min-h-full items-center justify-center py-8">
@@ -2677,42 +2659,20 @@ placeholder="항목"
                           className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
                           autoFocus
                         />
-                        {pendingKeyword?.cat === cat && pendingKeyword?.value ? (
-                          <>
-                            <span className="text-sm text-neutral-500">다음 달에도 유지할까요?</span>
-                            <button
-                              type="button"
-                              onClick={() => addKeywordToCategory(cat, pendingKeyword.value, true)}
-                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white"
-                            >
-                              예
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => addKeywordToCategory(cat, pendingKeyword.value, false)}
-                              className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm text-white"
-                            >
-                              이번 달만
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (addKeywordValue.trim())
-                                setPendingKeyword({ cat, value: addKeywordValue.trim() });
-                            }}
-                            className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-white"
-                          >
-                            추가
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (addKeywordValue.trim()) addKeywordToCategory(cat, addKeywordValue.trim());
+                          }}
+                          className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-white"
+                        >
+                          추가
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
                             setAddKeywordCategory(null);
                             setAddKeywordValue("");
-                            setPendingKeyword(null);
                           }}
                           className="text-sm text-neutral-500 hover:text-neutral-700"
                         >
@@ -2741,6 +2701,35 @@ placeholder="항목"
                 <strong>저장</strong>되기도 해요. 이미 <code className="rounded bg-white px-1 py-0.5 text-xs">○○ (상세)</code>{" "}
                 인 항목은 그대로 둡니다. 위에서부터 <strong>첫 매칭</strong>만 적용됩니다.
               </p>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">포함 문구</label>
+                  <input
+                    type="text"
+                    value={smsRuleMatch}
+                    onChange={(e) => setSmsRuleMatch(e.target.value)}
+                    placeholder="예: 이마트"
+                    className="mt-0.5 w-36 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm md:w-44"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500">묶음 이름</label>
+                  <input
+                    type="text"
+                    value={smsRuleLabel}
+                    onChange={(e) => setSmsRuleLabel(e.target.value)}
+                    placeholder="예: 편의점"
+                    className="mt-0.5 w-36 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm md:w-44"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addSmsGroupRule}
+                  className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800"
+                >
+                  규칙 추가
+                </button>
+              </div>
               <ul className="mt-3 space-y-2">
                 {smsGroupRules.map((r, idx) => (
                   <li
@@ -2782,35 +2771,6 @@ placeholder="항목"
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 flex flex-wrap items-end gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-neutral-500">포함 문구</label>
-                  <input
-                    type="text"
-                    value={smsRuleMatch}
-                    onChange={(e) => setSmsRuleMatch(e.target.value)}
-                    placeholder="예: 이마트"
-                    className="mt-0.5 w-36 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm md:w-44"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-neutral-500">묶음 이름</label>
-                  <input
-                    type="text"
-                    value={smsRuleLabel}
-                    onChange={(e) => setSmsRuleLabel(e.target.value)}
-                    placeholder="예: 편의점"
-                    className="mt-0.5 w-36 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm md:w-44"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={addSmsGroupRule}
-                  className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800"
-                >
-                  규칙 추가
-                </button>
-              </div>
             </div>
             <div className="mt-6 flex justify-end">
               <button
@@ -2819,7 +2779,6 @@ placeholder="항목"
                   setShowKeywordModal(false);
                   setAddKeywordCategory(null);
                   setAddKeywordValue("");
-                  setPendingKeyword(null);
                 }}
                 className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
               >
