@@ -86,6 +86,19 @@ function saveCompletionsToStorage(completions: Record<string, number[]>): void {
   } catch {}
 }
 
+function mergeCompletions(
+  a: Record<string, number[]>,
+  b: Record<string, number[]>
+): Record<string, number[]> {
+  const out: Record<string, number[]> = { ...a };
+  Object.entries(b).forEach(([date, ids]) => {
+    const prev = out[date] ?? [];
+    const set = new Set<number>([...prev, ...(ids ?? [])]);
+    out[date] = Array.from(set);
+  });
+  return out;
+}
+
 /** 루틴 항목 로드. Supabase 사용 시 is_important로 기기 간 동기화, 없으면 localStorage 병합 */
 export async function loadRoutineItems(): Promise<RoutineItem[]> {
   const localImportantIds = typeof window !== "undefined" ? loadImportantIdsFromStorage() : new Set<number>();
@@ -187,6 +200,7 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
 /** 일별 완료 기록 로드 (routine_completions 테이블, cutoff 이후만) */
 export async function loadRoutineCompletions(): Promise<Record<string, number[]>> {
   const cutoff = getCutoffDateKey();
+  const fromStorage = loadCompletionsFromStorage();
   if (supabase) {
     const { data, error } = await supabase
       .from("routine_completions")
@@ -194,7 +208,7 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
       .gte("date", cutoff);
     if (error) {
       console.error("[routineDb] loadRoutineCompletions", error);
-      return loadCompletionsFromStorage();
+      return fromStorage;
     }
     const out: Record<string, number[]> = {};
     (data ?? []).forEach((row) => {
@@ -204,15 +218,21 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
       if (!out[d]) out[d] = [];
       out[d].push(id);
     });
-    return out;
+    // DB에는 없는데 로컬에는 남아있는 케이스(배포 후 도메인/기기가 달라진 경우 등)를 위해 fallback/merge.
+    if (Object.keys(out).length === 0) return fromStorage;
+    if (Object.keys(fromStorage).length === 0) return out;
+    return mergeCompletions(out, fromStorage);
   }
-  return loadCompletionsFromStorage();
+  return fromStorage;
 }
 
 /** 일별 완료 기록 저장 (cutoff 이후 전체 교체) */
 export async function saveRoutineCompletions(completions: Record<string, number[]>): Promise<void> {
   const cutoff = getCutoffDateKey();
   if (supabase) {
+    // 로드 직후 dailyCompletions가 완전히 비어 있는 경우({})에 DB를 통째로 지우지 않도록 방지.
+    // (예: 로컬 데이터는 있는데 DB 쿼리 결과가 비어있거나 로드 실패한 상황에서 복구가 불가능해지는 문제 방지)
+    if (Object.keys(completions).length === 0) return;
     await supabase.from("routine_completions").delete().gte("date", cutoff);
     const rows: { date: string; item_id: number }[] = [];
     Object.entries(completions).forEach(([date, ids]) => {
