@@ -166,14 +166,12 @@ export default function RoutinePage() {
       setItems(itemsData.length > 0 ? itemsData : defaultItems);
       setDailyCompletions(completionsData);
       setRoutineLoaded(true);
-      if (process.env.NEXT_PUBLIC_ROUTINE_DEBUG === "1") {
-        console.debug("[routine] loaded", {
-          itemsCount: itemsData.length,
-          completionDates: Object.keys(completionsData).length,
-          todayKey: getTodayKey(),
-          todayCompletedCount: (completionsData[getTodayKey()] ?? []).length,
-        });
-      }
+      console.debug("[routine] loaded", {
+        itemsCount: itemsData.length,
+        completionDates: Object.keys(completionsData).length,
+        todayKey: getTodayKey(),
+        todayCompletedCount: (completionsData[getTodayKey()] ?? []).length,
+      });
     });
     return () => {
       cancelled = true;
