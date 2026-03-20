@@ -60,6 +60,11 @@ async function saveToSupabase(links: Record<string, number>): Promise<void> {
     const keys = Object.keys(links);
     const { data: existing } = await supabase.from(TABLE_NAME).select("timetable_item_id");
     const toDelete = (existing ?? []).map((r: { timetable_item_id: string }) => r.timetable_item_id).filter((id) => !keys.includes(id));
+    // 안전장치: 빈 입력으로 연동 전체 삭제되는 상황 방지
+    if (keys.length === 0 && (existing?.length ?? 0) > 0) {
+      console.warn("[timetableRoutineLinks] saveToSupabase skip destructive delete (empty input)");
+      return;
+    }
     if (toDelete.length > 0) {
       await supabase.from(TABLE_NAME).delete().in("timetable_item_id", toDelete);
     }
@@ -135,6 +140,11 @@ async function saveTemplateLinksToSupabase(template: Record<string, number>): Pr
     const toDelete = (existing ?? [])
       .map((r: { time_text_key: string }) => r.time_text_key)
       .filter((id) => !keys.includes(id));
+    // 안전장치: 빈 입력으로 템플릿 연동 전체 삭제되는 상황 방지
+    if (keys.length === 0 && (existing?.length ?? 0) > 0) {
+      console.warn("[timetableRoutineLinks] saveTemplateLinksToSupabase skip destructive delete (empty input)");
+      return;
+    }
     if (toDelete.length > 0) {
       await supabase.from(TEMPLATE_LINKS_TABLE).delete().in("time_text_key", toDelete);
     }

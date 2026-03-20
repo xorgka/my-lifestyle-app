@@ -59,6 +59,11 @@ export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<Budget
     .eq("source", "app");
   const existingIds = (existingRows ?? []).map((r) => String(r.id));
   const toDelete = existingIds.filter((id) => !keepIds.includes(id));
+  // 안전장치: 빈/비정상 입력으로 기존 app source 전체 삭제되는 상황 방지
+  if (entries.length === 0 && existingIds.length > 0) {
+    console.warn("[budgetDb] saveEntriesToDb skip destructive delete (empty input)");
+    return entries;
+  }
   if (toDelete.length > 0) {
     const { error: delErr } = await supabase
       .from("budget_entries")
@@ -184,6 +189,11 @@ export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Pro
   const { data: existingRows } = await supabase.from("budget_entry_details").select("id");
   const existingIds = (existingRows ?? []).map((r) => String(r.id));
   const toDelete = existingIds.filter((id) => !keepIds.includes(id));
+  // 안전장치: 빈 입력으로 세부내역 전체 삭제되는 상황 방지
+  if (details.length === 0 && existingIds.length > 0) {
+    console.warn("[budgetDb] saveEntryDetailsToDb skip destructive delete (empty input)");
+    return details;
+  }
   if (toDelete.length > 0) {
     await supabase.from("budget_entry_details").delete().in("id", toDelete);
   }

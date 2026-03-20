@@ -188,6 +188,11 @@ export async function saveRoutineItems(items: RoutineItem[]): Promise<RoutineIte
     }
     const keepIds = new Set(result.map((r) => r.id));
     const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
+    // 안전장치: 로드 오류 등으로 빈 배열이 들어오면 기존 DB 전체 삭제를 막는다.
+    if (result.length === 0 && existingIds.size > 0) {
+      console.warn("[routineDb] saveRoutineItems skip destructive delete (empty input)");
+      return items;
+    }
     if (toDelete.length > 0) {
       await supabase.from("routine_items").delete().in("id", toDelete);
     }

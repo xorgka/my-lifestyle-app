@@ -157,6 +157,11 @@ export async function saveNotebooks(notebooks: Notebook[]): Promise<void> {
       const keepIds = new Set(notebooks.map((n) => n.id));
       const { data: existing } = await supabase.from("note_notebooks").select("id");
       const toDelete = (existing ?? []).map((r) => r.id).filter((id) => !keepIds.has(id));
+      // 안전장치: 빈 입력으로 노트북 전체 삭제되는 상황 방지
+      if (notebooks.length === 0 && (existing?.length ?? 0) > 0) {
+        console.warn("[noteDb] saveNotebooks skip destructive delete (empty input)");
+        return;
+      }
       if (toDelete.length > 0) {
         await supabase.from("note_notebooks").delete().in("id", toDelete);
       }

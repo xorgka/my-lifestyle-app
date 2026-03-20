@@ -225,6 +225,11 @@ export async function saveIncomeEntries(entries: IncomeEntry[]): Promise<void> {
       const existingIds = new Set((existing.data ?? []).map((r) => String(r.id)));
       const entryIds = new Set(entries.map((e) => e.id));
       const toDelete = [...existingIds].filter((id) => !entryIds.has(id));
+      // 안전장치: 빈 입력으로 수입 전체 삭제되는 상황 방지
+      if (entries.length === 0 && existingIds.size > 0) {
+        console.warn("[income] saveIncomeEntries skip destructive delete (empty input)");
+        return;
+      }
       if (toDelete.length > 0) await supabase.from("income_entries").delete().in("id", toDelete);
       if (entries.length > 0) await saveIncomeEntriesToSupabase(entries);
     } catch (e) {

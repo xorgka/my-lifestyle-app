@@ -147,6 +147,11 @@ export async function saveMemos(memos: Memo[]): Promise<void> {
     const ourIds = new Set(memos.map((m) => m.id));
     const { data: existing } = await supabase.from("memos").select("id");
     const toDelete = (existing ?? []).map((r) => r.id).filter((id) => !ourIds.has(id));
+    // 안전장치: 빈 입력으로 기존 DB 메모 전체 삭제되는 상황 방지
+    if (memos.length === 0 && (existing?.length ?? 0) > 0) {
+      console.warn("[memoDb] saveMemos skip destructive delete (empty input)");
+      return;
+    }
     if (toDelete.length > 0) {
       await supabase.from("memos").delete().in("id", toDelete);
     }
