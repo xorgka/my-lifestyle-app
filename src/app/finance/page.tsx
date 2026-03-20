@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
@@ -33,6 +33,7 @@ import {
   loadSmsGroupRules,
   saveSmsGroupRules,
   applySmsGroupRulesToItem,
+  looksLikeCardBulkSettlementItem,
   todayStr,
   toYearMonth,
   type SmsGroupRule,
@@ -473,10 +474,11 @@ export default function FinancePage() {
     return out;
   }, [viewMonthEntries, entryDetails, keywords, monthExtras, smsGroupRules]);
 
-  /** 기간별 보기: 해당 월 카드출금(세부 있는 건) 총합·세부·미분류 한눈에 */
+  /** 기간별 보기: 해당 월 카드출금 — 세부 입력 건 + 카드 일괄결제 문자 패턴(예: KB카드출금) */
   const viewMonthCardExpenseSummary = useMemo(() => {
-    const cardEntries = viewMonthEntries.filter((e) =>
-      entryDetails.some((d) => d.parentId === e.id)
+    const cardEntries = viewMonthEntries.filter(
+      (e) =>
+        entryDetails.some((d) => d.parentId === e.id) || looksLikeCardBulkSettlementItem(e.item)
     );
     let total = 0;
     let detailTotal = 0;
@@ -1422,18 +1424,16 @@ placeholder="항목"
                           <span className="font-semibold text-neutral-900">
                             {formatNum(e.amount)}원
                           </span>
-                          {entryDetails.some((d) => d.parentId === e.id) && (
-                            <button
-                              type="button"
-                              onClick={(ev) => {
-                                ev.stopPropagation();
-                                openCardExpenseModal(e);
-                              }}
-                              className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-300"
-                            >
-                              수정
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              openCardExpenseModal(e);
+                            }}
+                            className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-300"
+                          >
+                            {entryDetails.some((d) => d.parentId === e.id) ? "세부 수정" : "세부 추가"}
+                          </button>
                           <button
                             type="button"
                             onClick={(ev) => {
@@ -2514,7 +2514,9 @@ placeholder="항목"
                 카드출금 · {yearMonthForView} 상세
               </h3>
               <p className="mt-1 text-sm text-neutral-500">
-                해당 월 카드출금 총합, 세부 내역, 미분류를 한눈에 볼 수 있어요.
+                카드 총합·세부·미분류를 한눈에 볼 수 있어요. 문자로만 들어온 일괄 출금도 항목에
+                &quot;카드&quot;·출금/결제 등이 있으면 여기 포함돼요. 날짜 목록에서&nbsp;
+                <strong className="font-medium text-neutral-700">세부 추가</strong>로 쪼갤 수 있어요.
               </p>
               {viewMonthCardExpenseSummary.total <= 0 ? (
                 <p className="mt-4 text-sm text-neutral-400">해당 월 카드출금 내역이 없어요.</p>
@@ -2530,31 +2532,75 @@ placeholder="항목"
                     <div className="text-sm font-medium text-neutral-600">세부 내역</div>
                     <div className="mt-2 space-y-3 rounded-lg border border-neutral-200 bg-neutral-50/50 p-3">
                       {(() => {
-                        const byDate = new Map<string, { entry: BudgetEntry; details: BudgetEntryDetail[] }[]>();
+                        const byDate = new Map<
+                          string,
+                          { entry: BudgetEntry; details: BudgetEntryDetail[]; unclassified: number }[]
+                        >();
                         viewMonthCardExpenseSummary.rows.forEach((r) => {
                           if (!byDate.has(r.entry.date)) byDate.set(r.entry.date, []);
                           byDate.get(r.entry.date)!.push(r);
                         });
                         const sortedDates = Array.from(byDate.keys()).sort();
                         return sortedDates.map((date) => {
-                          const flatDetails = byDate.get(date)!.flatMap(({ details }) => details);
+                          const groups = byDate.get(date)!;
                           return (
                             <div key={date}>
                               <div className="text-xs font-medium text-neutral-500">
                                 {formatDateLabelShort(date)}
                               </div>
                               <ul className="mt-1">
-                                {flatDetails.map((d, idx) => (
-                                  <li
-                                    key={d.id}
-                                    className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 md:text-sm ${idx > 0 ? "border-t border-neutral-200/70" : ""}`}
-                                  >
-                                    <span className="min-w-0 truncate">{d.item}</span>
-                                    <span className="shrink-0 tabular-nums font-medium">
-                                      {formatNum(d.amount)}원
-                                    </span>
-                                  </li>
-                                ))}
+                                {groups.flatMap((r) => {
+                                  const rows: ReactNode[] = [];
+                                  let idx = 0;
+                                  const border = (i: number) =>
+                                    i > 0 ? "border-t border-neutral-200/70" : "";
+                                  r.details.forEach((d) => {
+                                    rows.push(
+                                      <li
+                                        key={d.id}
+                                        className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 md:text-sm ${border(idx)}`}
+                                      >
+                                        <span className="min-w-0 truncate">{d.item}</span>
+                                        <span className="shrink-0 tabular-nums font-medium">
+                                          {formatNum(d.amount)}원
+                                        </span>
+                                      </li>
+                                    );
+                                    idx++;
+                                  });
+                                  if (r.details.length === 0 && r.entry.amount > 0) {
+                                    rows.push(
+                                      <li
+                                        key={`${r.entry.id}-sms-bulk`}
+                                        className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 md:text-sm ${border(idx)}`}
+                                      >
+                                        <span className="min-w-0 truncate text-neutral-600">
+                                          {r.entry.item}
+                                          <span className="ml-1 text-neutral-400">(세부 미작성)</span>
+                                        </span>
+                                        <span className="shrink-0 tabular-nums font-medium">
+                                          {formatNum(r.entry.amount)}원
+                                        </span>
+                                      </li>
+                                    );
+                                    idx++;
+                                  } else if (r.unclassified > 0) {
+                                    rows.push(
+                                      <li
+                                        key={`${r.entry.id}-uncl`}
+                                        className={`flex justify-between gap-2 py-1.5 text-[11px] text-neutral-800 md:text-sm ${border(idx)}`}
+                                      >
+                                        <span className="min-w-0 truncate text-neutral-600">
+                                          미분류 ({r.entry.item})
+                                        </span>
+                                        <span className="shrink-0 tabular-nums font-medium">
+                                          {formatNum(r.unclassified)}원
+                                        </span>
+                                      </li>
+                                    );
+                                  }
+                                  return rows;
+                                })}
                               </ul>
                             </div>
                           );

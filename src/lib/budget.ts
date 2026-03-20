@@ -89,6 +89,8 @@ export const DEFAULT_KEYWORDS: Record<CategoryId, string[]> = {
     "배민",
     "컬리",
     "외식",
+    "카드출금",
+    "일시불",
   ],
   세금: ["부가세", "종합소득세", "자동차세", "면허세"],
   기타: [],
@@ -456,6 +458,22 @@ export function applySmsGroupRulesToItem(item: string, rules: SmsGroupRule[]): s
 function matchesKeyword(item: string, keywords: string[]): boolean {
   const lower = item.trim().toLowerCase();
   return keywords.some((k) => lower.includes(k.trim().toLowerCase()));
+}
+
+/**
+ * 카드사/은행 문자의 일괄 출금·결제 한 줄 (예: KB카드출금, 신한카드승인 900000원)처럼
+ * 항목명만 보이는 경우. 세부 내역 없이 가계부에 들어와도 "카드출금 상세" 집계에 넣기 위함.
+ */
+export function looksLikeCardBulkSettlementItem(item: string): boolean {
+  const t = item.trim().toLowerCase();
+  if (!t.includes("카드")) return false;
+  return (
+    t.includes("출금") ||
+    t.includes("결제") ||
+    t.includes("승인") ||
+    t.includes("이용대금") ||
+    t.includes("청구")
+  );
 }
 
 /** 해당 월에 적용되는 카테고리별 키워드 (기본 + 해당 월 추가분) */
