@@ -94,6 +94,7 @@ export default function IncomePage() {
   const [editItem, setEditItem] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editMonth, setEditMonth] = useState(1);
+  const [editCategory, setEditCategory] = useState("");
   /** 모바일: 이전 연도(25~21) 펼침 여부 */
   const [showPastYearsMobile, setShowPastYearsMobile] = useState(false);
   /** 모바일: 구분관리·내보내기·검색 메뉴 열림 */
@@ -428,7 +429,7 @@ export default function IncomePage() {
 
   const updateIncomeEntry = (
     id: string,
-    updates: { item?: string; amount?: number; month?: number }
+    updates: { item?: string; amount?: number; month?: number; category?: string }
   ) => {
     const next = incomeEntries.map((e) =>
       e.id !== id
@@ -438,6 +439,7 @@ export default function IncomePage() {
             ...(updates.item !== undefined && { item: updates.item }),
             ...(updates.amount !== undefined && { amount: updates.amount }),
             ...(updates.month !== undefined && { month: updates.month }),
+            ...(updates.category !== undefined && { category: updates.category }),
           }
     );
     setIncomeEntries(next);
@@ -450,15 +452,19 @@ export default function IncomePage() {
     setEditItem(e.item);
     setEditAmount(String(e.amount));
     setEditMonth(e.month);
+    setEditCategory(e.category);
   };
+
+  const cancelEdit = () => setEditingId(null);
 
   const saveEdit = () => {
     if (!editingId) return;
     const item = editItem.trim();
+    const cat = editCategory.trim();
     const amount = Number(String(editAmount).replace(/,/g, ""));
-    if (!item || !Number.isFinite(amount) || amount <= 0) return;
+    if (!item || !cat || !Number.isFinite(amount) || amount <= 0) return;
     if (editMonth < 1 || editMonth > 12) return;
-    updateIncomeEntry(editingId, { item, amount, month: editMonth });
+    updateIncomeEntry(editingId, { item, amount, month: editMonth, category: cat });
   };
 
   /** 내보내기 연도: 2026년부터 올해까지 */
@@ -1234,7 +1240,10 @@ export default function IncomePage() {
         createPortal(
           <div
             className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
-            onClick={() => setMonthDetailModal(null)}
+            onClick={() => {
+              setEditingId(null);
+              setMonthDetailModal(null);
+            }}
           >
             <div
               className="my-auto w-full max-w-2xl max-h-[85vh] shrink-0 overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
@@ -1274,17 +1283,111 @@ export default function IncomePage() {
                               구분: {category}
                             </div>
                             <ul className="px-4 py-2">
-                              {catEntries.map((e) => (
-                                <li
-                                  key={e.id}
-                                  className="flex items-center justify-between gap-3 border-b border-neutral-100 py-2.5 last:border-0"
-                                >
-                                  <span className="text-neutral-700">{e.item}</span>
-                                  <span className="font-medium text-emerald-700">
-                                    {formatNum(e.amount)}원
-                                  </span>
-                                </li>
-                              ))}
+                              {catEntries.map((e) => {
+                                const categorySelectOptions =
+                                  editCategory && !categories.includes(editCategory)
+                                    ? [...categories, editCategory]
+                                    : categories;
+                                return (
+                                  <li
+                                    key={e.id}
+                                    className="border-b border-neutral-100 py-2.5 last:border-0"
+                                  >
+                                    {editingId === e.id ? (
+                                      <div className="flex flex-col gap-2 rounded-lg bg-white/90 p-2 ring-1 ring-neutral-200">
+                                        <div className="flex flex-wrap gap-2">
+                                          <div>
+                                            <label className="text-[10px] font-medium text-neutral-500">월</label>
+                                            <select
+                                              value={editMonth}
+                                              onChange={(ev) => setEditMonth(Number(ev.target.value))}
+                                              className="mt-0.5 block w-full rounded-lg border border-neutral-200 bg-white py-1.5 pl-2 pr-7 text-sm text-neutral-800"
+                                            >
+                                              {MONTHS.map((m) => (
+                                                <option key={m} value={m}>
+                                                  {m}월
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                          <div className="min-w-[120px] flex-1">
+                                            <label className="text-[10px] font-medium text-neutral-500">구분</label>
+                                            <select
+                                              value={editCategory}
+                                              onChange={(ev) => setEditCategory(ev.target.value)}
+                                              className="mt-0.5 block w-full rounded-lg border border-neutral-200 bg-white py-1.5 pl-2 pr-7 text-sm text-neutral-800"
+                                            >
+                                              {categorySelectOptions.map((c) => (
+                                                <option key={c} value={c}>
+                                                  {c}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <label className="text-[10px] font-medium text-neutral-500">항목</label>
+                                          <input
+                                            type="text"
+                                            value={editItem}
+                                            onChange={(ev) => setEditItem(ev.target.value)}
+                                            className="mt-0.5 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="text-[10px] font-medium text-neutral-500">금액</label>
+                                          <input
+                                            type="number"
+                                            min={1}
+                                            value={editAmount}
+                                            onChange={(ev) => setEditAmount(ev.target.value)}
+                                            className="mt-0.5 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800"
+                                          />
+                                        </div>
+                                        <div className="flex flex-wrap justify-end gap-2 pt-1">
+                                          <button
+                                            type="button"
+                                            onClick={cancelEdit}
+                                            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                                          >
+                                            취소
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={saveEdit}
+                                            className="rounded-lg bg-neutral-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700"
+                                          >
+                                            저장
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <span className="min-w-0 flex-1 text-neutral-700">{e.item}</span>
+                                        <span className="shrink-0 font-medium text-emerald-700">
+                                          {formatNum(e.amount)}원
+                                        </span>
+                                        <div className="flex w-full shrink-0 justify-end gap-2 sm:w-auto">
+                                          <button
+                                            type="button"
+                                            onClick={() => startEdit(e)}
+                                            className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                                          >
+                                            수정
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => removeIncomeEntry(e.id)}
+                                            className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                                          >
+                                            삭제
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </li>
+                                );
+                              })}
                             </ul>
                             <div className="flex justify-end border-t border-neutral-100 bg-white/60 px-4 py-2 text-sm">
                               <span className="text-neutral-500">소계 </span>
@@ -1302,7 +1405,10 @@ export default function IncomePage() {
               <div className="flex justify-end border-t border-neutral-200 px-5 py-3">
                 <button
                   type="button"
-                  onClick={() => setMonthDetailModal(null)}
+                  onClick={() => {
+                    setEditingId(null);
+                    setMonthDetailModal(null);
+                  }}
                   className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
                 >
                   닫기

@@ -39,17 +39,6 @@ function toDateOnlyFromReceivedAt(input?: string): string {
   return formatDateOnlyInSeoul(d);
 }
 
-function yearMonthInSeoul(d: Date): { year: number; month: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: SEOUL_TZ,
-    year: "numeric",
-    month: "numeric",
-  }).formatToParts(d);
-  const year = Number(parts.find((p) => p.type === "year")?.value ?? "0");
-  const month = Number(parts.find((p) => p.type === "month")?.value ?? "0");
-  return { year, month };
-}
-
 function buildExternalId(sender: string, message: string): string {
   return createHash("sha256").update(`${sender}||${message}`).digest("hex");
 }
@@ -149,11 +138,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = await createClient();
-    const externalId = buildExternalId(sender, message);
-    const smsGroupRules = await loadSmsGroupRulesFromDb();
-
     if (parsed.kind === "withdrawal") {
+      const supabase = await createClient();
+      const externalId = buildExternalId(sender, message);
+      const smsGroupRules = await loadSmsGroupRulesFromDb();
+
       const { data: existing, error: existingErr } = await supabase
         .from("budget_entries")
         .select("id")
@@ -180,32 +169,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, duplicated: false, type: "withdrawal", amount: parsed.amount });
     }
 
-    const incomeId = `sms-${externalId.slice(0, 24)}`;
-    const rawReceived = String(receivedAt ?? "").trim();
-    const parsedReceived = rawReceived ? new Date(rawReceived) : new Date();
-    const safe = Number.isNaN(parsedReceived.getTime()) ? new Date() : parsedReceived;
-    const { year, month } = yearMonthInSeoul(safe);
-    const item = sender ? `입금(${sender})` : "입금";
-
-    const { data: existingIncome, error: incomeExistingErr } = await supabase
-      .from("income_entries")
-      .select("id")
-      .eq("id", incomeId)
-      .maybeSingle();
-    if (incomeExistingErr) throw incomeExistingErr;
-    if (existingIncome) return NextResponse.json({ ok: true, duplicated: true, type: "deposit" });
-
-    const { error: insertIncomeErr } = await supabase.from("income_entries").insert({
-      id: incomeId,
-      year,
-      month,
-      item,
-      amount: parsed.amount,
-      category: "기타",
+    // 입금 문자는 수입(income_entries)에 넣지 않음. 출금만 가계부(budget_entries)에 반영.
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      type: "deposit",
     });
-    if (insertIncomeErr) throw insertIncomeErr;
-
-    return NextResponse.json({ ok: true, duplicated: false, type: "deposit", amount: parsed.amount });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
