@@ -202,11 +202,37 @@ export default function FinancePage() {
   const cardModalContentRef = useRef<HTMLDivElement>(null);
   const cardModalFormRef = useRef<HTMLFormElement>(null);
   const lastDetailItemInputRef = useRef<HTMLInputElement>(null);
+  const entryLongPressTimerRef = useRef<number | null>(null);
+  const entryLongPressTriggeredRef = useRef(false);
   const itemInputRef = useRef<HTMLInputElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
   const isAddingRef = useRef(false);
   const addEntryRef = useRef<() => void>(() => {});
   const [isAdding, setIsAdding] = useState(false);
+
+  const isMobileViewport = () =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+
+  const clearEntryLongPress = () => {
+    if (entryLongPressTimerRef.current != null) {
+      window.clearTimeout(entryLongPressTimerRef.current);
+      entryLongPressTimerRef.current = null;
+    }
+  };
+
+  const onEntryTouchStartForCardDetail = (entry: BudgetEntry) => {
+    if (!isMobileViewport()) return;
+    clearEntryLongPress();
+    entryLongPressTriggeredRef.current = false;
+    entryLongPressTimerRef.current = window.setTimeout(() => {
+      entryLongPressTriggeredRef.current = true;
+      openCardExpenseModal(entry);
+    }, 500);
+  };
+
+  const onEntryTouchEndForCardDetail = () => {
+    clearEntryLongPress();
+  };
 
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
 
@@ -1351,6 +1377,9 @@ placeholder="항목"
                       setListEditItem(e.item);
                       setListEditAmount(String(e.amount));
                     }}
+                    onTouchStart={() => onEntryTouchStartForCardDetail(e)}
+                    onTouchEnd={onEntryTouchEndForCardDetail}
+                    onTouchCancel={onEntryTouchEndForCardDetail}
                     className={`flex flex-wrap items-center justify-between gap-y-1 rounded-lg border border-neutral-200 px-4 py-2 text-sm ${isListEditing ? "bg-white" : "bg-neutral-50"}`}
                   >
                     <div className="flex w-full items-center justify-between">
@@ -1430,7 +1459,7 @@ placeholder="항목"
                               ev.stopPropagation();
                               openCardExpenseModal(e);
                             }}
-                            className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-300"
+                            className="hidden rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-300 sm:inline-flex"
                           >
                             {entryDetails.some((d) => d.parentId === e.id) ? "세부 수정" : "세부 추가"}
                           </button>

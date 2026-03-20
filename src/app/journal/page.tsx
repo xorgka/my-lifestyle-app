@@ -883,32 +883,31 @@ export default function JournalPage() {
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                   </div>
-                  {entryDatesInYear.length > 1 && (
+                  {collectMonths.length > 0 && (
                     <div className="mb-4">
-                      <div className="mb-2 text-xs font-medium text-neutral-500">
-                        이 연도 기록 한눈에 보기
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {entryDatesInYear.map((d) => (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => setSelectedDate(d)}
-                            className={`flex flex-col rounded-lg border px-2 py-2 text-left text-xs ${
-                              d === selectedDate
-                                ? "border-neutral-900 bg-neutral-900 text-white"
-                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
-                            }`}
-                          >
-                            <span className="mb-0.5 text-[15px] font-semibold">
-                              {formatShortDateLabel(d)}
-                            </span>
-                            <span
-                              className="line-clamp-1 text-[14px] opacity-90"
-                              dangerouslySetInnerHTML={{ __html: getCollectPreview(d) || "내용 없음" }}
-                            />
-                          </button>
-                        ))}
+                      <div className="mb-2 text-xs font-medium text-neutral-500">월별 보기</div>
+                      <div className="flex flex-wrap gap-2">
+                        {collectMonths.map((m) => {
+                          const isActive = effectiveCollectMonth === m;
+                          return (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => {
+                                setCollectMonth(m);
+                                const firstInMonth = entryDatesInYear.find((d) => Number(d.split("-")[1]) === m);
+                                if (firstInMonth) setSelectedDate(firstInMonth);
+                              }}
+                              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                                isActive
+                                  ? "bg-neutral-900 text-white"
+                                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                              }`}
+                            >
+                              {m}월
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
