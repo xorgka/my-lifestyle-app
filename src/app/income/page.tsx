@@ -873,21 +873,22 @@ export default function IncomePage() {
                 key={m}
                 type="button"
                 onClick={() => setMonthDetailModal(m)}
-                className={`rounded-xl bg-neutral-50/50 text-left transition hover:bg-neutral-100/70 ${
+                className={`flex h-full min-h-0 flex-col rounded-xl bg-neutral-50/50 text-left transition hover:bg-neutral-100/70 ${
                   isCurrentMonth
                     ? "border-2 border-black"
                     : "border border-neutral-200"
                 }`}
               >
-                <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2.5">
+                {/* 고정 높이: 같은 행에서 월·금액 헤더 줄이 항상 동일하게 맞춤 */}
+                <div className="flex min-h-[2.75rem] shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-2">
                   <span className="font-semibold text-neutral-800">{m}월</span>
-                  <span className="text-sm font-bold text-emerald-700">
+                  <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-700">
                     {formatManWon(total)}
                   </span>
                 </div>
-                <ul className="min-h-[2.5rem] px-4 py-2">
+                <ul className="flex min-h-0 flex-1 flex-col px-4 py-2">
                   {groups.length === 0 ? (
-                    <li className="py-2 text-center text-sm text-neutral-400">
+                    <li className="flex flex-1 items-center justify-center py-4 text-center text-sm text-neutral-400">
                       수입 없음
                     </li>
                   ) : (
@@ -896,10 +897,10 @@ export default function IncomePage() {
                         key={`${m}-${category}`}
                         className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 py-2 pl-2 pr-3 last:border-0"
                       >
-                        <span className="font-medium text-neutral-500">
+                        <span className="min-w-0 flex-1 truncate font-medium text-neutral-500">
                           {category}
                         </span>
-                        <span className="text-sm font-semibold text-emerald-600/90">
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-600/90">
                           {formatManWon(catTotal)}
                         </span>
                       </li>
