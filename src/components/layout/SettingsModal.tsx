@@ -31,7 +31,53 @@ import {
 } from "@/lib/budget";
 import { loadYoutubeChannels } from "@/lib/youtubeDb";
 import { todayStr } from "@/lib/dateUtil";
-import { loadIncomeEntries, type IncomeEntry } from "@/lib/income";
+import {
+  loadIncomeEntries,
+  saveIncomeEntries,
+  loadIncomeCategories,
+  saveIncomeCategories,
+  type IncomeEntry,
+} from "@/lib/income";
+import { saveYoutubeChannels } from "@/lib/youtubeDb";
+import { saveJournalEntries } from "@/lib/journal";
+import {
+  loadRoutineItems,
+  saveRoutineItems,
+  loadRoutineCompletions,
+  saveRoutineCompletions,
+} from "@/lib/routineDb";
+import {
+  loadAllMemos,
+  saveMemos,
+} from "@/lib/memoDb";
+import {
+  loadNotebooks,
+  saveNotebooks,
+  loadAllNotes,
+  saveNotes,
+} from "@/lib/noteDb";
+import {
+  loadEntries as loadBudgetEntries,
+  saveEntries as saveBudgetEntries,
+  loadEntryDetails as loadBudgetEntryDetails,
+  saveEntryDetails as saveBudgetEntryDetails,
+  saveKeywords as saveBudgetKeywords,
+  saveMonthExtras as saveBudgetMonthExtras,
+  loadSmsGroupRules,
+  saveSmsGroupRules,
+} from "@/lib/budget";
+import {
+  loadAllTimetables,
+  saveTimetableForDate,
+  loadTimetableTemplate,
+  saveTimetableTemplate,
+} from "@/lib/timetableDb";
+import {
+  loadTimetableRoutineLinks,
+  saveTimetableRoutineLinksSnapshot,
+  loadTimetableTemplateLinks,
+  saveTimetableTemplateLinksSnapshot,
+} from "@/lib/timetableRoutineLinks";
 import {
   getAllPopupIds,
   getPopupConfig,
@@ -180,6 +226,31 @@ type Props = { onClose: () => void };
 
 type SettingsTab = "export" | "alertbar" | "popup" | "background" | "shortcuts" | "account";
 
+type AppBackupPayload = {
+  version: 1;
+  exportedAt: string;
+  data: {
+    journalEntries: Awaited<ReturnType<typeof loadJournalEntries>>;
+    budgetEntries: Awaited<ReturnType<typeof loadBudgetEntries>>;
+    budgetKeywords: Awaited<ReturnType<typeof loadKeywords>>;
+    budgetMonthExtras: Awaited<ReturnType<typeof loadMonthExtras>>;
+    budgetEntryDetails: Awaited<ReturnType<typeof loadBudgetEntryDetails>>;
+    budgetSmsGroupRules: Awaited<ReturnType<typeof loadSmsGroupRules>>;
+    youtubeChannels: Awaited<ReturnType<typeof loadYoutubeChannels>>;
+    incomeEntries: Awaited<ReturnType<typeof loadIncomeEntries>>;
+    incomeCategories: ReturnType<typeof loadIncomeCategories>;
+    routineItems: Awaited<ReturnType<typeof loadRoutineItems>>;
+    routineCompletions: Awaited<ReturnType<typeof loadRoutineCompletions>>;
+    memos: Awaited<ReturnType<typeof loadAllMemos>>;
+    notebooks: Awaited<ReturnType<typeof loadNotebooks>>;
+    notes: Awaited<ReturnType<typeof loadAllNotes>>;
+    timetables: Awaited<ReturnType<typeof loadAllTimetables>>;
+    timetableTemplate: Awaited<ReturnType<typeof loadTimetableTemplate>>;
+    timetableRoutineLinks: Awaited<ReturnType<typeof loadTimetableRoutineLinks>>;
+    timetableTemplateLinks: Awaited<ReturnType<typeof loadTimetableTemplateLinks>>;
+  };
+};
+
 export function SettingsModal({ onClose }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -267,6 +338,9 @@ export function SettingsModal({ onClose }: Props) {
   const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
   const [rangeFrom, setRangeFrom] = useState(defaultFrom);
   const [rangeTo, setRangeTo] = useState(defaultTo);
+  const [backupBusy, setBackupBusy] = useState<"export" | "import" | null>(null);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
 
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: "export", label: "내보내기" },
@@ -346,6 +420,130 @@ export function SettingsModal({ onClose }: Props) {
       setError(e instanceof Error ? e.message : "전체 내보내기 실패");
     } finally {
       setExporting(null);
+    }
+  };
+
+  const runBackupExport = async () => {
+    setBackupError(null);
+    setBackupMessage(null);
+    setBackupBusy("export");
+    try {
+      const [
+        journalEntries,
+        budgetEntries,
+        budgetKeywords,
+        budgetMonthExtras,
+        budgetEntryDetails,
+        budgetSmsGroupRules,
+        youtubeChannels,
+        incomeEntries,
+        routineItems,
+        routineCompletions,
+        memos,
+        notebooks,
+        notes,
+        timetables,
+        timetableTemplate,
+        timetableRoutineLinks,
+        timetableTemplateLinks,
+      ] = await Promise.all([
+        loadJournalEntries(),
+        loadBudgetEntries(),
+        loadKeywords(),
+        loadMonthExtras(),
+        loadBudgetEntryDetails(),
+        loadSmsGroupRules(),
+        loadYoutubeChannels(),
+        loadIncomeEntries(),
+        loadRoutineItems(),
+        loadRoutineCompletions(),
+        loadAllMemos(),
+        loadNotebooks(),
+        loadAllNotes(),
+        loadAllTimetables(),
+        loadTimetableTemplate(),
+        loadTimetableRoutineLinks(),
+        loadTimetableTemplateLinks(),
+      ]);
+      const payload: AppBackupPayload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        data: {
+          journalEntries,
+          budgetEntries,
+          budgetKeywords,
+          budgetMonthExtras,
+          budgetEntryDetails,
+          budgetSmsGroupRules,
+          youtubeChannels,
+          incomeEntries,
+          incomeCategories: loadIncomeCategories(),
+          routineItems,
+          routineCompletions,
+          memos,
+          notebooks,
+          notes,
+          timetables,
+          timetableTemplate,
+          timetableRoutineLinks,
+          timetableTemplateLinks,
+        },
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      downloadBlob(blob, `MyLifestyle_백업_${todayStr()}.json`);
+      setBackupMessage("백업 파일을 다운로드했어요.");
+    } catch (e) {
+      setBackupError(e instanceof Error ? e.message : "백업 내보내기 실패");
+    } finally {
+      setBackupBusy(null);
+    }
+  };
+
+  const runBackupImport = async (file: File) => {
+    setBackupError(null);
+    setBackupMessage(null);
+    setBackupBusy("import");
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as Partial<AppBackupPayload>;
+      if (parsed.version !== 1 || !parsed.data) throw new Error("지원하지 않는 백업 형식이에요.");
+      const d = parsed.data;
+      await saveJournalEntries(Array.isArray(d.journalEntries) ? d.journalEntries : []);
+      await saveBudgetEntries(Array.isArray(d.budgetEntries) ? d.budgetEntries : []);
+      await saveBudgetKeywords((d.budgetKeywords ?? {}) as Awaited<ReturnType<typeof loadKeywords>>);
+      await saveBudgetMonthExtras((d.budgetMonthExtras ?? {}) as Awaited<ReturnType<typeof loadMonthExtras>>);
+      await saveBudgetEntryDetails(Array.isArray(d.budgetEntryDetails) ? d.budgetEntryDetails : []);
+      await saveSmsGroupRules(Array.isArray(d.budgetSmsGroupRules) ? d.budgetSmsGroupRules : []);
+      await saveYoutubeChannels(Array.isArray(d.youtubeChannels) ? d.youtubeChannels : []);
+      await saveIncomeEntries(Array.isArray(d.incomeEntries) ? d.incomeEntries : []);
+      if (Array.isArray(d.incomeCategories) && d.incomeCategories.length > 0) {
+        saveIncomeCategories(d.incomeCategories);
+      }
+      await saveRoutineItems(Array.isArray(d.routineItems) ? d.routineItems : []);
+      await saveRoutineCompletions((d.routineCompletions ?? {}) as Awaited<ReturnType<typeof loadRoutineCompletions>>);
+      await saveMemos(Array.isArray(d.memos) ? d.memos : []);
+      await saveNotebooks(Array.isArray(d.notebooks) ? d.notebooks : []);
+      await saveNotes(Array.isArray(d.notes) ? d.notes : []);
+      const timetableMap = (d.timetables ?? {}) as Awaited<ReturnType<typeof loadAllTimetables>>;
+      for (const [dateKey, day] of Object.entries(timetableMap)) {
+        await saveTimetableForDate(dateKey, day);
+      }
+      if (d.timetableTemplate) {
+        await saveTimetableTemplate(d.timetableTemplate);
+      }
+      await saveTimetableRoutineLinksSnapshot(
+        (d.timetableRoutineLinks ?? {}) as Awaited<ReturnType<typeof loadTimetableRoutineLinks>>
+      );
+      await saveTimetableTemplateLinksSnapshot(
+        (d.timetableTemplateLinks ?? {}) as Awaited<ReturnType<typeof loadTimetableTemplateLinks>>
+      );
+      setBackupMessage("백업 복원이 완료됐어요. 새로고침하면 반영돼요.");
+    } catch (e) {
+      setBackupError(e instanceof Error ? e.message : "백업 복원 실패");
+    } finally {
+      setBackupBusy(null);
     }
   };
 
@@ -1331,6 +1529,38 @@ export function SettingsModal({ onClose }: Props) {
           >
             {exporting === "all" ? "압축 중…" : "전체 한 번에 (ZIP)"}
           </button>
+        </div>
+        <div className="mt-8 rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+          <h4 className="text-sm font-semibold text-neutral-700">백업 / 복원 (JSON)</h4>
+          <p className="mt-1 text-xs text-neutral-500">
+            루틴·가계부·수입·일기·유튜브·메모·노트·타임테이블 데이터를 파일로 백업하거나 복원할 수 있어요.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={runBackupExport}
+              disabled={backupBusy !== null}
+              className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              {backupBusy === "export" ? "백업 생성 중…" : "백업 파일 내보내기"}
+            </button>
+            <label className="cursor-pointer rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+              {backupBusy === "import" ? "복원 중…" : "백업 파일 가져오기"}
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                disabled={backupBusy !== null}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void runBackupImport(file);
+                  e.currentTarget.value = "";
+                }}
+              />
+            </label>
+          </div>
+          {backupMessage && <p className="mt-2 text-xs text-green-600">{backupMessage}</p>}
+          {backupError && <p className="mt-2 text-xs text-red-600">{backupError}</p>}
         </div>
       </section>
     );

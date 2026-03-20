@@ -170,6 +170,22 @@ export async function loadTimetableTemplateLinks(): Promise<Record<string, numbe
   return merged;
 }
 
+/** 전체 item-id 연동 맵 저장 (복원/백업 import용) */
+export async function saveTimetableRoutineLinksSnapshot(
+  links: Record<string, number>
+): Promise<void> {
+  saveToStorage(links);
+  await saveToSupabase(links);
+}
+
+/** 전체 (시간+텍스트) 템플릿 연동 맵 저장 (복원/백업 import용) */
+export async function saveTimetableTemplateLinksSnapshot(
+  template: Record<string, number>
+): Promise<void> {
+  saveTemplateToStorage(template);
+  await saveTemplateLinksToSupabase(template);
+}
+
 /** 타임테이블 항목에 연동된 루틴 항목 ID. links는 loadTimetableRoutineLinks() 결과. slotTime+itemText 있으면 템플릿 연동도 조회 */
 export function getRoutineIdByTimetableId(
   links: Record<string, number>,
