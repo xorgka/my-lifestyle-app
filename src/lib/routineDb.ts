@@ -16,6 +16,7 @@ const STORAGE_ITEMS = "routine-items";
 const STORAGE_IMPORTANT_IDS = "routine-important-ids";
 const STORAGE_DAILY = "routine-daily";
 const KEEP_DAILY_MONTHS = 12;
+const ROUTINE_DEBUG = process.env.NEXT_PUBLIC_ROUTINE_DEBUG === "1";
 
 function loadImportantIdsFromStorage(): Set<number> {
   if (typeof window === "undefined") return new Set();
@@ -202,6 +203,12 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
   const cutoff = getCutoffDateKey();
   const fromStorage = loadCompletionsFromStorage();
   if (supabase) {
+    if (ROUTINE_DEBUG) {
+      console.debug("[routineDb] loadRoutineCompletions start", {
+        cutoff,
+        storageDates: Object.keys(fromStorage).length,
+      });
+    }
     const { data, error } = await supabase
       .from("routine_completions")
       .select("date, item_id")
@@ -219,8 +226,13 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
       out[d].push(id);
     });
     // DB에는 없는데 로컬에는 남아있는 케이스(배포 후 도메인/기기가 달라진 경우 등)를 위해 fallback/merge.
-    if (Object.keys(out).length === 0) return fromStorage;
-    if (Object.keys(fromStorage).length === 0) return out;
+    const outDates = Object.keys(out).length;
+    const storageDates = Object.keys(fromStorage).length;
+    if (ROUTINE_DEBUG) {
+      console.debug("[routineDb] loadRoutineCompletions result", { outDates, storageDates });
+    }
+    if (outDates === 0) return fromStorage;
+    if (storageDates === 0) return out;
     return mergeCompletions(out, fromStorage);
   }
   return fromStorage;
@@ -232,7 +244,10 @@ export async function saveRoutineCompletions(completions: Record<string, number[
   if (supabase) {
     // 로드 직후 dailyCompletions가 완전히 비어 있는 경우({})에 DB를 통째로 지우지 않도록 방지.
     // (예: 로컬 데이터는 있는데 DB 쿼리 결과가 비어있거나 로드 실패한 상황에서 복구가 불가능해지는 문제 방지)
-    if (Object.keys(completions).length === 0) return;
+    if (Object.keys(completions).length === 0) {
+      if (ROUTINE_DEBUG) console.debug("[routineDb] saveRoutineCompletions skip wipe (empty input)");
+      return;
+    }
     await supabase.from("routine_completions").delete().gte("date", cutoff);
     const rows: { date: string; item_id: number }[] = [];
     Object.entries(completions).forEach(([date, ids]) => {
