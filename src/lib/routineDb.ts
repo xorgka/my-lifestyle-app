@@ -202,7 +202,7 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
   const cutoff = getCutoffDateKey();
   const fromStorage = loadCompletionsFromStorage();
   if (supabase) {
-    console.debug("[routineDb] loadRoutineCompletions start", {
+    console.log("[routineDb] loadRoutineCompletions start", {
       cutoff,
       storageDates: Object.keys(fromStorage).length,
     });
@@ -225,7 +225,7 @@ export async function loadRoutineCompletions(): Promise<Record<string, number[]>
     // DB에는 없는데 로컬에는 남아있는 케이스(배포 후 도메인/기기가 달라진 경우 등)를 위해 fallback/merge.
     const outDates = Object.keys(out).length;
     const storageDates = Object.keys(fromStorage).length;
-    console.debug("[routineDb] loadRoutineCompletions result", { outDates, storageDates });
+    console.log("[routineDb] loadRoutineCompletions result", { outDates, storageDates });
     if (outDates === 0) return fromStorage;
     if (storageDates === 0) return out;
     return mergeCompletions(out, fromStorage);
@@ -240,7 +240,7 @@ export async function saveRoutineCompletions(completions: Record<string, number[
     // 로드 직후 dailyCompletions가 완전히 비어 있는 경우({})에 DB를 통째로 지우지 않도록 방지.
     // (예: 로컬 데이터는 있는데 DB 쿼리 결과가 비어있거나 로드 실패한 상황에서 복구가 불가능해지는 문제 방지)
     if (Object.keys(completions).length === 0) {
-      console.debug("[routineDb] saveRoutineCompletions skip wipe (empty input)");
+      console.log("[routineDb] saveRoutineCompletions skip wipe (empty input)");
       return;
     }
     await supabase.from("routine_completions").delete().gte("date", cutoff);

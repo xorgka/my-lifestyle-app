@@ -166,7 +166,7 @@ export default function RoutinePage() {
       setItems(itemsData.length > 0 ? itemsData : defaultItems);
       setDailyCompletions(completionsData);
       setRoutineLoaded(true);
-      console.debug("[routine] loaded", {
+      console.log("[routine] loaded", {
         itemsCount: itemsData.length,
         completionDates: Object.keys(completionsData).length,
         todayKey: getTodayKey(),
