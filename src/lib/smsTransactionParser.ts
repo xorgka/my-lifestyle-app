@@ -6,7 +6,17 @@ export type ParsedSmsTransaction = {
   itemName?: string;
 };
 
-const WITHDRAWAL_KEYWORDS = ["출금", "결제", "인출", "이체출금", "자동이체", "승인"];
+const WITHDRAWAL_KEYWORDS = [
+  "출금",
+  "결제",
+  "인출",
+  "이체출금",
+  "자동이체",
+  "승인",
+  "납부",
+  "체크승인",
+  "체크결제",
+];
 const DEPOSIT_KEYWORDS = ["입금", "이체입금", "급여", "수입", "받았습니다"];
 
 function indexOfFirstKeyword(text: string, keywords: string[]): number {

@@ -992,7 +992,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
               <span>
                 통계{" "}
                 <span className="font-normal text-neutral-400">
-                  {statsMode === "actual" ? "(실제 입금 금액)" : "(유튜브 집계 수익 · USD)"}
+                  {statsMode === "actual" ? "(실제 입금 금액)" : "(유튜브 집계 수익)"}
                 </span>
               </span>
               <button
@@ -1104,7 +1104,7 @@ export function YoutubePageView(props: Record<string, unknown>) {
             {statsTab === "연도" && (
               <div className="mt-4 px-4 pb-4">
                 <div className="text-base font-semibold text-neutral-800">
-                  {statsMode === "actual" ? "연도별 (실제 입금 원)" : "연도별 (유튜브 집계 수익 · USD)"}
+                  {statsMode === "actual" ? "연도별 (실제 입금 원)" : "연도별 (유튜브 집계 수익)"}
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
                   {[2026, 2027].map((y) => {

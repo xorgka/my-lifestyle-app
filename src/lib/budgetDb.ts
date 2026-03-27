@@ -1,6 +1,7 @@
 /**
  * 가계부 Supabase CRUD. supabase.ts 의 client 사용.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
 type BudgetEntryRow = { id: string; date: string; item: string; amount: number };
@@ -217,9 +218,12 @@ export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Pro
 /** SMS 출금 항목명 → "묶음이름 (원문)" 규칙 (budget_sms_group_config.rules JSON) */
 export type SmsGroupRuleRow = { match: string; groupLabel: string; sortOrder: number };
 
-export async function loadSmsGroupRulesFromDb(): Promise<SmsGroupRuleRow[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
+export async function loadSmsGroupRulesFromDb(
+  client?: SupabaseClient | null
+): Promise<SmsGroupRuleRow[]> {
+  const db = client ?? supabase;
+  if (!db) return [];
+  const { data, error } = await db
     .from("budget_sms_group_config")
     .select("rules")
     .eq("id", "default")

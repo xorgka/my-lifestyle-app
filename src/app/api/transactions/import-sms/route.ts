@@ -1,9 +1,9 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { parseBankSmsTransaction } from "@/lib/smsTransactionParser";
 import { loadSmsGroupRulesFromDb } from "@/lib/budgetDb";
 import { applySmsGroupRulesToItem } from "@/lib/budget";
+import { createSupabaseAnonClient } from "@/lib/supabaseAnon";
 
 type ImportSmsRequest = {
   sender?: string;
@@ -133,15 +133,31 @@ export async function POST(req: Request) {
     const parsed = parseBankSmsTransaction(message);
     if (!parsed) {
       return NextResponse.json(
-        { ok: false, error: "could not parse transaction from sms", skipped: true },
+        {
+          ok: false,
+          error: "could not parse transaction from sms",
+          skipped: true,
+          reason: "parse_failed",
+          hint: "출금/결제/승인/입금 등 키워드와 금액(원)이 있는지 확인하세요. 입금 문자는 가계부에 넣지 않습니다.",
+        },
         { status: 200 }
       );
     }
 
     if (parsed.kind === "withdrawal") {
-      const supabase = await createClient();
+      const supabase = createSupabaseAnonClient();
+      if (!supabase) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "supabase_not_configured",
+            reason: "server_misconfigured",
+          },
+          { status: 503 }
+        );
+      }
       const externalId = buildExternalId(sender, message);
-      const smsGroupRules = await loadSmsGroupRulesFromDb();
+      const smsGroupRules = await loadSmsGroupRulesFromDb(supabase);
 
       const { data: existing, error: existingErr } = await supabase
         .from("budget_entries")
@@ -150,7 +166,14 @@ export async function POST(req: Request) {
         .eq("external_id", externalId)
         .maybeSingle();
       if (existingErr) throw existingErr;
-      if (existing) return NextResponse.json({ ok: true, duplicated: true, type: "withdrawal" });
+      if (existing) {
+        return NextResponse.json({
+          ok: true,
+          duplicated: true,
+          type: "withdrawal",
+          reason: "already_imported",
+        });
+      }
 
       const rawItem = parsed.itemName?.trim() || "";
       const item = rawItem
@@ -166,14 +189,21 @@ export async function POST(req: Request) {
         external_id: externalId,
       });
       if (error) throw error;
-      return NextResponse.json({ ok: true, duplicated: false, type: "withdrawal", amount: parsed.amount });
+      return NextResponse.json({
+        ok: true,
+        duplicated: false,
+        type: "withdrawal",
+        amount: parsed.amount,
+        reason: "inserted",
+      });
     }
 
-    // 입금 문자는 수입(income_entries)에 넣지 않음. 출금만 가계부(budget_entries)에 반영.
+    // 입금 문자는 가계부·수입 모두 자동 반영하지 않음 (출금만 가계부).
     return NextResponse.json({
       ok: true,
       skipped: true,
       type: "deposit",
+      reason: "deposit_not_synced",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
