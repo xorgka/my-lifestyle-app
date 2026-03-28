@@ -151,8 +151,11 @@ export async function loadTrashMemos(): Promise<Memo[]> {
   return all.filter((m) => !!m.deletedAt);
 }
 
-/** 메모 전체 저장 (Supabase 또는 localStorage). Supabase 시 기존 중 목록에 없는 행은 삭제 */
-export async function saveMemos(memos: Memo[]): Promise<void> {
+/**
+ * 메모 전체 저장 (Supabase 또는 localStorage). Supabase 시 기존 중 목록에 없는 행은 삭제.
+ * @returns DB에 반영 성공 여부. Supabase 미사용 시 true. 실패 시에도 로컬은 이미 저장됨.
+ */
+export async function saveMemos(memos: Memo[]): Promise<boolean> {
   // DB 실패 시에도 새로고침 복구 가능하도록 로컬을 항상 먼저 갱신
   saveJson(MEMO_KEY, memos);
   if (supabase) {
@@ -162,33 +165,39 @@ export async function saveMemos(memos: Memo[]): Promise<void> {
     // 안전장치: 빈 입력으로 기존 DB 메모 전체 삭제되는 상황 방지
     if (memos.length === 0 && (existing?.length ?? 0) > 0) {
       console.warn("[memoDb] saveMemos skip destructive delete (empty input)");
-      return;
+      return true;
     }
     if (toDelete.length > 0) {
-      await supabase.from("memos").delete().in("id", toDelete);
+      const { error: delError } = await supabase.from("memos").delete().in("id", toDelete);
+      if (delError) {
+        console.error("[memoDb] saveMemos delete", delError);
+        return false;
+      }
     }
     const rows = memos.map((m) => memoToRow(m));
     const { error } = await supabase.from("memos").upsert(rows, { onConflict: "id" });
     if (error) {
       console.error("[memoDb] saveMemos", error);
+      return false;
     }
-    return;
+    return true;
   }
+  return true;
 }
 
 /** 활성 메모만 넘기고 저장 시 휴지통 항목은 그대로 유지 (추가/수정/드래그/리사이즈 시 사용) */
-export async function saveMemosKeepingTrash(activeMemos: Memo[]): Promise<void> {
+export async function saveMemosKeepingTrash(activeMemos: Memo[]): Promise<boolean> {
   const all = await loadAllMemos();
   const trashed = all.filter((m) => m.deletedAt);
-  await saveMemos([...activeMemos, ...trashed]);
+  return saveMemos([...activeMemos, ...trashed]);
 }
 
 /** 메모 목록만 갱신(휴지통 항목은 유지). 위치 등 기본값 보정 시 사용 */
-export async function saveMemosOnlyUpdate(updatedMemos: Memo[]): Promise<void> {
+export async function saveMemosOnlyUpdate(updatedMemos: Memo[]): Promise<boolean> {
   const all = await loadAllMemos();
   const updatedIds = new Set(updatedMemos.map((m) => m.id));
   const rest = all.filter((m) => !updatedIds.has(m.id));
-  await saveMemos([...updatedMemos, ...rest]);
+  return saveMemos([...updatedMemos, ...rest]);
 }
 
 /** 메모를 휴지통으로 이동 */

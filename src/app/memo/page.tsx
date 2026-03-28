@@ -41,6 +41,8 @@ export default function MemoPage() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [trashMemos, setTrashMemos] = useState<Memo[]>([]);
   const [trashCount, setTrashCount] = useState(0);
+  /** Supabase 저장 실패 시: 이 브라우저 localStorage에만 있어 다른 기기에 안 보일 수 있음 */
+  const [syncError, setSyncError] = useState<string | null>(null);
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     const update = () => setIsDesktop(m.matches);
@@ -68,7 +70,14 @@ export default function MemoPage() {
     }));
     setMemos(normalized);
     const needsSave = raw.some((m, i) => m.x == null || m.y == null || m.width == null || m.height == null);
-    if (needsSave) await saveMemosOnlyUpdate(normalized);
+    if (needsSave) {
+      const ok = await saveMemosOnlyUpdate(normalized);
+      if (!ok) {
+        setSyncError(
+          "메모 위치·크기를 서버에 저장하지 못했습니다. 다른 기기와 목록이 어긋날 수 있어요."
+        );
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -85,7 +94,14 @@ export default function MemoPage() {
 
   const persist = useCallback(async (next: Memo[]) => {
     setMemos(next);
-    await saveMemosKeepingTrash(next);
+    const ok = await saveMemosKeepingTrash(next);
+    if (!ok) {
+      setSyncError(
+        "서버에 저장되지 않았습니다. 이 기기·브라우저에만 보일 수 있어요. 웨일 광고 차단·추적 방지에서 Supabase(또는 api) 차단 여부, 네트워크를 확인해 주세요."
+      );
+    } else {
+      setSyncError(null);
+    }
   }, []);
 
   const addMemo = () => {
@@ -199,7 +215,15 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === draggingId ? { ...m, x, y } : m
           );
-          void saveMemosKeepingTrash(next);
+          void saveMemosKeepingTrash(next).then((ok) => {
+            if (!ok) {
+              setSyncError(
+                "서버에 저장되지 않았습니다. 이 기기·브라우저에만 보일 수 있어요."
+              );
+            } else {
+              setSyncError(null);
+            }
+          });
           return next;
         });
         dragStartRef.current = null;
@@ -210,7 +234,15 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === resizingId ? { ...m, width, height } : m
           );
-          void saveMemosKeepingTrash(next);
+          void saveMemosKeepingTrash(next).then((ok) => {
+            if (!ok) {
+              setSyncError(
+                "서버에 저장되지 않았습니다. 이 기기·브라우저에만 보일 수 있어요."
+              );
+            } else {
+              setSyncError(null);
+            }
+          });
           return next;
         });
         resizeStartRef.current = null;
@@ -233,6 +265,22 @@ export default function MemoPage() {
         title="메모"
         subtitle="포스트잇처럼 메모를 추가하고 관리해요."
       />
+
+      {syncError && (
+        <div
+          className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="alert"
+        >
+          <p className="min-w-0 flex-1 leading-relaxed">{syncError}</p>
+          <button
+            type="button"
+            onClick={() => setSyncError(null)}
+            className="shrink-0 rounded-lg bg-amber-200/80 px-3 py-1 text-xs font-medium text-amber-950 hover:bg-amber-200"
+          >
+            닫기
+          </button>
+        </div>
+      )}
 
       <MemoNoteTabs
         rightContent={
