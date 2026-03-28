@@ -81,6 +81,12 @@ function rowToMemo(row: Record<string, unknown>): Memo {
   };
 }
 
+/** DB 컬럼이 integer라 소수(px 계산) 그대로 넣으면 Postgres 오류 남 */
+function intCol(n: number | undefined): number | null {
+  if (n === undefined || Number.isNaN(n)) return null;
+  return Math.round(n);
+}
+
 function memoToRow(m: Memo): Record<string, unknown> {
   return {
     id: m.id,
@@ -91,10 +97,10 @@ function memoToRow(m: Memo): Record<string, unknown> {
     pinned_at: m.pinnedAt ?? null,
     title: m.title ?? null,
     deleted_at: m.deletedAt ?? null,
-    x: m.x ?? null,
-    y: m.y ?? null,
-    width: m.width ?? null,
-    height: m.height ?? null,
+    x: intCol(m.x),
+    y: intCol(m.y),
+    width: intCol(m.width),
+    height: intCol(m.height),
     collapsed: m.collapsed ?? false,
   };
 }
