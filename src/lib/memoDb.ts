@@ -104,16 +104,6 @@ function loadAllFromStorage(): Memo[] {
   return Array.isArray(data) ? data : [];
 }
 
-function mergeMemosPreferLocal(local: Memo[], remote: Memo[]): Memo[] {
-  const map = new Map<string, Memo>();
-  for (const m of remote) map.set(m.id, m);
-  // 같은 id가 있으면 로컬(현재 기기 최신 편집)을 우선
-  for (const m of local) map.set(m.id, m);
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
-}
-
 /** 전체 메모 로드 (Supabase 또는 localStorage). 휴지통 포함 */
 export async function loadAllMemos(): Promise<Memo[]> {
   const fromStorage = loadAllFromStorage();
@@ -127,14 +117,18 @@ export async function loadAllMemos(): Promise<Memo[]> {
       return fromStorage;
     }
     const fromDb = (data ?? []).map((row) => rowToMemo(row));
+    // DB가 비었는데 로컬에만 있으면 → 한 번 서버로 올림 (초기 마이그레이션)
     if (fromDb.length === 0 && fromStorage.length > 0) {
       await saveMemos(fromStorage);
       return fromStorage;
     }
-    const merged = mergeMemosPreferLocal(fromStorage, fromDb);
-    // 로컬 기준으로 병합 결과가 달라지면 로컬도 최신으로 맞춤
-    saveJson(MEMO_KEY, merged);
-    return merged;
+    // DB 조회 성공 시: 서버가 단일 기준. 로컬 덮어쓰기 병합은 대시보드와 화면이 어긋나므로 하지 않음.
+    if (fromDb.length > 0) {
+      saveJson(MEMO_KEY, fromDb);
+      return fromDb;
+    }
+    saveJson(MEMO_KEY, []);
+    return [];
   }
   return fromStorage;
 }
