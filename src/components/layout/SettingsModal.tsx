@@ -523,7 +523,10 @@ export function SettingsModal({ onClose }: Props) {
       }
       await saveRoutineItems(Array.isArray(d.routineItems) ? d.routineItems : []);
       await saveRoutineCompletions((d.routineCompletions ?? {}) as Awaited<ReturnType<typeof loadRoutineCompletions>>);
-      await saveMemos(Array.isArray(d.memos) ? d.memos : []);
+      {
+        const memoRes = await saveMemos(Array.isArray(d.memos) ? d.memos : []);
+        if (!memoRes.ok) throw new Error(`메모 서버 저장 실패: ${memoRes.message}`);
+      }
       await saveNotebooks(Array.isArray(d.notebooks) ? d.notebooks : []);
       await saveNotes(Array.isArray(d.notes) ? d.notes : []);
       const timetableMap = (d.timetables ?? {}) as Awaited<ReturnType<typeof loadAllTimetables>>;

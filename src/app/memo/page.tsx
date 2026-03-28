@@ -71,10 +71,10 @@ export default function MemoPage() {
     setMemos(normalized);
     const needsSave = raw.some((m, i) => m.x == null || m.y == null || m.width == null || m.height == null);
     if (needsSave) {
-      const ok = await saveMemosOnlyUpdate(normalized);
-      if (!ok) {
+      const result = await saveMemosOnlyUpdate(normalized);
+      if (!result.ok) {
         setSyncError(
-          "메모 위치·크기를 서버에 저장하지 못했습니다. 다른 기기와 목록이 어긋날 수 있어요."
+          `메모 위치·크기를 서버에 저장하지 못했습니다. (${result.message})`
         );
       }
     }
@@ -94,10 +94,10 @@ export default function MemoPage() {
 
   const persist = useCallback(async (next: Memo[]) => {
     setMemos(next);
-    const ok = await saveMemosKeepingTrash(next);
-    if (!ok) {
+    const result = await saveMemosKeepingTrash(next);
+    if (!result.ok) {
       setSyncError(
-        "서버에 저장되지 않았습니다. 이 브라우저에만 잠시 보일 수 있어요. 네트워크·일시 오류일 수 있으니 잠시 후 다시 저장해 보세요. 계속되면 F12 → 콘솔에 [memoDb] 오류가 있는지 확인해 주세요."
+        `서버에 저장되지 않았습니다. 다른 기기와 맞지 않을 수 있어요. 원인: ${result.message}`
       );
     } else {
       setSyncError(null);
@@ -215,11 +215,9 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === draggingId ? { ...m, x, y } : m
           );
-          void saveMemosKeepingTrash(next).then((ok) => {
-            if (!ok) {
-              setSyncError(
-                "서버에 저장되지 않았습니다. 이 기기·브라우저에만 보일 수 있어요."
-              );
+          void saveMemosKeepingTrash(next).then((r) => {
+            if (!r.ok) {
+              setSyncError(`서버 저장 실패: ${r.message}`);
             } else {
               setSyncError(null);
             }
@@ -234,11 +232,9 @@ export default function MemoPage() {
           const next = prev.map((m) =>
             m.id === resizingId ? { ...m, width, height } : m
           );
-          void saveMemosKeepingTrash(next).then((ok) => {
-            if (!ok) {
-              setSyncError(
-                "서버에 저장되지 않았습니다. 이 기기·브라우저에만 보일 수 있어요."
-              );
+          void saveMemosKeepingTrash(next).then((r) => {
+            if (!r.ok) {
+              setSyncError(`서버 저장 실패: ${r.message}`);
             } else {
               setSyncError(null);
             }

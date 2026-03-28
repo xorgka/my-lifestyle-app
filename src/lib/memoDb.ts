@@ -104,25 +104,40 @@ function loadAllFromStorage(): Memo[] {
   return Array.isArray(data) ? data : [];
 }
 
+/** Supabase에서만 조회 (localStorage는 건드리지 않음). 저장 함수에서 휴지통/병합용으로 사용 */
+async function fetchAllMemosFromSupabase(): Promise<
+  { ok: true; memos: Memo[] } | { ok: false; message: string }
+> {
+  if (!supabase) return { ok: true, memos: [] };
+  const { data, error } = await supabase
+    .from("memos")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("[memoDb] fetchAllMemosFromSupabase", error);
+    return { ok: false, message: error.message };
+  }
+  return { ok: true, memos: (data ?? []).map((row) => rowToMemo(row)) };
+}
+
 /** 전체 메모 로드 (Supabase 또는 localStorage). 휴지통 포함 */
 export async function loadAllMemos(): Promise<Memo[]> {
   const fromStorage = loadAllFromStorage();
   if (supabase) {
-    const { data, error } = await supabase
-      .from("memos")
-      .select("*")
-      .order("created_at", { ascending: true });
-    if (error) {
-      console.error("[memoDb] loadAllMemos", error);
+    const fetched = await fetchAllMemosFromSupabase();
+    if (!fetched.ok) {
       return fromStorage;
     }
-    const fromDb = (data ?? []).map((row) => rowToMemo(row));
+    const fromDb = fetched.memos;
     // DB가 비었는데 로컬에만 있으면 → 한 번 서버로 올림 (초기 마이그레이션)
     if (fromDb.length === 0 && fromStorage.length > 0) {
-      await saveMemos(fromStorage);
+      const migrated = await saveMemos(fromStorage);
+      if (!migrated.ok) {
+        console.error("[memoDb] loadAllMemos migrate to server failed", migrated.message);
+      }
       return fromStorage;
     }
-    // DB 조회 성공 시: 서버가 단일 기준. 로컬 덮어쓰기 병합은 대시보드와 화면이 어긋나므로 하지 않음.
+    // DB 조회 성공 시: 서버가 단일 기준.
     if (fromDb.length > 0) {
       saveJson(MEMO_KEY, fromDb);
       return fromDb;
@@ -145,52 +160,80 @@ export async function loadTrashMemos(): Promise<Memo[]> {
   return all.filter((m) => !!m.deletedAt);
 }
 
+export type MemoSaveResult = { ok: true } | { ok: false; message: string };
+
 /**
  * 메모 전체 저장 (Supabase 또는 localStorage). Supabase 시 기존 중 목록에 없는 행은 삭제.
- * @returns DB에 반영 성공 여부. Supabase 미사용 시 true. 실패 시에도 로컬은 이미 저장됨.
+ * 실패 시에도 로컬은 이미 저장됨. `message`는 원인 확인용(PostgREST 메시지).
  */
-export async function saveMemos(memos: Memo[]): Promise<boolean> {
+export async function saveMemos(memos: Memo[]): Promise<MemoSaveResult> {
   // DB 실패 시에도 새로고침 복구 가능하도록 로컬을 항상 먼저 갱신
   saveJson(MEMO_KEY, memos);
   if (supabase) {
     const ourIds = new Set(memos.map((m) => m.id));
-    const { data: existing } = await supabase.from("memos").select("id");
-    const toDelete = (existing ?? []).map((r) => r.id).filter((id) => !ourIds.has(id));
+    const { data: existing, error: selErr } = await supabase.from("memos").select("id");
+    if (selErr) {
+      console.error("[memoDb] saveMemos select ids", selErr);
+      return { ok: false, message: selErr.message };
+    }
+    const existingRows = existing ?? [];
+    const toDelete = existingRows.map((r) => r.id).filter((id) => !ourIds.has(id));
     // 안전장치: 빈 입력으로 기존 DB 메모 전체 삭제되는 상황 방지
-    if (memos.length === 0 && (existing?.length ?? 0) > 0) {
+    if (memos.length === 0 && existingRows.length > 0) {
       console.warn("[memoDb] saveMemos skip destructive delete (empty input)");
-      return true;
+      return { ok: true };
     }
     if (toDelete.length > 0) {
       const { error: delError } = await supabase.from("memos").delete().in("id", toDelete);
       if (delError) {
         console.error("[memoDb] saveMemos delete", delError);
-        return false;
+        return { ok: false, message: delError.message };
       }
     }
     const rows = memos.map((m) => memoToRow(m));
     const { error } = await supabase.from("memos").upsert(rows, { onConflict: "id" });
     if (error) {
-      console.error("[memoDb] saveMemos", error);
-      return false;
+      console.error("[memoDb] saveMemos upsert", error);
+      return { ok: false, message: error.message };
     }
-    return true;
+    return { ok: true };
   }
-  return true;
+  return { ok: true };
 }
 
-/** 활성 메모만 넘기고 저장 시 휴지통 항목은 그대로 유지 (추가/수정/드래그/리사이즈 시 사용) */
-export async function saveMemosKeepingTrash(activeMemos: Memo[]): Promise<boolean> {
-  const all = await loadAllMemos();
-  const trashed = all.filter((m) => m.deletedAt);
+/**
+ * 활성 메모만 넘기고 저장 시 휴지통 항목은 그대로 유지.
+ * `loadAllMemos`를 쓰지 않음 → 저장 직전에 localStorage를 DB 스냅샷으로 덮어쓰지 않음.
+ */
+export async function saveMemosKeepingTrash(activeMemos: Memo[]): Promise<MemoSaveResult> {
+  let trashed: Memo[];
+  if (supabase) {
+    const fetched = await fetchAllMemosFromSupabase();
+    if (!fetched.ok) {
+      trashed = loadAllFromStorage().filter((m) => m.deletedAt);
+    } else {
+      trashed = fetched.memos.filter((m) => m.deletedAt);
+    }
+  } else {
+    trashed = loadAllFromStorage().filter((m) => m.deletedAt);
+  }
   return saveMemos([...activeMemos, ...trashed]);
 }
 
 /** 메모 목록만 갱신(휴지통 항목은 유지). 위치 등 기본값 보정 시 사용 */
-export async function saveMemosOnlyUpdate(updatedMemos: Memo[]): Promise<boolean> {
-  const all = await loadAllMemos();
+export async function saveMemosOnlyUpdate(updatedMemos: Memo[]): Promise<MemoSaveResult> {
   const updatedIds = new Set(updatedMemos.map((m) => m.id));
-  const rest = all.filter((m) => !updatedIds.has(m.id));
+  let rest: Memo[];
+  if (supabase) {
+    const fetched = await fetchAllMemosFromSupabase();
+    if (!fetched.ok) {
+      rest = loadAllFromStorage().filter((m) => !updatedIds.has(m.id));
+    } else {
+      rest = fetched.memos.filter((m) => !updatedIds.has(m.id));
+    }
+  } else {
+    rest = loadAllFromStorage().filter((m) => !updatedIds.has(m.id));
+  }
   return saveMemos([...updatedMemos, ...rest]);
 }
 
