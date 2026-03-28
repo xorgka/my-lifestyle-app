@@ -97,7 +97,7 @@ export default function MemoPage() {
     const ok = await saveMemosKeepingTrash(next);
     if (!ok) {
       setSyncError(
-        "서버에 저장되지 않았습니다. 이 기기·브라우저에만 보일 수 있어요. 웨일 광고 차단·추적 방지에서 Supabase(또는 api) 차단 여부, 네트워크를 확인해 주세요."
+        "서버에 저장되지 않았습니다. 이 브라우저에만 잠시 보일 수 있어요. 네트워크·일시 오류일 수 있으니 잠시 후 다시 저장해 보세요. 계속되면 F12 → 콘솔에 [memoDb] 오류가 있는지 확인해 주세요."
       );
     } else {
       setSyncError(null);
