@@ -8,7 +8,7 @@ import {
   type AlertItem,
 } from "@/lib/alertBarData";
 
-const ROTATE_MS = 8000;
+const ROTATE_MS = 60_000;
 
 function shuffleAlerts(items: AlertItem[]): AlertItem[] {
   const a = items.slice();
@@ -46,7 +46,7 @@ function firstMottoIndexFrom(items: AlertItem[], start: number): number {
 }
 
 /**
- * 알림 한 줄 (일정·루틴·멘트 등 섞임). 자동 넘김 8초.
+ * 알림 한 줄 (일정·루틴·멘트 등 섞임). 자동 넘김 1분.
  * 멘트 탭 문구는 벽시계 기준 매 시각 구간마다 최소 1번은 슬롯에 포함되도록 보정.
  */
 export function TodayAlertBar() {
@@ -133,7 +133,7 @@ export function TodayAlertBar() {
   const barTheme = scheduleTheme
     ? "bg-gradient-to-br from-red-600 via-red-800 to-red-950"
     : mottoTheme
-      ? "bg-gradient-to-br from-amber-500 via-orange-600 to-orange-950"
+      ? "bg-gradient-to-br from-amber-500 via-orange-600 to-orange-800"
       : "bg-gradient-to-br from-neutral-500 via-neutral-800 to-neutral-950";
   const barClass = `${barBase} ${barTheme}`;
 
