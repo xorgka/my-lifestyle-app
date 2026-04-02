@@ -18,9 +18,9 @@ type NoteEditorProps = {
 
 const HIGHLIGHT_COLOR = "#fef08a";
 
-/** 목록 li에서 Tab: margin-left만 증가(이전 1.35em/단계보다 큰 간격). Shift+Tab: 감소 */
+/** 목록 li에서 Tab: margin-left만 증가(2em/단계). Shift+Tab: 감소 */
 const NOTE_LI_ML_ATTR = "data-note-ml";
-const NOTE_LI_ML_EM_PER_STEP = 2.75;
+const NOTE_LI_ML_EM_PER_STEP = 2;
 const NOTE_LI_ML_MAX_STEPS = 12;
 
 function formatCreatedAt(iso: string): string {
