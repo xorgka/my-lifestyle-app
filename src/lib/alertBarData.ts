@@ -31,14 +31,38 @@ export type AlertItem =
   | { type: "schedule"; prefix: string; bracketed: string; suffix: string; href: string }
   | { type: "plain"; text: string; href: string; /** 시스템 알림 설정 키 (멘트 등) */ systemKey?: string };
 
-/** 홈 알림바 오렌지 테마 적용 대상 (설정「멘트」탭 5종) */
-export const ALERT_BAR_MOTTO_KEYS = new Set([
+/** 홈 알림바 오렌지 테마 · 멘트 전용 슬롯 (설정「멘트」탭 5종, 순서 고정) */
+export const ALERT_BAR_MOTTO_KEY_ORDER = [
   "antivision",
   "godsae",
   "muscle",
   "pace",
   "stillness",
-]);
+] as const;
+
+export const ALERT_BAR_MOTTO_KEYS = new Set<string>(ALERT_BAR_MOTTO_KEY_ORDER);
+
+const MOTTO_DEFAULTS: Record<(typeof ALERT_BAR_MOTTO_KEY_ORDER)[number], { text: string; href: string }> = {
+  antivision: { text: "지금 멍때리고 있다면 안티비젼에 답변해보세요.", href: "/" },
+  godsae: { text: "갓생의 시작은 일찍 자는 것부터입니다.", href: "/" },
+  muscle: { text: "근육 1kg은 1500만원의 가치가 있다.", href: "/routine" },
+  pace: { text: "당신의 속도대로 천천히.", href: "/" },
+  stillness: { text: "가만히 있으면 아무 변화도 없다.", href: "/" },
+};
+
+/** 설정「멘트」탭에 해당하는 5문구만 (홈 상단 멘트 전용 바, 1시간 로테이션) */
+export async function loadMottoTabAlertItems(): Promise<AlertItem[]> {
+  const overrides = loadSystemOverrides();
+  const out: AlertItem[] = [];
+  for (const key of ALERT_BAR_MOTTO_KEY_ORDER) {
+    if (overrides[key]?.disabled) continue;
+    const def = MOTTO_DEFAULTS[key];
+    const custom = overrides[key]?.customText?.trim();
+    const text = custom || def.text;
+    out.push({ type: "plain", text: text || def.text, href: def.href, systemKey: key });
+  }
+  return out;
+}
 
 function isToday(dateStr: string, today: string) {
   return dateStr === today;
@@ -383,12 +407,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     }
   }
 
-  // --- 멘트 5종: 매일 알림바 후보 (설정 → 멘트 탭에서 개별 끄기 가능) ---
-  pushPlain("antivision", "지금 멍때리고 있다면 안티비젼에 답변해보세요.", "/");
-  pushPlain("godsae", "갓생의 시작은 일찍 자는 것부터입니다.", "/");
-  pushPlain("muscle", "근육 1kg은 1500만원의 가치가 있다.", "/routine");
-  pushPlain("pace", "당신의 속도대로 천천히.", "/");
-  pushPlain("stillness", "가만히 있으면 아무 변화도 없다.", "/");
+  // 멘트 5종은 `loadMottoTabAlertItems` → 홈 `TodayAlertBar`(전용)에서만 노출
 
   // --- 사용자 추가 문구 ---
   for (const item of customList) {
