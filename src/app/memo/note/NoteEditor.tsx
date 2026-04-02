@@ -18,10 +18,10 @@ type NoteEditorProps = {
 
 const HIGHLIGHT_COLOR = "#fef08a";
 
-/** 윗줄 형제 없이 Tab 할 때: 중첩 ul을 만들지 않고 같은 li만 옆으로 밀어 점(글머리) 하나 유지 */
-const NOTE_LIST_INDENT_ATTR = "data-note-indent";
-const NOTE_LIST_INDENT_EM = 1.35;
-const NOTE_LIST_INDENT_MAX = 8;
+/** 목록 li에서 Tab: margin-left만 증가(이전 1.35em/단계보다 큰 간격). Shift+Tab: 감소 */
+const NOTE_LI_ML_ATTR = "data-note-ml";
+const NOTE_LI_ML_EM_PER_STEP = 2.75;
+const NOTE_LI_ML_MAX_STEPS = 12;
 
 function formatCreatedAt(iso: string): string {
   try {
@@ -50,78 +50,36 @@ function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListEl
   return !!el && (el.tagName === "UL" || el.tagName === "OL");
 }
 
-function nestLiUnderParentLi(
-  li: HTMLLIElement,
-  parentLi: HTMLLIElement,
-  listTag: "UL" | "OL"
-): void {
-  let sub = parentLi.querySelector(":scope > ul, :scope > ol") as HTMLUListElement | HTMLOListElement | null;
-  if (!sub) {
-    sub = document.createElement(listTag === "OL" ? "ol" : "ul");
-    parentLi.appendChild(sub);
-  }
-  const oldList = li.parentElement;
-  sub.appendChild(li);
-  if (oldList && isListElement(oldList) && oldList.childElementCount === 0) {
-    oldList.remove();
-  }
+function getLiMarginSteps(li: HTMLLIElement): number {
+  const n = parseInt(li.getAttribute(NOTE_LI_ML_ATTR) || "0", 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function indentLiWithoutPriorSibling(li: HTMLLIElement): void {
-  const lv = Math.min(
-    NOTE_LIST_INDENT_MAX,
-    (parseInt(li.getAttribute(NOTE_LIST_INDENT_ATTR) || "0", 10) || 0) + 1
-  );
-  li.setAttribute(NOTE_LIST_INDENT_ATTR, String(lv));
-  li.style.marginLeft = `${lv * NOTE_LIST_INDENT_EM}em`;
-}
-
-function outdentMarginIndent(li: HTMLLIElement): boolean {
-  const raw = li.getAttribute(NOTE_LIST_INDENT_ATTR);
-  const lv = raw != null ? parseInt(raw, 10) : NaN;
-  if (!Number.isFinite(lv) || lv <= 0) return false;
-  const next = lv - 1;
-  if (next <= 0) {
-    li.removeAttribute(NOTE_LIST_INDENT_ATTR);
+function setLiMarginSteps(li: HTMLLIElement, steps: number): void {
+  if (steps <= 0) {
+    li.removeAttribute(NOTE_LI_ML_ATTR);
     li.style.marginLeft = "";
   } else {
-    li.setAttribute(NOTE_LIST_INDENT_ATTR, String(next));
-    li.style.marginLeft = `${next * NOTE_LIST_INDENT_EM}em`;
+    li.setAttribute(NOTE_LI_ML_ATTR, String(steps));
+    li.style.marginLeft = `${steps * NOTE_LI_ML_EM_PER_STEP}em`;
   }
+}
+
+function indentListItemMargin(li: HTMLLIElement, root: HTMLElement): boolean {
+  const p = li.parentElement;
+  if (!root.contains(li) || !p || !isListElement(p)) return false;
+  const cur = getLiMarginSteps(li);
+  if (cur >= NOTE_LI_ML_MAX_STEPS) return false;
+  setLiMarginSteps(li, cur + 1);
   return true;
 }
 
-/**
- * 목록 들여쓰기: 위 형제 li가 있으면 하위 목록으로 넣음.
- * 없으면 같은 li에 margin만 줘서 점은 하나만 유지(중첩 ul/li 안 만듦).
- */
-function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
-  const parentList = li.parentElement;
-  if (!parentList || !isListElement(parentList) || !root.contains(parentList)) return false;
-
-  const listTag = parentList.tagName === "OL" ? "OL" : "UL";
-  const prev = li.previousElementSibling;
-  if (prev && prev.tagName === "LI") {
-    nestLiUnderParentLi(li, prev as HTMLLIElement, listTag);
-  } else {
-    indentLiWithoutPriorSibling(li);
-  }
-  return true;
-}
-
-function outdentListItem(li: HTMLLIElement): boolean {
-  if (outdentMarginIndent(li)) return true;
-  const innerList = li.parentElement;
-  if (!innerList || !isListElement(innerList)) return false;
-  const parentLi = innerList.parentElement;
-  if (!parentLi || parentLi.tagName !== "LI") return false;
-  const outerList = parentLi.parentElement;
-  if (!outerList || !isListElement(outerList)) return false;
-  outerList.insertBefore(li, parentLi.nextSibling);
-  if (innerList.childElementCount === 0) innerList.remove();
-  if (parentLi.childElementCount === 0 && !parentLi.textContent?.trim()) {
-    parentLi.remove();
-  }
+function outdentListItemMargin(li: HTMLLIElement, root: HTMLElement): boolean {
+  const p = li.parentElement;
+  if (!root.contains(li) || !p || !isListElement(p)) return false;
+  const cur = getLiMarginSteps(li);
+  if (cur <= 0) return false;
+  setLiMarginSteps(li, cur - 1);
   return true;
 }
 
@@ -200,7 +158,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
     }
   }, [highlightOn]);
 
-  /** capture: 브라우저 Tab 포커스 이동보다 먼저 잡아서 목록 들여쓰기가 항상 적용되게 함 */
+  /** capture: 목록 li에서 Tab이 margin-left만 바꾸도록 브라우저 기본 Tab보다 먼저 처리 */
   const handleContentKeyDownCapture = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (isTrashNote) return;
@@ -216,7 +174,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
       const liEl = (node as Element | null)?.closest?.("li");
       if (!liEl || !root.contains(liEl) || !(liEl instanceof HTMLLIElement)) return;
 
-      const ok = e.shiftKey ? outdentListItem(liEl) : indentListItem(liEl, root);
+      const ok = e.shiftKey ? outdentListItemMargin(liEl, root) : indentListItemMargin(liEl, root);
       if (!ok) return;
       e.preventDefault();
       e.stopPropagation();
@@ -436,7 +394,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={() => exec("insertUnorderedList")}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="글머리 기호 (목록 안 Tab: 한 단계 들여쓰기, Shift+Tab: 한 단계 내어쓰기)"
+          title="글머리 기호 (목록 li에서 Tab: margin 들여쓰기, Shift+Tab: 줄임)"
         >
           <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
