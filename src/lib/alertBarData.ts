@@ -29,7 +29,16 @@ import {
 
 export type AlertItem =
   | { type: "schedule"; prefix: string; bracketed: string; suffix: string; href: string }
-  | { type: "plain"; text: string; href: string };
+  | { type: "plain"; text: string; href: string; /** 시스템 알림 설정 키 (멘트 등) */ systemKey?: string };
+
+/** 홈 알림바 오렌지 테마 적용 대상 (설정「멘트」탭 5종) */
+export const ALERT_BAR_MOTTO_KEYS = new Set([
+  "antivision",
+  "godsae",
+  "muscle",
+  "pace",
+  "stillness",
+]);
 
 function isToday(dateStr: string, today: string) {
   return dateStr === today;
@@ -139,7 +148,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
       text = defaultText;
     }
     if (!text) text = defaultText;
-    alerts.push({ type: "plain", text, href });
+    alerts.push({ type: "plain", text, href, systemKey: key });
   };
 
   // --- 수면: 저녁 10시 ~ 새벽 5시에만 "어제 N시M분에 잠에 들었어요.💤" (수면 페이지 데이터 기준) ---
@@ -313,19 +322,6 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     }
   }
 
-  // --- 안티비젼 (오전 8시 ~ 오후 3시 사이에 랜덤으로 한 번) ---
-  const inAntivisionWindow = hour >= 8 && hour < 15;
-  const antivisionSeed = (parseInt(today.replace(/-/g, ""), 10) + 1) % 3;
-  if (inAntivisionWindow && antivisionSeed === 0) {
-    pushPlain("antivision", "지금 멍때리고 있다면 안티비젼에 답변해보세요.", "/");
-  }
-
-  // --- 갓생 (저녁 9시 ~ 새벽 3시 사이 매일) ---
-  const inSleepWindow = hour >= 21 || hour < 3;
-  if (inSleepWindow) {
-    pushPlain("godsae", "갓생의 시작은 일찍 자는 것부터입니다.", "/");
-  }
-
   // --- 헬스장 루틴: 오늘 기준 어제부터 연속 미달성/달성 문구 ---
   const yesterday = addDays(today, -1);
   const gymItems = routineItems.filter((it) => it.title.includes("헬스"));
@@ -387,21 +383,11 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     }
   }
 
-  // --- 근육 멘트 (어제 헬스장 루틴 안 했으면 다음날 랜덤으로 한 번) ---
-  const completedYesterday = new Set(routineCompletions[yesterday] ?? []);
-  const didGymYesterday = gymItems.some((it) => completedYesterday.has(it.id));
-  const muscleSeed = (parseInt(today.replace(/-/g, ""), 10) + 3) % 2;
-  if (gymItems.length > 0 && !didGymYesterday && muscleSeed === 0) {
-    pushPlain("muscle", "근육 1kg은 1500만원의 가치가 있다.", "/routine");
-  }
-
-  // --- 당신의 속도대로 (날짜 시드로 가끔 표시) ---
-  const paceSeed = (parseInt(today.replace(/-/g, ""), 10) + 5) % 4;
-  if (paceSeed === 0) {
-    pushPlain("pace", "당신의 속도대로 천천히.", "/");
-  }
-
-  // --- 가만히 있으면 (매일 표시) ---
+  // --- 멘트 5종: 매일 알림바 후보 (설정 → 멘트 탭에서 개별 끄기 가능) ---
+  pushPlain("antivision", "지금 멍때리고 있다면 안티비젼에 답변해보세요.", "/");
+  pushPlain("godsae", "갓생의 시작은 일찍 자는 것부터입니다.", "/");
+  pushPlain("muscle", "근육 1kg은 1500만원의 가치가 있다.", "/routine");
+  pushPlain("pace", "당신의 속도대로 천천히.", "/");
   pushPlain("stillness", "가만히 있으면 아무 변화도 없다.", "/");
 
   // --- 사용자 추가 문구 ---

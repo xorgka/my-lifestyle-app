@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { loadAllAlertItems, type AlertItem } from "@/lib/alertBarData";
+import {
+  loadAllAlertItems,
+  ALERT_BAR_MOTTO_KEYS,
+  type AlertItem,
+} from "@/lib/alertBarData";
 
-const ROTATE_INTERVAL_MS = 8000;
+const ROTATE_INTERVAL_MS = 60 * 60 * 1000;
 
 /** 오늘/내일 일정, 사전 알림, 생일(스케줄 탭) 등 스케줄 페이지로 이어지는 알림 */
 function isScheduleRelatedAlert(item: AlertItem | null): boolean {
@@ -12,6 +16,12 @@ function isScheduleRelatedAlert(item: AlertItem | null): boolean {
   if (item.type === "schedule") return true;
   if (item.type === "plain" && item.href === "/schedule") return true;
   return false;
+}
+
+function isMottoAlert(item: AlertItem | null): boolean {
+  if (!item || item.type !== "plain") return false;
+  const k = item.systemKey;
+  return !!k && ALERT_BAR_MOTTO_KEYS.has(k);
 }
 
 export function TodayAlertBar() {
@@ -55,20 +65,27 @@ export function TodayAlertBar() {
   }, [alerts.length]);
 
   const scheduleTheme = !loading && isScheduleRelatedAlert(current);
+  const mottoTheme = !loading && !scheduleTheme && isMottoAlert(current);
   const barBase =
     "alert-bar-texture flex min-w-0 items-center gap-2 rounded-full py-1.5 px-4 shadow-[0_4px_14px_rgba(0,0,0,0.08)]";
   const barTheme = scheduleTheme
     ? "bg-gradient-to-br from-red-600 via-red-800 to-red-950"
-    : "bg-gradient-to-br from-neutral-500 via-neutral-800 to-neutral-950";
+    : mottoTheme
+      ? "bg-gradient-to-br from-amber-500 via-orange-600 to-orange-950"
+      : "bg-gradient-to-br from-neutral-500 via-neutral-800 to-neutral-950";
   const barClass = `${barBase} ${barTheme}`;
 
   const navBtnClass = scheduleTheme
     ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-red-100/85 transition hover:bg-white/15 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-red-100/85"
-    : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-neutral-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400";
+    : mottoTheme
+      ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-orange-50/90 transition hover:bg-white/15 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-orange-50/90"
+      : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-neutral-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400";
 
   const linkClass = scheduleTheme
     ? "min-w-0 flex-1 truncate text-left text-[15px] font-medium text-red-50 hover:text-white md:text-[17px]"
-    : "min-w-0 flex-1 truncate text-left text-[15px] font-medium text-neutral-100 hover:text-white md:text-[17px]";
+    : mottoTheme
+      ? "min-w-0 flex-1 truncate text-left text-[15px] font-medium text-orange-50 hover:text-white md:text-[17px]"
+      : "min-w-0 flex-1 truncate text-left text-[15px] font-medium text-neutral-100 hover:text-white md:text-[17px]";
 
   if (loading) {
     return (
