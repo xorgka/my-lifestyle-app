@@ -18,6 +18,11 @@ type NoteEditorProps = {
 
 const HIGHLIGHT_COLOR = "#fef08a";
 
+/** 윗줄 형제 없이 Tab 할 때: 중첩 ul을 만들지 않고 같은 li만 옆으로 밀어 점(글머리) 하나 유지 */
+const NOTE_LIST_INDENT_ATTR = "data-note-indent";
+const NOTE_LIST_INDENT_EM = 1.35;
+const NOTE_LIST_INDENT_MAX = 8;
+
 function formatCreatedAt(iso: string): string {
   try {
     const d = new Date(iso);
@@ -62,23 +67,33 @@ function nestLiUnderParentLi(
   }
 }
 
-/** 윗줄 형제 li 없을 때: 빈 li를 만들지 않고, 현재 li 안에만 하위 목록으로 감싸 한 단계 들여쓰기 */
-function wrapLiContentsInNestedList(
-  li: HTMLLIElement,
-  parentList: HTMLUListElement | HTMLOListElement
-): void {
-  const inner = document.createElement(parentList.tagName === "OL" ? "ol" : "ul");
-  const innerLi = document.createElement("li");
-  while (li.firstChild) {
-    innerLi.appendChild(li.firstChild);
+function indentLiWithoutPriorSibling(li: HTMLLIElement): void {
+  const lv = Math.min(
+    NOTE_LIST_INDENT_MAX,
+    (parseInt(li.getAttribute(NOTE_LIST_INDENT_ATTR) || "0", 10) || 0) + 1
+  );
+  li.setAttribute(NOTE_LIST_INDENT_ATTR, String(lv));
+  li.style.marginLeft = `${lv * NOTE_LIST_INDENT_EM}em`;
+}
+
+function outdentMarginIndent(li: HTMLLIElement): boolean {
+  const raw = li.getAttribute(NOTE_LIST_INDENT_ATTR);
+  const lv = raw != null ? parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(lv) || lv <= 0) return false;
+  const next = lv - 1;
+  if (next <= 0) {
+    li.removeAttribute(NOTE_LIST_INDENT_ATTR);
+    li.style.marginLeft = "";
+  } else {
+    li.setAttribute(NOTE_LIST_INDENT_ATTR, String(next));
+    li.style.marginLeft = `${next * NOTE_LIST_INDENT_EM}em`;
   }
-  inner.appendChild(innerLi);
-  li.appendChild(inner);
+  return true;
 }
 
 /**
- * 목록 한 단계 들여쓰기: 같은 ul/ol 안 바로 위 형제 li가 있으면 그 아래로,
- * 없으면(첫 줄 등) 현재 li 내용만 하위 목록으로 한 단계 더 깊게 감쌈 — 빈 부모 li 생성 없음.
+ * 목록 들여쓰기: 위 형제 li가 있으면 하위 목록으로 넣음.
+ * 없으면 같은 li에 margin만 줘서 점은 하나만 유지(중첩 ul/li 안 만듦).
  */
 function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
   const parentList = li.parentElement;
@@ -89,12 +104,13 @@ function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
   if (prev && prev.tagName === "LI") {
     nestLiUnderParentLi(li, prev as HTMLLIElement, listTag);
   } else {
-    wrapLiContentsInNestedList(li, parentList);
+    indentLiWithoutPriorSibling(li);
   }
   return true;
 }
 
 function outdentListItem(li: HTMLLIElement): boolean {
+  if (outdentMarginIndent(li)) return true;
   const innerList = li.parentElement;
   if (!innerList || !isListElement(innerList)) return false;
   const parentLi = innerList.parentElement;
