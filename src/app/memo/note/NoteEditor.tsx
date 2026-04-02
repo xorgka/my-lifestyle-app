@@ -41,19 +41,6 @@ const COLORS = [
   { label: "보라", value: "#9333ea" },
 ];
 
-/** 현재 li보다 앞에 오는 li 중, li를 조상으로 두지 않는 가장 가까운 항목(문서 순서) */
-function lastLiBeforeForIndent(root: HTMLElement, li: HTMLLIElement): HTMLLIElement | null {
-  const lis = [...root.querySelectorAll("li")];
-  const idx = lis.indexOf(li);
-  if (idx <= 0) return null;
-  for (let i = idx - 1; i >= 0; i--) {
-    const cand = lis[i] as HTMLLIElement;
-    if (cand.contains(li)) continue;
-    return cand;
-  }
-  return null;
-}
-
 function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListElement {
   return !!el && (el.tagName === "UL" || el.tagName === "OL");
 }
@@ -71,26 +58,23 @@ function nestLiUnderParentLi(li: HTMLLIElement, parentLi: HTMLLIElement): void {
   }
 }
 
-/** execCommand(indent/outdent)는 목록에서 브라우저마다 무반응인 경우가 많아 DOM으로 처리 */
+/**
+ * 목록 한 단계 들여쓰기: 기본(최상위) li = 1단계 → Tab 한 번 = 2단계(하위 ul 안 li).
+ * 같은 ul/ol 안 바로 위 형제 li가 있으면 그 아래로, 없으면 빈 부모 li를 끼워 넣고 그 아래로.
+ */
 function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
   const parentList = li.parentElement;
   if (!parentList || !isListElement(parentList) || !root.contains(parentList)) return false;
 
   const prev = li.previousElementSibling;
-  let target: HTMLLIElement | null =
-    prev && prev.tagName === "LI"
-      ? (prev as HTMLLIElement)
-      : lastLiBeforeForIndent(root, li);
-
-  // 윗줄 항목이 전혀 없어도 Tab 들여쓰기는 항상 성공: 빈 부모 li를 끼워 넣고 그 아래로 넣음
-  if (!target) {
+  if (prev && prev.tagName === "LI") {
+    nestLiUnderParentLi(li, prev as HTMLLIElement);
+  } else {
     const placeholder = document.createElement("li");
     placeholder.appendChild(document.createElement("br"));
     parentList.insertBefore(placeholder, li);
-    target = placeholder;
+    nestLiUnderParentLi(li, placeholder);
   }
-
-  nestLiUnderParentLi(li, target);
   return true;
 }
 
@@ -181,6 +165,32 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
     }
   }, [highlightOn]);
 
+  /** capture: 브라우저 Tab 포커스 이동보다 먼저 잡아서 목록 들여쓰기가 항상 적용되게 함 */
+  const handleContentKeyDownCapture = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (isTrashNote) return;
+      const isTab = e.key === "Tab" || e.code === "Tab";
+      if (!isTab || e.ctrlKey || e.metaKey || e.altKey) return;
+      const root = contentRef.current;
+      if (!root) return;
+      const sel = document.getSelection();
+      const anchor = sel?.anchorNode;
+      if (!sel || anchor == null || !root.contains(anchor)) return;
+      let node: Node | null = sel.focusNode ?? anchor;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+      const liEl = (node as Element | null)?.closest?.("li");
+      if (!liEl || !root.contains(liEl) || !(liEl instanceof HTMLLIElement)) return;
+
+      const ok = e.shiftKey ? outdentListItem(liEl) : indentListItem(liEl, root);
+      if (!ok) return;
+      e.preventDefault();
+      e.stopPropagation();
+      placeCaretInElement(liEl, true);
+      emitContent();
+    },
+    [isTrashNote, emitContent]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (isTrashNote) return;
@@ -238,21 +248,6 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         e.preventDefault();
         rangeToStart.deleteContents();
         document.execCommand("insertUnorderedList", false);
-        emitContent();
-      }
-      // 목록 안에서 Tab / Shift+Tab → 하위·상위 글머리(중첩 li)
-      if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const root = contentRef.current;
-        const sel = document.getSelection();
-        if (!root || !sel?.anchorNode || !root.contains(sel.anchorNode)) return;
-        let node: Node | null = sel.anchorNode;
-        if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
-        const liEl = (node as Element | null)?.closest?.("li");
-        if (!liEl || !root.contains(liEl) || !(liEl instanceof HTMLLIElement)) return;
-        const ok = e.shiftKey ? outdentListItem(liEl) : indentListItem(liEl, root);
-        if (!ok) return;
-        e.preventDefault();
-        placeCaretInElement(liEl, true);
         emitContent();
       }
     },
@@ -406,7 +401,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={() => exec("insertUnorderedList")}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="글머리 기호 (목록 안 Tab: 하위, Shift+Tab: 상위)"
+          title="글머리 기호 (목록 안 Tab: 한 단계 들여쓰기, Shift+Tab: 한 단계 내어쓰기)"
         >
           <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -451,6 +446,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         onInput={emitContent}
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
+        onKeyDownCapture={handleContentKeyDownCapture}
       />
     </div>
   );
