@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   loadAllAlertItems,
@@ -8,8 +8,16 @@ import {
   type AlertItem,
 } from "@/lib/alertBarData";
 
-const SYSTEM_ROTATE_MS = 8000;
-const MOTTO_ROTATE_MS = 60 * 60 * 1000;
+const ROTATE_MS = 8000;
+
+function shuffleAlerts(items: AlertItem[]): AlertItem[] {
+  const a = items.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 function isScheduleRelatedAlert(item: AlertItem | null): boolean {
   if (!item) return false;
@@ -24,14 +32,30 @@ function isMottoAlert(item: AlertItem | null): boolean {
   return !!k && ALERT_BAR_MOTTO_KEYS.has(k);
 }
 
+function listHasMotto(items: AlertItem[]): boolean {
+  return items.some((x) => isMottoAlert(x));
+}
+
+function firstMottoIndexFrom(items: AlertItem[], start: number): number {
+  const len = items.length;
+  for (let k = 0; k < len; k++) {
+    const idx = (start + k) % len;
+    if (isMottoAlert(items[idx])) return idx;
+  }
+  return -1;
+}
+
 /**
- * 알림 한 줄: 일정·루틴 등 + 멘트 탭 5종.
- * 멘트가 뜬 구간만 1시간 간격, 나머지는 8초 간격으로 다음 항목으로 넘김.
+ * 알림 한 줄 (일정·루틴·멘트 등 섞임). 자동 넘김 8초.
+ * 멘트 탭 문구는 벽시계 기준 매 시각 구간마다 최소 1번은 슬롯에 포함되도록 보정.
  */
 export function TodayAlertBar() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
+
+  const hourBucketRef = useRef(Math.floor(Date.now() / 3_600_000));
+  const mottoShownInHourRef = useRef(false);
 
   const hasMultiple = alerts.length > 1;
   const current = alerts.length > 0 ? alerts[index % alerts.length] : null;
@@ -43,7 +67,7 @@ export function TodayAlertBar() {
     loadAllAlertItems()
       .then((data) => {
         if (!cancelled) {
-          setAlerts(data);
+          setAlerts(shuffleAlerts(data));
           setIndex(0);
         }
       })
@@ -55,13 +79,42 @@ export function TodayAlertBar() {
     };
   }, []);
 
+  /** 멘트가 화면에 있으면 이번 시(hour) 구간은 채운 것으로 봄(수동 ‹ › 포함) */
+  useEffect(() => {
+    if (loading || alerts.length === 0) return;
+    const item = alerts[index % alerts.length];
+    if (isMottoAlert(item)) mottoShownInHourRef.current = true;
+  }, [loading, alerts, index]);
+
   useEffect(() => {
     if (alerts.length <= 1) return;
-    const item = alerts[index % alerts.length];
-    const ms = isMottoAlert(item) ? MOTTO_ROTATE_MS : SYSTEM_ROTATE_MS;
     const id = window.setTimeout(() => {
-      setIndex((i) => (i + 1) % alerts.length);
-    }, ms);
+      setIndex((i) => {
+        const len = alerts.length;
+        const hour = Math.floor(Date.now() / 3_600_000);
+        if (hour !== hourBucketRef.current) {
+          hourBucketRef.current = hour;
+          mottoShownInHourRef.current = false;
+        }
+
+        let next = (i + 1) % len;
+
+        if (
+          !mottoShownInHourRef.current &&
+          listHasMotto(alerts) &&
+          !isMottoAlert(alerts[next])
+        ) {
+          const mi = firstMottoIndexFrom(alerts, (i + 1) % len);
+          if (mi !== -1) next = mi;
+        }
+
+        if (isMottoAlert(alerts[next]) || !listHasMotto(alerts)) {
+          mottoShownInHourRef.current = true;
+        }
+
+        return next;
+      });
+    }, ROTATE_MS);
     return () => clearTimeout(id);
   }, [alerts, index, alerts.length]);
 
