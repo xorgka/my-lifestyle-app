@@ -31,7 +31,7 @@ export type AlertItem =
   | { type: "schedule"; prefix: string; bracketed: string; suffix: string; href: string }
   | { type: "plain"; text: string; href: string; /** 시스템 알림 설정 키 (멘트 등) */ systemKey?: string };
 
-/** 홈 알림바 오렌지 테마 · 멘트 전용 슬롯 (설정「멘트」탭 5종, 순서 고정) */
+/** 홈 알림바 멘트 구간 오렌지 테마 (설정「멘트」탭 5종, 순서 고정) */
 export const ALERT_BAR_MOTTO_KEY_ORDER = [
   "antivision",
   "godsae",
@@ -50,7 +50,7 @@ const MOTTO_DEFAULTS: Record<(typeof ALERT_BAR_MOTTO_KEY_ORDER)[number], { text:
   stillness: { text: "가만히 있으면 아무 변화도 없다.", href: "/" },
 };
 
-/** 설정「멘트」탭에 해당하는 5문구만 (홈 상단 멘트 전용 바, 1시간 로테이션) */
+/** 설정「멘트」탭 5문구Slice — `loadAllAlertItems`에 합쳐 한 줄 알림바에서 노출 */
 export async function loadMottoTabAlertItems(): Promise<AlertItem[]> {
   const overrides = loadSystemOverrides();
   const out: AlertItem[] = [];
@@ -407,7 +407,8 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     }
   }
 
-  // 멘트 5종은 `loadMottoTabAlertItems` → 홈 `TodayAlertBar`(전용)에서만 노출
+  const mottoSlice = await loadMottoTabAlertItems();
+  for (const m of mottoSlice) alerts.push(m);
 
   // --- 사용자 추가 문구 ---
   for (const item of customList) {
