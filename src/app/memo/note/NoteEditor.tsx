@@ -45,10 +45,14 @@ function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListEl
   return !!el && (el.tagName === "UL" || el.tagName === "OL");
 }
 
-function nestLiUnderParentLi(li: HTMLLIElement, parentLi: HTMLLIElement): void {
+function nestLiUnderParentLi(
+  li: HTMLLIElement,
+  parentLi: HTMLLIElement,
+  listTag: "UL" | "OL"
+): void {
   let sub = parentLi.querySelector(":scope > ul, :scope > ol") as HTMLUListElement | HTMLOListElement | null;
   if (!sub) {
-    sub = document.createElement("ul");
+    sub = document.createElement(listTag === "OL" ? "ol" : "ul");
     parentLi.appendChild(sub);
   }
   const oldList = li.parentElement;
@@ -58,22 +62,34 @@ function nestLiUnderParentLi(li: HTMLLIElement, parentLi: HTMLLIElement): void {
   }
 }
 
+/** 윗줄 형제 li 없을 때: 빈 li를 만들지 않고, 현재 li 안에만 하위 목록으로 감싸 한 단계 들여쓰기 */
+function wrapLiContentsInNestedList(
+  li: HTMLLIElement,
+  parentList: HTMLUListElement | HTMLOListElement
+): void {
+  const inner = document.createElement(parentList.tagName === "OL" ? "ol" : "ul");
+  const innerLi = document.createElement("li");
+  while (li.firstChild) {
+    innerLi.appendChild(li.firstChild);
+  }
+  inner.appendChild(innerLi);
+  li.appendChild(inner);
+}
+
 /**
- * 목록 한 단계 들여쓰기: 기본(최상위) li = 1단계 → Tab 한 번 = 2단계(하위 ul 안 li).
- * 같은 ul/ol 안 바로 위 형제 li가 있으면 그 아래로, 없으면 빈 부모 li를 끼워 넣고 그 아래로.
+ * 목록 한 단계 들여쓰기: 같은 ul/ol 안 바로 위 형제 li가 있으면 그 아래로,
+ * 없으면(첫 줄 등) 현재 li 내용만 하위 목록으로 한 단계 더 깊게 감쌈 — 빈 부모 li 생성 없음.
  */
 function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
   const parentList = li.parentElement;
   if (!parentList || !isListElement(parentList) || !root.contains(parentList)) return false;
 
+  const listTag = parentList.tagName === "OL" ? "OL" : "UL";
   const prev = li.previousElementSibling;
   if (prev && prev.tagName === "LI") {
-    nestLiUnderParentLi(li, prev as HTMLLIElement);
+    nestLiUnderParentLi(li, prev as HTMLLIElement, listTag);
   } else {
-    const placeholder = document.createElement("li");
-    placeholder.appendChild(document.createElement("br"));
-    parentList.insertBefore(placeholder, li);
-    nestLiUnderParentLi(li, placeholder);
+    wrapLiContentsInNestedList(li, parentList);
   }
   return true;
 }
@@ -87,6 +103,9 @@ function outdentListItem(li: HTMLLIElement): boolean {
   if (!outerList || !isListElement(outerList)) return false;
   outerList.insertBefore(li, parentLi.nextSibling);
   if (innerList.childElementCount === 0) innerList.remove();
+  if (parentLi.childElementCount === 0 && !parentLi.textContent?.trim()) {
+    parentLi.remove();
+  }
   return true;
 }
 
