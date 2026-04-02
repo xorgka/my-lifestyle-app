@@ -54,23 +54,27 @@ function lastLiBeforeForIndent(root: HTMLElement, li: HTMLLIElement): HTMLLIElem
   return null;
 }
 
+function isListElement(el: Element | null): el is HTMLUListElement | HTMLOListElement {
+  return !!el && (el.tagName === "UL" || el.tagName === "OL");
+}
+
 function nestLiUnderParentLi(li: HTMLLIElement, parentLi: HTMLLIElement): void {
-  let sub = parentLi.querySelector(":scope > ul");
+  let sub = parentLi.querySelector(":scope > ul, :scope > ol") as HTMLUListElement | HTMLOListElement | null;
   if (!sub) {
     sub = document.createElement("ul");
     parentLi.appendChild(sub);
   }
-  const oldUl = li.parentElement;
+  const oldList = li.parentElement;
   sub.appendChild(li);
-  if (oldUl && oldUl.tagName === "UL" && oldUl.childElementCount === 0) {
-    oldUl.remove();
+  if (oldList && isListElement(oldList) && oldList.childElementCount === 0) {
+    oldList.remove();
   }
 }
 
 /** execCommand(indent/outdent)는 목록에서 브라우저마다 무반응인 경우가 많아 DOM으로 처리 */
 function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
-  const parentUl = li.parentElement;
-  if (!parentUl || parentUl.tagName !== "UL" || !root.contains(parentUl)) return false;
+  const parentList = li.parentElement;
+  if (!parentList || !isListElement(parentList) || !root.contains(parentList)) return false;
 
   const prev = li.previousElementSibling;
   let target: HTMLLIElement | null =
@@ -82,7 +86,7 @@ function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
   if (!target) {
     const placeholder = document.createElement("li");
     placeholder.appendChild(document.createElement("br"));
-    parentUl.insertBefore(placeholder, li);
+    parentList.insertBefore(placeholder, li);
     target = placeholder;
   }
 
@@ -91,14 +95,14 @@ function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
 }
 
 function outdentListItem(li: HTMLLIElement): boolean {
-  const innerUl = li.parentElement;
-  if (!innerUl || innerUl.tagName !== "UL") return false;
-  const parentLi = innerUl.parentElement;
+  const innerList = li.parentElement;
+  if (!innerList || !isListElement(innerList)) return false;
+  const parentLi = innerList.parentElement;
   if (!parentLi || parentLi.tagName !== "LI") return false;
-  const outerUl = parentLi.parentElement;
-  if (!outerUl || outerUl.tagName !== "UL") return false;
-  outerUl.insertBefore(li, parentLi.nextSibling);
-  if (innerUl.childElementCount === 0) innerUl.remove();
+  const outerList = parentLi.parentElement;
+  if (!outerList || !isListElement(outerList)) return false;
+  outerList.insertBefore(li, parentLi.nextSibling);
+  if (innerList.childElementCount === 0) innerList.remove();
   return true;
 }
 
