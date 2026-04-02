@@ -41,16 +41,41 @@ const COLORS = [
   { label: "보라", value: "#9333ea" },
 ];
 
-/** execCommand(indent/outdent)는 목록에서 브라우저마다 무반응인 경우가 많아 DOM으로 처리 */
-function indentListItem(li: HTMLLIElement): boolean {
-  const prev = li.previousElementSibling;
-  if (!prev || prev.tagName !== "LI") return false;
-  let sub = prev.querySelector(":scope > ul");
+/** 현재 li보다 앞에 오는 li 중, li를 조상으로 두지 않는 가장 가까운 항목(문서 순서) */
+function lastLiBeforeForIndent(root: HTMLElement, li: HTMLLIElement): HTMLLIElement | null {
+  const lis = [...root.querySelectorAll("li")];
+  const idx = lis.indexOf(li);
+  if (idx <= 0) return null;
+  for (let i = idx - 1; i >= 0; i--) {
+    const cand = lis[i] as HTMLLIElement;
+    if (cand.contains(li)) continue;
+    return cand;
+  }
+  return null;
+}
+
+function nestLiUnderParentLi(li: HTMLLIElement, parentLi: HTMLLIElement): void {
+  let sub = parentLi.querySelector(":scope > ul");
   if (!sub) {
     sub = document.createElement("ul");
-    prev.appendChild(sub);
+    parentLi.appendChild(sub);
   }
+  const oldUl = li.parentElement;
   sub.appendChild(li);
+  if (oldUl && oldUl.tagName === "UL" && oldUl.childElementCount === 0) {
+    oldUl.remove();
+  }
+}
+
+/** execCommand(indent/outdent)는 목록에서 브라우저마다 무반응인 경우가 많아 DOM으로 처리 */
+function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
+  const prev = li.previousElementSibling;
+  const target: HTMLLIElement | null =
+    prev && prev.tagName === "LI"
+      ? (prev as HTMLLIElement)
+      : lastLiBeforeForIndent(root, li);
+  if (!target) return false;
+  nestLiUnderParentLi(li, target);
   return true;
 }
 
@@ -209,7 +234,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
         const liEl = (node as Element | null)?.closest?.("li");
         if (!liEl || !root.contains(liEl) || !(liEl instanceof HTMLLIElement)) return;
-        const ok = e.shiftKey ? outdentListItem(liEl) : indentListItem(liEl);
+        const ok = e.shiftKey ? outdentListItem(liEl) : indentListItem(liEl, root);
         if (!ok) return;
         e.preventDefault();
         placeCaretInElement(liEl, true);
@@ -366,7 +391,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={() => exec("insertUnorderedList")}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="글머리 기호 (목록 안에서 Tab: 하위, Shift+Tab: 상위)"
+          title="글머리 기호 (목록 안 Tab: 하위 — 윗줄 형제 없으면 문서 위쪽 항목 아래로, Shift+Tab: 상위)"
         >
           <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
