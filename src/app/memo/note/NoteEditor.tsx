@@ -69,12 +69,23 @@ function nestLiUnderParentLi(li: HTMLLIElement, parentLi: HTMLLIElement): void {
 
 /** execCommand(indent/outdent)는 목록에서 브라우저마다 무반응인 경우가 많아 DOM으로 처리 */
 function indentListItem(li: HTMLLIElement, root: HTMLElement): boolean {
+  const parentUl = li.parentElement;
+  if (!parentUl || parentUl.tagName !== "UL" || !root.contains(parentUl)) return false;
+
   const prev = li.previousElementSibling;
-  const target: HTMLLIElement | null =
+  let target: HTMLLIElement | null =
     prev && prev.tagName === "LI"
       ? (prev as HTMLLIElement)
       : lastLiBeforeForIndent(root, li);
-  if (!target) return false;
+
+  // 윗줄 항목이 전혀 없어도 Tab 들여쓰기는 항상 성공: 빈 부모 li를 끼워 넣고 그 아래로 넣음
+  if (!target) {
+    const placeholder = document.createElement("li");
+    placeholder.appendChild(document.createElement("br"));
+    parentUl.insertBefore(placeholder, li);
+    target = placeholder;
+  }
+
   nestLiUnderParentLi(li, target);
   return true;
 }
@@ -391,7 +402,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={() => exec("insertUnorderedList")}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="글머리 기호 (목록 안 Tab: 하위 — 윗줄 형제 없으면 문서 위쪽 항목 아래로, Shift+Tab: 상위)"
+          title="글머리 기호 (목록 안 Tab: 하위, Shift+Tab: 상위)"
         >
           <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
