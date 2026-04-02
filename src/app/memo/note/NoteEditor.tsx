@@ -41,6 +41,41 @@ const COLORS = [
   { label: "보라", value: "#9333ea" },
 ];
 
+/** execCommand(indent/outdent)는 목록에서 브라우저마다 무반응인 경우가 많아 DOM으로 처리 */
+function indentListItem(li: HTMLLIElement): boolean {
+  const prev = li.previousElementSibling;
+  if (!prev || prev.tagName !== "LI") return false;
+  let sub = prev.querySelector(":scope > ul");
+  if (!sub) {
+    sub = document.createElement("ul");
+    prev.appendChild(sub);
+  }
+  sub.appendChild(li);
+  return true;
+}
+
+function outdentListItem(li: HTMLLIElement): boolean {
+  const innerUl = li.parentElement;
+  if (!innerUl || innerUl.tagName !== "UL") return false;
+  const parentLi = innerUl.parentElement;
+  if (!parentLi || parentLi.tagName !== "LI") return false;
+  const outerUl = parentLi.parentElement;
+  if (!outerUl || outerUl.tagName !== "UL") return false;
+  outerUl.insertBefore(li, parentLi.nextSibling);
+  if (innerUl.childElementCount === 0) innerUl.remove();
+  return true;
+}
+
+function placeCaretInElement(el: HTMLElement, atEnd: boolean) {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  r.collapse(!atEnd);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
 export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isTrashNote, onRestore, onPermanentDelete, onBack }: NoteEditorProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +198,21 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         e.preventDefault();
         rangeToStart.deleteContents();
         document.execCommand("insertUnorderedList", false);
+        emitContent();
+      }
+      // 목록 안에서 Tab / Shift+Tab → 하위·상위 글머리(중첩 li)
+      if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const root = contentRef.current;
+        const sel = document.getSelection();
+        if (!root || !sel?.anchorNode || !root.contains(sel.anchorNode)) return;
+        let node: Node | null = sel.anchorNode;
+        if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+        const liEl = (node as Element | null)?.closest?.("li");
+        if (!liEl || !root.contains(liEl) || !(liEl instanceof HTMLLIElement)) return;
+        const ok = e.shiftKey ? outdentListItem(liEl) : indentListItem(liEl);
+        if (!ok) return;
+        e.preventDefault();
+        placeCaretInElement(liEl, true);
         emitContent();
       }
     },
@@ -316,7 +366,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           type="button"
           onClick={() => exec("insertUnorderedList")}
           className="rounded p-1.5 hover:bg-neutral-100"
-          title="글머리 기호"
+          title="글머리 기호 (목록 안에서 Tab: 하위, Shift+Tab: 상위)"
         >
           <svg className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -356,7 +406,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         ref={contentRef}
         contentEditable={!isTrashNote}
         suppressContentEditableWarning
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[17px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_h2]:text-[22px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-[26px]"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[17px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_li>ul]:ml-4 [&_li>ul]:mt-1 [&_li>ul]:list-[circle] [&_h2]:text-[22px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-[26px]"
         style={{ minHeight: 200 }}
         onInput={emitContent}
         onPaste={handlePaste}
