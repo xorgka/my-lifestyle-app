@@ -7,6 +7,7 @@ import {
   ALERT_BAR_MOTTO_KEYS,
   type AlertItem,
 } from "@/lib/alertBarData";
+import { ALERT_BAR_SETTINGS_SYNC_EVENT } from "@/lib/alertBarSettings";
 
 const ROTATE_MS = 60_000;
 
@@ -63,19 +64,25 @@ export function TodayAlertBar() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    loadAllAlertItems()
-      .then((data) => {
-        if (!cancelled) {
-          setAlerts(shuffleAlerts(data));
-          setIndex(0);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const run = () => {
+      setLoading(true);
+      loadAllAlertItems()
+        .then((data) => {
+          if (!cancelled) {
+            setAlerts(shuffleAlerts(data));
+            setIndex(0);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    };
+    run();
+    const onSync = () => run();
+    window.addEventListener(ALERT_BAR_SETTINGS_SYNC_EVENT, onSync);
     return () => {
       cancelled = true;
+      window.removeEventListener(ALERT_BAR_SETTINGS_SYNC_EVENT, onSync);
     };
   }, []);
 

@@ -1,10 +1,21 @@
 /**
  * 알림바 사용자 설정: 추가 문구 + 시스템 알림 표시/문구 변경
- * localStorage 저장 (기기별)
+ * localStorage + Supabase 연결 시 기기/브라우저 동기화 (팝업 설정과 동일 패턴)
  */
+
+import { supabase } from "./supabase";
 
 const STORAGE_KEY_CUSTOM = "alert-bar-custom";
 const STORAGE_KEY_OVERRIDES = "alert-bar-overrides";
+const SUPABASE_ROW_ID = "default";
+
+/** 동기화·저장 후 알림바 UI가 localStorage를 다시 읽도록 브로드캐스트 */
+export const ALERT_BAR_SETTINGS_SYNC_EVENT = "alert-bar-settings-synced";
+
+function dispatchAlertBarSettingsSynced(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ALERT_BAR_SETTINGS_SYNC_EVENT));
+}
 
 export type TimePreset = "always" | "custom";
 
@@ -102,6 +113,70 @@ export function loadCustomAlerts(): CustomAlertItem[] {
 
 export function saveCustomAlerts(items: CustomAlertItem[]): void {
   saveJson(STORAGE_KEY_CUSTOM, items);
+  void saveAlertBarSettingsToSupabase();
+  dispatchAlertBarSettingsSynced();
+}
+
+/** Supabase에서 알림바 설정을 가져와 localStorage에 반영. 앱 로드·설정 탭 진입 시 호출 */
+export async function syncAlertBarSettingsFromSupabase(): Promise<void> {
+  if (!supabase || typeof window === "undefined") return;
+  try {
+    const { data: row, error } = await supabase
+      .from("alert_bar_settings")
+      .select("system_overrides, custom_alerts")
+      .eq("id", SUPABASE_ROW_ID)
+      .maybeSingle();
+    if (error || !row) return;
+
+    const so = row.system_overrides as Record<string, SystemAlertOverride> | null;
+    const ca = row.custom_alerts as unknown;
+    const serverEmpty =
+      (!so || typeof so !== "object" || Object.keys(so).length === 0) &&
+      (!Array.isArray(ca) || ca.length === 0);
+
+    const localSo = loadJson<Record<string, SystemAlertOverride>>(STORAGE_KEY_OVERRIDES, {});
+    const localCa = loadJson<CustomAlertItem[]>(STORAGE_KEY_CUSTOM, []);
+    const localHas =
+      (localSo && typeof localSo === "object" && Object.keys(localSo).length > 0) ||
+      (Array.isArray(localCa) && localCa.length > 0);
+
+    // 서버만 비어 있고 로컬에 멘트/알림이 있으면: 기존 local → Supabase로 한 번 밀어 넣음(초기 마이그레이션)
+    if (serverEmpty && localHas) {
+      await saveAlertBarSettingsToSupabase();
+      dispatchAlertBarSettingsSynced();
+      return;
+    }
+    if (!serverEmpty) {
+      saveJson(STORAGE_KEY_OVERRIDES, so && typeof so === "object" ? so : {});
+      saveJson(
+        STORAGE_KEY_CUSTOM,
+        Array.isArray(ca) ? (ca as CustomAlertItem[]).map(normalizeCustomAlert) : []
+      );
+      dispatchAlertBarSettingsSynced();
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function saveAlertBarSettingsToSupabase(): Promise<void> {
+  if (!supabase) return;
+  try {
+    const system_overrides = loadJson<Record<string, SystemAlertOverride>>(STORAGE_KEY_OVERRIDES, {});
+    const rawCustom = loadJson<CustomAlertItem[]>(STORAGE_KEY_CUSTOM, []);
+    const custom_alerts = Array.isArray(rawCustom) ? rawCustom.map(normalizeCustomAlert) : [];
+    await supabase.from("alert_bar_settings").upsert(
+      {
+        id: SUPABASE_ROW_ID,
+        system_overrides: system_overrides && typeof system_overrides === "object" ? system_overrides : {},
+        custom_alerts,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+  } catch {
+    // ignore
+  }
 }
 
 export function loadSystemOverrides(): Record<string, SystemAlertOverride> {
@@ -111,6 +186,8 @@ export function loadSystemOverrides(): Record<string, SystemAlertOverride> {
 
 export function saveSystemOverrides(overrides: Record<string, SystemAlertOverride>): void {
   saveJson(STORAGE_KEY_OVERRIDES, overrides);
+  void saveAlertBarSettingsToSupabase();
+  dispatchAlertBarSettingsSynced();
 }
 
 /** 사용자 추가 문구가 현재 시간에 표시되는지 */

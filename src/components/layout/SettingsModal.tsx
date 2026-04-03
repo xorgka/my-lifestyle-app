@@ -7,6 +7,7 @@ import {
   saveCustomAlerts,
   loadSystemOverrides,
   saveSystemOverrides,
+  syncAlertBarSettingsFromSupabase,
   SYSTEM_ALERT_DEFINITIONS,
   SYSTEM_ALERT_CATEGORIES,
   generateCustomAlertId,
@@ -283,10 +284,16 @@ export function SettingsModal({ onClose }: Props) {
   const [weatherBgSaved, setWeatherBgSaved] = useState(false);
 
   useEffect(() => {
-    if (activeTab === "alertbar") {
+    if (activeTab !== "alertbar") return;
+    let cancelled = false;
+    syncAlertBarSettingsFromSupabase().finally(() => {
+      if (cancelled) return;
       setSystemOverrides(loadSystemOverrides());
       setCustomAlerts(loadCustomAlerts());
-    }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [activeTab]);
 
   useEffect(() => {

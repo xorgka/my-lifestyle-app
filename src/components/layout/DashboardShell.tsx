@@ -22,6 +22,7 @@ import { WakeTimePopup } from "@/components/WakeTimePopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
 import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
+import { syncAlertBarSettingsFromSupabase } from "@/lib/alertBarSettings";
 import { syncInsightBgFromSupabase } from "@/lib/insightBg";
 import { syncWeatherBgFromSupabase } from "@/lib/weatherBg";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -59,6 +60,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   useEffect(() => {
     Promise.all([
       syncPopupConfigFromSupabase(),
+      syncAlertBarSettingsFromSupabase(),
       syncWeatherBgFromSupabase(),
       syncInsightBgFromSupabase(),
     ]).then(() => setPopupConfigVersion((v) => v + 1));
