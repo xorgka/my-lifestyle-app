@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   loadAllAlertItems,
@@ -20,6 +20,31 @@ function shuffleAlerts(items: AlertItem[]): AlertItem[] {
   return a;
 }
 
+/** 멘트끼리만 길게 붙지 않게: 일반 알림과 멘트를 각각 섞은 뒤 번갈아 끼움 */
+function interleaveShuffleAlerts(items: AlertItem[]): AlertItem[] {
+  const mottos: AlertItem[] = [];
+  const others: AlertItem[] = [];
+  for (const x of items) {
+    if (isMottoAlert(x)) mottos.push(x);
+    else others.push(x);
+  }
+  const shM = shuffleAlerts(mottos);
+  const shO = shuffleAlerts(others);
+  if (shO.length === 0) return shM;
+  if (shM.length === 0) return shO;
+  const out: AlertItem[] = [];
+  let i = 0;
+  let j = 0;
+  const startWithOther = Math.random() < 0.5;
+  while (i < shO.length && j < shM.length) {
+    if ((out.length % 2 === 0) === startWithOther) out.push(shO[i++]);
+    else out.push(shM[j++]);
+  }
+  while (i < shO.length) out.push(shO[i++]);
+  while (j < shM.length) out.push(shM[j++]);
+  return out;
+}
+
 function isScheduleRelatedAlert(item: AlertItem | null): boolean {
   if (!item) return false;
   if (item.type === "schedule") return true;
@@ -33,30 +58,14 @@ function isMottoAlert(item: AlertItem | null): boolean {
   return !!k && ALERT_BAR_MOTTO_KEYS.has(k);
 }
 
-function listHasMotto(items: AlertItem[]): boolean {
-  return items.some((x) => isMottoAlert(x));
-}
-
-function firstMottoIndexFrom(items: AlertItem[], start: number): number {
-  const len = items.length;
-  for (let k = 0; k < len; k++) {
-    const idx = (start + k) % len;
-    if (isMottoAlert(items[idx])) return idx;
-  }
-  return -1;
-}
-
 /**
  * 알림 한 줄 (일정·루틴·멘트 등 섞임). 자동 넘김 1분.
- * 멘트 탭 문구는 벽시계 기준 매 시각 구간마다 최소 1번은 슬롯에 포함되도록 보정.
+ * 멘트는 일반 알림 사이에 번갈아 나오도록 순서를 짠 뒤 순환.
  */
 export function TodayAlertBar() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
-
-  const hourBucketRef = useRef(Math.floor(Date.now() / 3_600_000));
-  const mottoShownInHourRef = useRef(false);
 
   const hasMultiple = alerts.length > 1;
   const current = alerts.length > 0 ? alerts[index % alerts.length] : null;
@@ -69,7 +78,7 @@ export function TodayAlertBar() {
       loadAllAlertItems()
         .then((data) => {
           if (!cancelled) {
-            setAlerts(shuffleAlerts(data));
+            setAlerts(interleaveShuffleAlerts(data));
             setIndex(0);
           }
         })
@@ -86,41 +95,10 @@ export function TodayAlertBar() {
     };
   }, []);
 
-  /** 멘트가 화면에 있으면 이번 시(hour) 구간은 채운 것으로 봄(수동 ‹ › 포함) */
-  useEffect(() => {
-    if (loading || alerts.length === 0) return;
-    const item = alerts[index % alerts.length];
-    if (isMottoAlert(item)) mottoShownInHourRef.current = true;
-  }, [loading, alerts, index]);
-
   useEffect(() => {
     if (alerts.length <= 1) return;
     const id = window.setTimeout(() => {
-      setIndex((i) => {
-        const len = alerts.length;
-        const hour = Math.floor(Date.now() / 3_600_000);
-        if (hour !== hourBucketRef.current) {
-          hourBucketRef.current = hour;
-          mottoShownInHourRef.current = false;
-        }
-
-        let next = (i + 1) % len;
-
-        if (
-          !mottoShownInHourRef.current &&
-          listHasMotto(alerts) &&
-          !isMottoAlert(alerts[next])
-        ) {
-          const mi = firstMottoIndexFrom(alerts, (i + 1) % len);
-          if (mi !== -1) next = mi;
-        }
-
-        if (isMottoAlert(alerts[next]) || !listHasMotto(alerts)) {
-          mottoShownInHourRef.current = true;
-        }
-
-        return next;
-      });
+      setIndex((i) => (i + 1) % alerts.length);
     }, ROTATE_MS);
     return () => clearTimeout(id);
   }, [alerts, index, alerts.length]);
