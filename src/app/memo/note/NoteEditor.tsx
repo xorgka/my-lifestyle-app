@@ -96,6 +96,8 @@ function placeCaretInElement(el: HTMLElement, atEnd: boolean) {
 export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isTrashNote, onRestore, onPermanentDelete, onBack }: NoteEditorProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  /** 한글/한자 IME 후보 창 등에서 Tab이 다음 후보로 가야 함 — 조합 중엔 목록 들여쓰기로 가로채지 않음 */
+  const imeComposingRef = useRef(false);
   const isInternalUpdate = useRef(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [highlightOn, setHighlightOn] = useState(false);
@@ -164,6 +166,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
       if (isTrashNote) return;
       const isTab = e.key === "Tab" || e.code === "Tab";
       if (!isTab || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.nativeEvent.isComposing || imeComposingRef.current) return;
       const root = contentRef.current;
       if (!root) return;
       const sel = document.getSelection();
@@ -438,6 +441,12 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         style={{ minHeight: 200 }}
         onInput={emitContent}
         onPaste={handlePaste}
+        onCompositionStart={() => {
+          imeComposingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          imeComposingRef.current = false;
+        }}
         onKeyDown={handleKeyDown}
         onKeyDownCapture={handleContentKeyDownCapture}
       />
