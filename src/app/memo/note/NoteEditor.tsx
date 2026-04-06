@@ -437,7 +437,7 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
         ref={contentRef}
         contentEditable={!isTrashNote}
         suppressContentEditableWarning
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[17px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_li>ul]:ml-4 [&_li>ul]:mt-1 [&_li>ul]:list-[circle] [&_h2]:text-[22px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-[26px]"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[17px] text-neutral-800 outline-none [&_ul]:list-disc [&_li]:ml-4 [&_li>ul]:ml-4 [&_li>ul]:mt-1 [&_li>ul]:list-[circle] [&_li[data-note-ml]]:list-none [&_li[data-note-ml]]:relative [&_li[data-note-ml]]:pl-[1.15em] [&_li[data-note-ml]]:before:absolute [&_li[data-note-ml]]:before:left-0 [&_li[data-note-ml]]:before:top-[0.12em] [&_li[data-note-ml]]:before:select-none [&_li[data-note-ml]]:before:text-neutral-500 [&_li[data-note-ml]]:before:content-['└'] md:[&_li[data-note-ml]]:before:top-[0.1em] [&_h2]:text-[22px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-neutral-900 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-neutral-200 [&_hr]:my-5 md:text-[20px] md:[&_h2]:text-[26px]"
         style={{ minHeight: 200 }}
         onInput={emitContent}
         onPaste={handlePaste}
