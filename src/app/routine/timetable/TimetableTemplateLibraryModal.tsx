@@ -68,7 +68,7 @@ export function TimetableTemplateLibraryModal({
 
   const handleDelete = async () => {
     if (!selectedApplyId || !selected) return;
-    if (!window.confirm(`「${selected.name}」템플릿을 삭제할까요?`)) return;
+    if (!window.confirm(`「${selected.name}」시간표 틀을 삭제할까요?`)) return;
     setBusy(true);
     try {
       await onDeleteTemplate(selectedApplyId);
@@ -86,12 +86,12 @@ export function TimetableTemplateLibraryModal({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900">템플릿</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">시간표 틀</h2>
           <p className="mt-1 text-sm text-neutral-600">
-            <span className="font-medium text-neutral-800">{dateLabel}</span> ({dateKey})에 보이는 시간표를 아래에서
-            이름 붙여 <strong className="font-medium text-neutral-800">추가</strong>할 수 있어요. 적용할 템플릿을 고른 뒤
-            닫고, 화면 <strong className="font-medium text-neutral-800">오른쪽 아래 「적용」</strong>을 누르면{" "}
-            <strong className="font-medium text-neutral-800">지금 보는 날짜</strong>에 그 템플릿이 들어갑니다.
+            <span className="font-medium text-neutral-800">날짜별로 쌓이는 표</span>가 아니라,{" "}
+            <span className="font-medium text-neutral-800">이름 붙여서 보관해 둔 “예시 시간표”</span>예요. 오른쪽 아래
+            「적용」으로 <strong className="font-medium text-neutral-800">지금 보는 날짜</strong>에 그 모양을 한 번에
+            가져옵니다.
           </p>
         </div>
         <button
@@ -106,9 +106,9 @@ export function TimetableTemplateLibraryModal({
         </button>
       </div>
 
-      <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-400">적용할 템플릿</p>
+      <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-400">적용할 틀 선택</p>
       {templates.length === 0 ? (
-        <p className="mt-2 text-sm text-neutral-500">아직 없어요. 아래에서 첫 템플릿을 추가하세요.</p>
+        <p className="mt-2 text-sm text-neutral-500">아직 없어요. 아래에서 첫 틀을 추가하세요.</p>
       ) : (
         <>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -139,28 +139,28 @@ export function TimetableTemplateLibraryModal({
               disabled={busy}
               className="mt-3 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
             >
-              선택한 템플릿 삭제
+              선택한 틀 삭제
             </button>
           )}
         </>
       )}
 
       <div className="mt-6 border-t border-neutral-100 pt-5">
-        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">지금 날짜 시간표를 새 템플릿으로 추가</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">지금 화면을 틀로 추가</p>
         <p className="mt-1 text-xs text-neutral-500">
           방금 수정한 내용까지 포함해요. 시간대 {currentDaySlotCount}개 · 항목 {currentDayItemCount}개
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1">
             <label className="sr-only" htmlFor="timetable-new-template-name">
-              새 템플릿 이름
+              새 틀 이름
             </label>
             <input
               id="timetable-new-template-name"
               type="text"
               value={newNameDraft}
               onChange={(e) => setNewNameDraft(e.target.value)}
-              placeholder="템플릿 이름"
+              placeholder="예: 평일 루틴"
               className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none ring-neutral-800 focus:ring-2"
               disabled={busy}
             />
