@@ -38,6 +38,7 @@ import { TimetableTemplateLibraryModal } from "./TimetableTemplateLibraryModal";
 
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 const MAX_HISTORY = 30;
+const TIMETABLE_APPLY_TEMPLATE_ID_KEY = "timetable-apply-template-id";
 
 function formatDateLabel(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
@@ -87,9 +88,9 @@ export default function TimetablePage() {
   const [startTimeOverride, setStartTimeOverride] = useState<number | null>(() => getStartTimeOverrideForKey(getTodayKey()));
   const [startTimeModalOpen, setStartTimeModalOpen] = useState(false);
   const [namedTemplates, setNamedTemplates] = useState<NamedTimetableTemplate[]>([]);
-  const [templateLibraryModal, setTemplateLibraryModal] = useState<{ open: boolean; mode: "save" | "apply" } | null>(
-    null
-  );
+  const [namedTemplatesReady, setNamedTemplatesReady] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [selectedApplyTemplateId, setSelectedApplyTemplateId] = useState<string | null>(null);
 
   /** 항목 ID로 슬롯 시간·텍스트 찾기 (템플릿 연동 조회용) */
   const getSlotTimeAndText = useCallback((d: DayTimetable | null, itemId: string): { time: string; text: string } | null => {
@@ -125,11 +126,48 @@ export default function TimetablePage() {
   const refreshNamedTemplates = useCallback(async () => {
     const list = await loadAllNamedTimetableTemplates();
     setNamedTemplates(list);
+    setNamedTemplatesReady(true);
   }, []);
 
   useEffect(() => {
     refreshNamedTemplates();
   }, [refreshNamedTemplates]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const id = localStorage.getItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY);
+      if (id) setSelectedApplyTemplateId(id);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!namedTemplatesReady) return;
+    if (namedTemplates.length === 0) {
+      setSelectedApplyTemplateId((prev) => {
+        if (prev == null) return null;
+        try {
+          localStorage.removeItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY);
+        } catch {
+          /* ignore */
+        }
+        return null;
+      });
+      return;
+    }
+    setSelectedApplyTemplateId((prev) => {
+      if (prev != null && namedTemplates.some((t) => t.id === prev)) return prev;
+      const next = namedTemplates[0].id;
+      try {
+        localStorage.setItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [namedTemplates, namedTemplatesReady]);
   useEffect(() => {
     syncStartTimeOverridesFromSupabase().then(() =>
       setStartTimeOverride(getStartTimeOverrideForKey(dateKeyRef.current))
@@ -191,32 +229,46 @@ export default function TimetablePage() {
   const goPrev = () => setDateKey((k) => getDateKeyOffset(k, -1));
   const goNext = () => setDateKey((k) => getDateKeyOffset(k, 1));
 
-  const saveCurrentToNamedTemplate = useCallback(
-    async ({ templateId, name }: { templateId: string | null; name: string }): Promise<string> => {
-      if (!day) throw new Error("no day");
+  const persistApplyTemplateSelection = useCallback((id: string | null) => {
+    setSelectedApplyTemplateId(id);
+    if (typeof window === "undefined") return;
+    try {
+      if (id) localStorage.setItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY, id);
+      else localStorage.removeItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const addNewTemplateFromCurrentDay = useCallback(
+    async (name: string) => {
+      if (!day || day.slots.length === 0) return;
       const slots = dayToTemplate(day).slots;
       const list = await loadAllNamedTimetableTemplates();
-      if (templateId) {
-        const existing = list.find((t) => t.id === templateId);
-        await upsertNamedTimetableTemplate({
-          id: templateId,
-          name,
-          slots,
-          sortOrder: existing?.sortOrder,
-        });
-        return templateId;
-      }
       const maxOrder = list.reduce((m, t) => Math.max(m, t.sortOrder ?? 0), -1);
       const id = generateNamedTimetableTemplateId();
       await upsertNamedTimetableTemplate({
         id,
-        name,
+        name: name.trim() || "이름 없음",
         slots,
         sortOrder: maxOrder + 1,
       });
-      return id;
+      await refreshNamedTemplates();
+      persistApplyTemplateSelection(id);
     },
-    [day]
+    [day, refreshNamedTemplates, persistApplyTemplateSelection]
+  );
+
+  const deleteNamedTemplateAndFixSelection = useCallback(
+    async (templateId: string) => {
+      await deleteNamedTimetableTemplate(templateId);
+      await refreshNamedTemplates();
+      const list = await loadAllNamedTimetableTemplates();
+      const next =
+        selectedApplyTemplateId === templateId ? list[0]?.id ?? null : selectedApplyTemplateId;
+      persistApplyTemplateSelection(next);
+    },
+    [refreshNamedTemplates, selectedApplyTemplateId, persistApplyTemplateSelection]
   );
 
   const applyNamedTemplate = useCallback(
@@ -230,9 +282,10 @@ export default function TimetablePage() {
     [persist]
   );
 
-  const removeNamedTemplate = useCallback(async (templateId: string) => {
-    await deleteNamedTimetableTemplate(templateId);
-  }, []);
+  const applySelectedTemplateToCurrentDate = useCallback(async () => {
+    if (!selectedApplyTemplateId) return;
+    await applyNamedTemplate(selectedApplyTemplateId);
+  }, [selectedApplyTemplateId, applyNamedTemplate]);
 
   const toggleComplete = useCallback(
     (itemId: string) => {
@@ -440,13 +493,7 @@ export default function TimetablePage() {
     return String(displayHour);
   };
 
-  const anyModalOpen = !!(
-    timeModal ||
-    itemModal ||
-    addModalOpen ||
-    startTimeModalOpen ||
-    templateLibraryModal?.open
-  );
+  const anyModalOpen = !!(timeModal || itemModal || addModalOpen || startTimeModalOpen || templateModalOpen);
 
   const modalPortalRoot =
     typeof document !== "undefined" && document.body != null ? document.body : null;
@@ -541,37 +588,17 @@ export default function TimetablePage() {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setTemplateLibraryModal({ open: true, mode: "save" });
+                setTemplateModalOpen(true);
               }}
-              disabled={!day || day.slots.length === 0}
-              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-50 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
-              aria-label="템플릿에 저장"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
+              aria-label="템플릿"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </button>
             <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow transition duration-150 group-hover:opacity-100">
-              템플릿에 저장
-            </span>
-          </span>
-          <span className="group relative flex">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setTemplateLibraryModal({ open: true, mode: "apply" });
-              }}
-              disabled={namedTemplates.length === 0}
-              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-50 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
-              aria-label="템플릿 불러오기"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
-            </button>
-            <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow transition duration-150 group-hover:opacity-100">
-              템플릿 불러오기
+              템플릿
             </span>
           </span>
           <button
@@ -619,6 +646,18 @@ export default function TimetablePage() {
         </div>
       )}
 
+      {day && (
+        <button
+          type="button"
+          onClick={() => void applySelectedTemplateToCurrentDate()}
+          disabled={!selectedApplyTemplateId || namedTemplates.length === 0}
+          title="선택한 템플릿을 지금 보는 날짜에 적용합니다"
+          className="fixed bottom-24 right-4 z-[60] min-h-[48px] rounded-full bg-neutral-800 px-5 py-3 text-sm font-semibold text-white shadow-lg ring-1 ring-black/10 transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-40 md:bottom-6 md:right-4 [right:max(1rem,env(safe-area-inset-right))]"
+        >
+          적용
+        </button>
+      )}
+
       {/* 전체 화면(사이드바 포함) 어두운 배경 + 가운데 모달 — body 포털(다른 페이지 모달과 동일 패턴) */}
       {anyModalOpen &&
         modalPortalRoot != null &&
@@ -631,23 +670,22 @@ export default function TimetablePage() {
                 setItemModal(null);
                 setAddModalOpen(false);
                 setStartTimeModalOpen(false);
-                setTemplateLibraryModal(null);
+                setTemplateModalOpen(false);
               }
             }}
           >
-            {templateLibraryModal?.open && (
+            {templateModalOpen && (
               <TimetableTemplateLibraryModal
-                open={templateLibraryModal.open}
-                mode={templateLibraryModal.mode}
-                onClose={() => setTemplateLibraryModal(null)}
+                open={templateModalOpen}
+                onClose={() => setTemplateModalOpen(false)}
                 dateKey={dateKey}
                 dateLabel={formatDateLabel(dateKey)}
                 day={day}
                 templates={namedTemplates}
-                onRefreshTemplates={refreshNamedTemplates}
-                onSaveCurrentToTemplate={saveCurrentToNamedTemplate}
-                onApplyTemplate={applyNamedTemplate}
-                onDeleteTemplate={removeNamedTemplate}
+                selectedApplyId={selectedApplyTemplateId}
+                onSelectedApplyIdChange={persistApplyTemplateSelection}
+                onAddTemplate={addNewTemplateFromCurrentDay}
+                onDeleteTemplate={deleteNamedTemplateAndFixSelection}
               />
             )}
             {startTimeModalOpen && (

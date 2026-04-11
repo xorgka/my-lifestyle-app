@@ -3,77 +3,50 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DayTimetable, NamedTimetableTemplate } from "@/lib/timetableDb";
 
-const NEW_TAB_ID = "__new__";
-
 export type TimetableTemplateLibraryModalProps = {
   open: boolean;
-  mode: "save" | "apply";
   onClose: () => void;
   dateKey: string;
   dateLabel: string;
   day: DayTimetable | null;
   templates: NamedTimetableTemplate[];
-  onRefreshTemplates: () => Promise<void>;
-  onSaveCurrentToTemplate: (opts: { templateId: string | null; name: string }) => Promise<string>;
-  onApplyTemplate: (templateId: string) => Promise<void>;
-  onDeleteTemplate: (templateId: string) => Promise<void>;
+  /** 우측 하단 「적용」에 쓸 템플릿 id */
+  selectedApplyId: string | null;
+  onSelectedApplyIdChange: (id: string | null) => void;
+  /** 지금 보이는 날짜의 시간표로 항상 새 템플릿 한 줄 추가 */
+  onAddTemplate: (name: string) => Promise<void>;
+  onDeleteTemplate: (id: string) => Promise<void>;
 };
 
 export function TimetableTemplateLibraryModal({
   open,
-  mode,
   onClose,
   dateKey,
   dateLabel,
   day,
   templates,
-  onRefreshTemplates,
-  onSaveCurrentToTemplate,
-  onApplyTemplate,
+  selectedApplyId,
+  onSelectedApplyIdChange,
+  onAddTemplate,
   onDeleteTemplate,
 }: TimetableTemplateLibraryModalProps) {
-  const [selectedId, setSelectedId] = useState<string>(NEW_TAB_ID);
-  const [nameDraft, setNameDraft] = useState("");
+  const [newNameDraft, setNewNameDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    if (mode === "apply") {
-      if (templates.length > 0) {
-        setSelectedId((prev) => (templates.some((t) => t.id === prev) ? prev : templates[0].id));
-      } else {
-        setSelectedId(NEW_TAB_ID);
-      }
-      return;
-    }
-    if (templates.length === 0) {
-      setSelectedId(NEW_TAB_ID);
-      setNameDraft("");
-      return;
-    }
-    setSelectedId((prev) => {
-      if (prev === NEW_TAB_ID) return NEW_TAB_ID;
-      if (templates.some((t) => t.id === prev)) return prev;
-      return NEW_TAB_ID;
-    });
-  }, [open, mode, templates]);
+    if (open) setNewNameDraft("");
+  }, [open]);
 
-  const selectedTemplate = useMemo(
-    () => (selectedId === NEW_TAB_ID ? null : templates.find((t) => t.id === selectedId) ?? null),
-    [selectedId, templates]
+  const selected = useMemo(
+    () => (selectedApplyId ? templates.find((t) => t.id === selectedApplyId) ?? null : null),
+    [selectedApplyId, templates]
   );
 
-  useEffect(() => {
-    if (!open || mode !== "save") return;
-    if (selectedTemplate) setNameDraft(selectedTemplate.name);
-    else if (selectedId === NEW_TAB_ID) setNameDraft("");
-  }, [open, mode, selectedId, selectedTemplate]);
-
-  const slotCount = selectedTemplate?.slots.length ?? 0;
+  const slotCount = selected?.slots.length ?? 0;
   const itemCount = useMemo(() => {
-    if (!selectedTemplate) return 0;
-    return selectedTemplate.slots.reduce((n, s) => n + (Array.isArray(s.items) ? s.items.length : 0), 0);
-  }, [selectedTemplate]);
+    if (!selected) return 0;
+    return selected.slots.reduce((n, s) => n + (Array.isArray(s.items) ? s.items.length : 0), 0);
+  }, [selected]);
 
   const currentDaySlotCount = day?.slots.length ?? 0;
   const currentDayItemCount = useMemo(() => {
@@ -81,42 +54,24 @@ export function TimetableTemplateLibraryModal({
     return day.slots.reduce((n, s) => n + s.items.length, 0);
   }, [day]);
 
-  const handleSave = async () => {
+  const handleAdd = async () => {
     if (!day || day.slots.length === 0) return;
-    const name = nameDraft.trim() || "이름 없음";
+    const name = newNameDraft.trim() || "이름 없음";
     setBusy(true);
     try {
-      const id = await onSaveCurrentToTemplate({
-        templateId: selectedId === NEW_TAB_ID ? null : selectedId,
-        name,
-      });
-      await onRefreshTemplates();
-      setSelectedId(id);
-      setNameDraft(name);
-      onClose();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleApply = async () => {
-    if (selectedId === NEW_TAB_ID || !selectedTemplate) return;
-    setBusy(true);
-    try {
-      await onApplyTemplate(selectedId);
-      onClose();
+      await onAddTemplate(name);
+      setNewNameDraft("");
     } finally {
       setBusy(false);
     }
   };
 
   const handleDelete = async () => {
-    if (selectedId === NEW_TAB_ID || !selectedTemplate) return;
-    if (!window.confirm(`「${selectedTemplate.name}」템플릿을 삭제할까요?`)) return;
+    if (!selectedApplyId || !selected) return;
+    if (!window.confirm(`「${selected.name}」템플릿을 삭제할까요?`)) return;
     setBusy(true);
     try {
-      await onDeleteTemplate(selectedId);
-      await onRefreshTemplates();
+      await onDeleteTemplate(selectedApplyId);
     } finally {
       setBusy(false);
     }
@@ -124,107 +79,6 @@ export function TimetableTemplateLibraryModal({
 
   if (!open) return null;
 
-  if (mode === "apply") {
-    return (
-      <div
-        className="relative z-10 mx-auto w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-neutral-900">템플릿 불러오기</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              <span className="font-medium text-neutral-800">{dateLabel}</span> ({dateKey}) 화면을 선택한 템플릿 내용으로
-              바꿉니다. 완료 체크는 초기화됩니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
-            aria-label="닫기"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {templates.length === 0 ? (
-          <p className="mt-6 text-center text-sm text-neutral-500">
-            아직 템플릿이 하나도 없어요.「템플릿에 저장」으로 지금 시간표를 이름 붙여 넣어 두면, 여기서 골라서 다른 날에도 쓸 수 있어요.
-          </p>
-        ) : (
-          <>
-            <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-400">불러올 템플릿</p>
-            <div className="mt-2 flex gap-1 overflow-x-auto pb-1 touch-scroll-x">
-              {templates.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setSelectedId(t.id)}
-                  className={`shrink-0 max-w-[160px] truncate rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    selectedId === t.id
-                      ? "border-neutral-800 bg-neutral-800 text-white"
-                      : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
-                  }`}
-                >
-                  {t.name || "이름 없음"}
-                </button>
-              ))}
-            </div>
-            {selectedTemplate && (
-              <p className="mt-3 text-xs text-neutral-500">
-                이 템플릿: 시간대 {slotCount}개 · 항목 {itemCount}개
-              </p>
-            )}
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
-              {selectedTemplate && (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={busy}
-                  className="mr-auto rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-                >
-                  삭제
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={busy}
-                className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-              >
-                닫기
-              </button>
-              <button
-                type="button"
-                onClick={handleApply}
-                disabled={busy || !selectedTemplate}
-                className="rounded-lg bg-neutral-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-50"
-              >
-                {busy ? "불러오는 중…" : "이 날짜에 불러오기"}
-              </button>
-            </div>
-          </>
-        )}
-
-        {templates.length === 0 && (
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              닫기
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  /* mode === "save" */
   return (
     <div
       className="relative z-10 mx-auto w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl"
@@ -232,10 +86,12 @@ export function TimetableTemplateLibraryModal({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900">템플릿에 저장</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">템플릿</h2>
           <p className="mt-1 text-sm text-neutral-600">
-            지금 보고 있는 <span className="font-medium text-neutral-800">{dateLabel}</span> ({dateKey}) 시간표를
-            템플릿으로 남깁니다. 나중에 다른 날에도 같은 구조로 불러올 수 있어요.
+            <span className="font-medium text-neutral-800">{dateLabel}</span> ({dateKey})에 보이는 시간표를 아래에서
+            이름 붙여 <strong className="font-medium text-neutral-800">추가</strong>할 수 있어요. 적용할 템플릿을 고른 뒤
+            닫고, 화면 <strong className="font-medium text-neutral-800">오른쪽 아래 「적용」</strong>을 누르면{" "}
+            <strong className="font-medium text-neutral-800">지금 보는 날짜</strong>에 그 템플릿이 들어갑니다.
           </p>
         </div>
         <button
@@ -250,76 +106,83 @@ export function TimetableTemplateLibraryModal({
         </button>
       </div>
 
-      <p className="mt-4 text-xs text-neutral-500">
-        저장할 내용: 시간대 {currentDaySlotCount}개 · 항목 {currentDayItemCount}개
-      </p>
-
-      <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-400">저장 위치</p>
-      <div className="mt-2 flex gap-1 overflow-x-auto pb-1 touch-scroll-x">
-        {templates.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setSelectedId(t.id)}
-            className={`shrink-0 max-w-[140px] truncate rounded-lg border px-3 py-2 text-sm font-medium transition ${
-              selectedId === t.id
-                ? "border-neutral-800 bg-neutral-800 text-white"
-                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
-            }`}
-          >
-            {t.name || "이름 없음"}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setSelectedId(NEW_TAB_ID)}
-          className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-            selectedId === NEW_TAB_ID
-              ? "border-neutral-800 bg-neutral-800 text-white"
-              : "border-dashed border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
-          }`}
-        >
-          ＋ 새 템플릿
-        </button>
-      </div>
-
-      <div className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50/80 p-4">
-        <label className="block text-xs font-medium text-neutral-500">템플릿 이름</label>
-        <input
-          type="text"
-          value={nameDraft}
-          onChange={(e) => setNameDraft(e.target.value)}
-          placeholder="예: 평일 기본"
-          className="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none ring-neutral-800 focus:ring-2"
-          disabled={busy}
-        />
-        {selectedId === NEW_TAB_ID ? (
-          <p className="mt-3 text-xs text-neutral-500">새 이름으로 라이브러리에 하나 더 추가됩니다.</p>
-        ) : (
-          selectedTemplate && (
-            <p className="mt-3 text-xs text-neutral-500">
-              이 템플릿에 예전에 저장돼 있던 내용은 지우고, 지금 화면의 시간표로 바꿉니다. 이름만 고치려면 위 입력을 수정한 뒤 저장하세요.
+      <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-400">적용할 템플릿</p>
+      {templates.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">아직 없어요. 아래에서 첫 템플릿을 추가하세요.</p>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelectedApplyIdChange(t.id)}
+                className={`max-w-full truncate rounded-lg border px-3 py-2 text-left text-sm font-medium transition ${
+                  selectedApplyId === t.id
+                    ? "border-neutral-800 bg-neutral-800 text-white"
+                    : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300"
+                }`}
+              >
+                {t.name || "이름 없음"}
+              </button>
+            ))}
+          </div>
+          {selected && (
+            <p className="mt-2 text-xs text-neutral-500">
+              선택됨 · 시간대 {slotCount}개 · 항목 {itemCount}개
             </p>
-          )
-        )}
+          )}
+          {selectedApplyId && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={busy}
+              className="mt-3 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            >
+              선택한 템플릿 삭제
+            </button>
+          )}
+        </>
+      )}
+
+      <div className="mt-6 border-t border-neutral-100 pt-5">
+        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">지금 날짜 시간표를 새 템플릿으로 추가</p>
+        <p className="mt-1 text-xs text-neutral-500">
+          방금 수정한 내용까지 포함해요. 시간대 {currentDaySlotCount}개 · 항목 {currentDayItemCount}개
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor="timetable-new-template-name">
+              새 템플릿 이름
+            </label>
+            <input
+              id="timetable-new-template-name"
+              type="text"
+              value={newNameDraft}
+              onChange={(e) => setNewNameDraft(e.target.value)}
+              placeholder="템플릿 이름"
+              className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none ring-neutral-800 focus:ring-2"
+              disabled={busy}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={busy || !day || day.slots.length === 0}
+            className="shrink-0 rounded-lg bg-neutral-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-50"
+          >
+            {busy ? "추가 중…" : "추가"}
+          </button>
+        </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+      <div className="mt-6 flex justify-end">
         <button
           type="button"
           onClick={onClose}
-          disabled={busy}
-          className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+          className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
         >
           닫기
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={busy || !day || day.slots.length === 0}
-          className="rounded-lg bg-neutral-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {busy ? "저장 중…" : selectedId === NEW_TAB_ID ? "새 템플릿으로 저장" : "선택한 템플릿에 저장"}
         </button>
       </div>
     </div>
