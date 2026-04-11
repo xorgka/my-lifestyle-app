@@ -282,7 +282,7 @@ async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTempl
 
   const entry: NamedTimetableTemplate = {
     id: SAVED_TEMPLATE_ROW_ID,
-    name: "저장된 템플릿",
+    name: "기본",
     slots: legacySlots,
     sortOrder: 0,
   };

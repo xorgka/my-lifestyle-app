@@ -545,14 +545,14 @@ export default function TimetablePage() {
               }}
               disabled={!day || day.slots.length === 0}
               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-50 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
-              aria-label="템플릿 저장"
+              aria-label="템플릿에 저장"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </button>
             <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow transition duration-150 group-hover:opacity-100">
-              템플릿 저장
+              템플릿에 저장
             </span>
           </span>
           <span className="group relative flex">
@@ -564,14 +564,14 @@ export default function TimetablePage() {
               }}
               disabled={namedTemplates.length === 0}
               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-50 sm:h-10 sm:w-10 sm:min-h-0 sm:min-w-0"
-              aria-label="템플릿 적용"
+              aria-label="템플릿 불러오기"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
             </button>
             <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow transition duration-150 group-hover:opacity-100">
-              템플릿 적용
+              템플릿 불러오기
             </span>
           </span>
           <button
