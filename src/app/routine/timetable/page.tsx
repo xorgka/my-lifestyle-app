@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -17,9 +17,11 @@ import {
   dayToTemplate,
   templateToDay,
   loadAllNamedTimetableTemplates,
+  loadLegacySingleTimetableSlots,
   upsertNamedTimetableTemplate,
   deleteNamedTimetableTemplate,
   generateNamedTimetableTemplateId,
+  SAVED_TEMPLATE_ROW_ID,
   type DayTimetable,
   type TimetableSlot,
   type NamedTimetableTemplate,
@@ -87,8 +89,15 @@ export default function TimetablePage() {
   /** 해당 날짜만 적용되는 시작시간 오버라이드(0~23). null이면 기존 슬롯 시간 그대로 표시 */
   const [startTimeOverride, setStartTimeOverride] = useState<number | null>(() => getStartTimeOverrideForKey(getTodayKey()));
   const [startTimeModalOpen, setStartTimeModalOpen] = useState(false);
+  /** 이름 틀 전체(DB·로컬). id `default` 행은 예전 단일 저장분이며 모달 칩에는 안보냄 */
   const [namedTemplates, setNamedTemplates] = useState<NamedTimetableTemplate[]>([]);
+  /** 이름 틀 없을 때만 쓰는 예전 단일 저장 슬롯(읽기 전용 소스, 목록에 자동 추가 안 함) */
+  const [legacyPeekSlots, setLegacyPeekSlots] = useState<NamedTimetableTemplate["slots"] | null>(null);
   const [namedTemplatesReady, setNamedTemplatesReady] = useState(false);
+  const templatesForModal = useMemo(
+    () => namedTemplates.filter((t) => t.id !== SAVED_TEMPLATE_ROW_ID),
+    [namedTemplates]
+  );
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [selectedApplyTemplateId, setSelectedApplyTemplateId] = useState<string | null>(null);
 
@@ -126,6 +135,7 @@ export default function TimetablePage() {
   const refreshNamedTemplates = useCallback(async () => {
     const list = await loadAllNamedTimetableTemplates();
     setNamedTemplates(list);
+    setLegacyPeekSlots(await loadLegacySingleTimetableSlots());
     setNamedTemplatesReady(true);
   }, []);
 
@@ -145,7 +155,12 @@ export default function TimetablePage() {
 
   useEffect(() => {
     if (!namedTemplatesReady) return;
-    if (namedTemplates.length === 0) {
+    const visible = namedTemplates.filter((t) => t.id !== SAVED_TEMPLATE_ROW_ID);
+    const legacyApply =
+      namedTemplates.some((t) => t.id === SAVED_TEMPLATE_ROW_ID) ||
+      (legacyPeekSlots != null && legacyPeekSlots.length > 0);
+
+    if (visible.length === 0 && !legacyApply) {
       setSelectedApplyTemplateId((prev) => {
         if (prev == null) return null;
         try {
@@ -157,9 +172,23 @@ export default function TimetablePage() {
       });
       return;
     }
+
+    if (visible.length === 0 && legacyApply) {
+      setSelectedApplyTemplateId((prev) => {
+        if (prev === SAVED_TEMPLATE_ROW_ID) return prev;
+        try {
+          localStorage.setItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY, SAVED_TEMPLATE_ROW_ID);
+        } catch {
+          /* ignore */
+        }
+        return SAVED_TEMPLATE_ROW_ID;
+      });
+      return;
+    }
+
     setSelectedApplyTemplateId((prev) => {
-      if (prev != null && namedTemplates.some((t) => t.id === prev)) return prev;
-      const next = namedTemplates[0].id;
+      if (prev != null && visible.some((t) => t.id === prev)) return prev;
+      const next = visible[0].id;
       try {
         localStorage.setItem(TIMETABLE_APPLY_TEMPLATE_ID_KEY, next);
       } catch {
@@ -167,7 +196,7 @@ export default function TimetablePage() {
       }
       return next;
     });
-  }, [namedTemplates, namedTemplatesReady]);
+  }, [namedTemplates, legacyPeekSlots, namedTemplatesReady]);
   useEffect(() => {
     syncStartTimeOverridesFromSupabase().then(() =>
       setStartTimeOverride(getStartTimeOverrideForKey(dateKeyRef.current))
@@ -275,8 +304,13 @@ export default function TimetablePage() {
     async (templateId: string) => {
       const list = await loadAllNamedTimetableTemplates();
       const t = list.find((x) => x.id === templateId);
-      if (!t) return;
-      const newDay = templateToDay({ slots: t.slots });
+      let slots = t?.slots;
+      if (!slots && templateId === SAVED_TEMPLATE_ROW_ID) {
+        const legacy = await loadLegacySingleTimetableSlots();
+        if (legacy && legacy.length > 0) slots = legacy;
+      }
+      if (!slots) return;
+      const newDay = templateToDay({ slots });
       await persist(newDay, false);
     },
     [persist]
@@ -650,7 +684,7 @@ export default function TimetablePage() {
         <button
           type="button"
           onClick={() => void applySelectedTemplateToCurrentDate()}
-          disabled={!selectedApplyTemplateId || namedTemplates.length === 0}
+          disabled={!selectedApplyTemplateId}
           title="선택한 시간표 틀을 지금 보는 날짜에 넣습니다"
           className="fixed bottom-24 right-4 z-[60] min-h-[48px] rounded-full bg-neutral-800 px-5 py-3 text-sm font-semibold text-white shadow-lg ring-1 ring-black/10 transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-40 md:bottom-6 md:right-4 [right:max(1rem,env(safe-area-inset-right))]"
         >
@@ -681,7 +715,7 @@ export default function TimetablePage() {
                 dateKey={dateKey}
                 dateLabel={formatDateLabel(dateKey)}
                 day={day}
-                templates={namedTemplates}
+                templates={templatesForModal}
                 selectedApplyId={selectedApplyTemplateId}
                 onSelectedApplyIdChange={persistApplyTemplateSelection}
                 onAddTemplate={addNewTemplateFromCurrentDay}

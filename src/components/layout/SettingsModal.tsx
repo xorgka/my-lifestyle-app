@@ -70,7 +70,7 @@ import {
 import {
   loadAllTimetables,
   saveTimetableForDate,
-  loadAllNamedTimetableTemplates,
+  loadAllNamedTimetableTemplatesForBackup,
   replaceAllNamedTimetableTemplates,
   parseNamedTimetableTemplatesForImport,
   type TimetableTemplate,
@@ -249,7 +249,7 @@ type AppBackupPayload = {
     notes: Awaited<ReturnType<typeof loadAllNotes>>;
     timetables: Awaited<ReturnType<typeof loadAllTimetables>>;
     /** 여러 개 이름 템플릿. 없으면 구버전 timetableTemplate만 있을 수 있음 */
-    timetableTemplates: Awaited<ReturnType<typeof loadAllNamedTimetableTemplates>>;
+    timetableTemplates: Awaited<ReturnType<typeof loadAllNamedTimetableTemplatesForBackup>>;
     timetableTemplate?: TimetableTemplate | null;
     timetableRoutineLinks: Awaited<ReturnType<typeof loadTimetableRoutineLinks>>;
     timetableTemplateLinks: Awaited<ReturnType<typeof loadTimetableTemplateLinks>>;
@@ -472,7 +472,7 @@ export function SettingsModal({ onClose }: Props) {
         loadNotebooks(),
         loadAllNotes(),
         loadAllTimetables(),
-        loadAllNamedTimetableTemplates(),
+        loadAllNamedTimetableTemplatesForBackup(),
         loadTimetableRoutineLinks(),
         loadTimetableTemplateLinks(),
       ]);

@@ -174,7 +174,8 @@ export function templateToDay(template: TimetableTemplate): DayTimetable {
 }
 
 const SAVED_TEMPLATE_TABLE = "timetable_saved_template";
-const SAVED_TEMPLATE_ROW_ID = "default";
+/** 구버전 단일 저장 행 id. 칩 목록에는 안 보이고 「적용」·백업에서만 사용 */
+export const SAVED_TEMPLATE_ROW_ID = "default";
 
 /** 이름 있는 타임테이블 템플릿(라이브러리). slots는 TimetableTemplate과 동일 형태 */
 export type NamedTimetableTemplate = {
@@ -205,7 +206,7 @@ export function parseNamedTimetableTemplatesForImport(raw: unknown): NamedTimeta
 const NAMED_TEMPLATES_STORAGE_KEY = "timetable-named-templates";
 const NAMED_TEMPLATES_TABLE = "timetable_named_templates";
 
-/** 옛 데이터를 옮겼을 때 붙이는 틀 이름(칩에 보이는 글자일 뿐, 「기본」 같은 시스템 버튼 아님) */
+/** @deprecated 구버전 API·백업 합성 행용 표시명. UI 칩에는 예전 단일 저장 행을 안 넣음 */
 const LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME = "예전에 저장한 틀";
 const LEGACY_NAMED_TEMPLATE_DISPLAY_NAME = "저장된 템플릿";
 
@@ -254,8 +255,8 @@ export function generateNamedTimetableTemplateId(): string {
   return `ntt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** 기존 단일 저장소( Supabase timetable_saved_template / localStorage )를 첫 번째 이름 템플릿으로 옮김 */
-async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTemplate[] | null> {
+/** 예전 단일 저장소만 읽기(쓰기 없음). 목록에 자동 추가하지 않고 적용·백업에만 사용 */
+export async function loadLegacySingleTimetableSlots(): Promise<TimetableTemplate["slots"] | null> {
   let legacySlots: TimetableTemplate["slots"] | null = null;
   if (supabase) {
     try {
@@ -282,32 +283,7 @@ async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTempl
       /* ignore */
     }
   }
-  if (!legacySlots) return null;
-
-  const entry: NamedTimetableTemplate = {
-    id: SAVED_TEMPLATE_ROW_ID,
-    name: LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME,
-    slots: legacySlots,
-    sortOrder: 0,
-  };
-  saveNamedTimetableTemplatesToLocal([entry]);
-  if (supabase) {
-    try {
-      await supabase.from(NAMED_TEMPLATES_TABLE).upsert(
-        {
-          id: entry.id,
-          name: entry.name,
-          slots: entry.slots,
-          sort_order: 0,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      );
-    } catch {
-      /* 테이블 미적용 등 */
-    }
-  }
-  return [entry];
+  return legacySlots;
 }
 
 /** 구버전 표시명·자동 붙인 「기본」을 더 알아보기 쉬운 이름으로 치환 */
@@ -361,14 +337,13 @@ export async function loadAllNamedTimetableTemplates(): Promise<NamedTimetableTe
           saveNamedTimetableTemplatesToLocal(list);
           return replaceLegacyNamedTemplateDisplayNames(list);
         }
-        const migrated = await migrateLegacySingleTemplateToNamed();
-        if (migrated) return replaceLegacyNamedTemplateDisplayNames(migrated);
         /** 원격이 비어 있어도 로컬에만 있던 템플릿은 지우지 않음(빈 DB가 로컬을 덮어쓰는 버그 방지) */
         const stillLocal = loadNamedTimetableTemplatesFromLocal();
         if (stillLocal.length > 0) {
+          const sb = supabase;
           void Promise.all(
             stillLocal.map((t, i) =>
-              supabase.from(NAMED_TEMPLATES_TABLE).upsert(
+              sb.from(NAMED_TEMPLATES_TABLE).upsert(
                 {
                   id: t.id,
                   name: t.name,
@@ -388,14 +363,30 @@ export async function loadAllNamedTimetableTemplates(): Promise<NamedTimetableTe
     }
     const localOnly = loadNamedTimetableTemplatesFromLocal();
     if (localOnly.length > 0) return replaceLegacyNamedTemplateDisplayNames(localOnly);
-    const migrated = await migrateLegacySingleTemplateToNamed();
-    return replaceLegacyNamedTemplateDisplayNames(migrated ?? []);
+    return [];
   } catch {
     const localOnly = loadNamedTimetableTemplatesFromLocal();
     if (localOnly.length > 0) return replaceLegacyNamedTemplateDisplayNames(localOnly);
-    const migrated = await migrateLegacySingleTemplateToNamed();
-    return replaceLegacyNamedTemplateDisplayNames(migrated ?? []);
+    return [];
   }
+}
+
+/** 백업보내기: 이름 틀 + (이름 틀이 없고 예전 단일 저장만 있으면 그 슬롯을 한 줄로 합성) */
+export async function loadAllNamedTimetableTemplatesForBackup(): Promise<NamedTimetableTemplate[]> {
+  const list = await loadAllNamedTimetableTemplates();
+  if (list.length > 0) return list;
+  const legacy = await loadLegacySingleTimetableSlots();
+  if (legacy && legacy.length > 0) {
+    return [
+      {
+        id: SAVED_TEMPLATE_ROW_ID,
+        name: LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME,
+        slots: legacy,
+        sortOrder: 0,
+      },
+    ];
+  }
+  return [];
 }
 
 export async function upsertNamedTimetableTemplate(entry: NamedTimetableTemplate): Promise<void> {
@@ -474,8 +465,10 @@ export async function replaceAllNamedTimetableTemplates(templates: NamedTimetabl
 /** @deprecated 첫 번째 이름 템플릿만 반환. 백업·구버전 호환용 */
 export async function loadTimetableTemplate(): Promise<TimetableTemplate | null> {
   const all = await loadAllNamedTimetableTemplates();
-  if (all.length === 0) return null;
-  return { slots: all[0].slots };
+  if (all.length > 0) return { slots: all[0].slots };
+  const legacy = await loadLegacySingleTimetableSlots();
+  if (legacy && legacy.length > 0) return { slots: legacy };
+  return null;
 }
 
 /** @deprecated id `default` 템플릿을 덮어씀. 구버전 호환 */
