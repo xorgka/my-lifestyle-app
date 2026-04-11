@@ -306,6 +306,38 @@ async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTempl
   return [entry];
 }
 
+/** 구버전에서 온 표시명 — 칩에 그대로 남아 혼란을 주므로 로드 시 「기본」으로 치환 */
+const LEGACY_NAMED_TEMPLATE_DISPLAY_NAME = "저장된 템플릿";
+
+async function replaceLegacyNamedTemplateDisplayNames(list: NamedTimetableTemplate[]): Promise<NamedTimetableTemplate[]> {
+  if (!list.some((t) => t.name === LEGACY_NAMED_TEMPLATE_DISPLAY_NAME)) return list;
+  const next = list.map((t) =>
+    t.name === LEGACY_NAMED_TEMPLATE_DISPLAY_NAME ? { ...t, name: "기본" } : t
+  );
+  saveNamedTimetableTemplatesToLocal(next);
+  if (supabase) {
+    for (const t of next) {
+      const prev = list.find((x) => x.id === t.id);
+      if (prev?.name !== LEGACY_NAMED_TEMPLATE_DISPLAY_NAME) continue;
+      try {
+        await supabase.from(NAMED_TEMPLATES_TABLE).upsert(
+          {
+            id: t.id,
+            name: t.name,
+            slots: t.slots,
+            sort_order: t.sortOrder ?? 0,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return next;
+}
+
 export async function loadAllNamedTimetableTemplates(): Promise<NamedTimetableTemplate[]> {
   if (typeof window === "undefined") return [];
   try {
@@ -318,10 +350,10 @@ export async function loadAllNamedTimetableTemplates(): Promise<NamedTimetableTe
         if (data.length > 0) {
           const list = data.map(mapNamedTemplateRow).filter((x): x is NamedTimetableTemplate => x != null);
           saveNamedTimetableTemplatesToLocal(list);
-          return list;
+          return replaceLegacyNamedTemplateDisplayNames(list);
         }
         const migrated = await migrateLegacySingleTemplateToNamed();
-        if (migrated) return migrated;
+        if (migrated) return replaceLegacyNamedTemplateDisplayNames(migrated);
         /** 원격이 비어 있어도 로컬에만 있던 템플릿은 지우지 않음(빈 DB가 로컬을 덮어쓰는 버그 방지) */
         const stillLocal = loadNamedTimetableTemplatesFromLocal();
         if (stillLocal.length > 0) {
@@ -339,21 +371,21 @@ export async function loadAllNamedTimetableTemplates(): Promise<NamedTimetableTe
               )
             )
           );
-          return stillLocal;
+          return replaceLegacyNamedTemplateDisplayNames(stillLocal);
         }
         saveNamedTimetableTemplatesToLocal([]);
         return [];
       }
     }
     const localOnly = loadNamedTimetableTemplatesFromLocal();
-    if (localOnly.length > 0) return localOnly;
+    if (localOnly.length > 0) return replaceLegacyNamedTemplateDisplayNames(localOnly);
     const migrated = await migrateLegacySingleTemplateToNamed();
-    return migrated ?? [];
+    return replaceLegacyNamedTemplateDisplayNames(migrated ?? []);
   } catch {
     const localOnly = loadNamedTimetableTemplatesFromLocal();
-    if (localOnly.length > 0) return localOnly;
+    if (localOnly.length > 0) return replaceLegacyNamedTemplateDisplayNames(localOnly);
     const migrated = await migrateLegacySingleTemplateToNamed();
-    return migrated ?? [];
+    return replaceLegacyNamedTemplateDisplayNames(migrated ?? []);
   }
 }
 
