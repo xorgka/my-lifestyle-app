@@ -70,8 +70,10 @@ import {
 import {
   loadAllTimetables,
   saveTimetableForDate,
-  loadTimetableTemplate,
-  saveTimetableTemplate,
+  loadAllNamedTimetableTemplates,
+  replaceAllNamedTimetableTemplates,
+  parseNamedTimetableTemplatesForImport,
+  type TimetableTemplate,
 } from "@/lib/timetableDb";
 import {
   loadTimetableRoutineLinks,
@@ -246,7 +248,9 @@ type AppBackupPayload = {
     notebooks: Awaited<ReturnType<typeof loadNotebooks>>;
     notes: Awaited<ReturnType<typeof loadAllNotes>>;
     timetables: Awaited<ReturnType<typeof loadAllTimetables>>;
-    timetableTemplate: Awaited<ReturnType<typeof loadTimetableTemplate>>;
+    /** 여러 개 이름 템플릿. 없으면 구버전 timetableTemplate만 있을 수 있음 */
+    timetableTemplates: Awaited<ReturnType<typeof loadAllNamedTimetableTemplates>>;
+    timetableTemplate?: TimetableTemplate | null;
     timetableRoutineLinks: Awaited<ReturnType<typeof loadTimetableRoutineLinks>>;
     timetableTemplateLinks: Awaited<ReturnType<typeof loadTimetableTemplateLinks>>;
   };
@@ -450,7 +454,7 @@ export function SettingsModal({ onClose }: Props) {
         notebooks,
         notes,
         timetables,
-        timetableTemplate,
+        timetableTemplates,
         timetableRoutineLinks,
         timetableTemplateLinks,
       ] = await Promise.all([
@@ -468,7 +472,7 @@ export function SettingsModal({ onClose }: Props) {
         loadNotebooks(),
         loadAllNotes(),
         loadAllTimetables(),
-        loadTimetableTemplate(),
+        loadAllNamedTimetableTemplates(),
         loadTimetableRoutineLinks(),
         loadTimetableTemplateLinks(),
       ]);
@@ -491,7 +495,8 @@ export function SettingsModal({ onClose }: Props) {
           notebooks,
           notes,
           timetables,
-          timetableTemplate,
+          timetableTemplates,
+          timetableTemplate: timetableTemplates[0] ? { slots: timetableTemplates[0].slots } : null,
           timetableRoutineLinks,
           timetableTemplateLinks,
         },
@@ -540,8 +545,12 @@ export function SettingsModal({ onClose }: Props) {
       for (const [dateKey, day] of Object.entries(timetableMap)) {
         await saveTimetableForDate(dateKey, day);
       }
-      if (d.timetableTemplate) {
-        await saveTimetableTemplate(d.timetableTemplate);
+      if (d.timetableTemplates !== undefined) {
+        await replaceAllNamedTimetableTemplates(parseNamedTimetableTemplatesForImport(d.timetableTemplates));
+      } else if (d.timetableTemplate?.slots && Array.isArray(d.timetableTemplate.slots)) {
+        await replaceAllNamedTimetableTemplates([
+          { id: "default", name: "백업 템플릿", slots: d.timetableTemplate.slots, sortOrder: 0 },
+        ]);
       }
       await saveTimetableRoutineLinksSnapshot(
         (d.timetableRoutineLinks ?? {}) as Awaited<ReturnType<typeof loadTimetableRoutineLinks>>

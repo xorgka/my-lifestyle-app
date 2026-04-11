@@ -176,42 +176,275 @@ export function templateToDay(template: TimetableTemplate): DayTimetable {
 const SAVED_TEMPLATE_TABLE = "timetable_saved_template";
 const SAVED_TEMPLATE_ROW_ID = "default";
 
-export async function loadTimetableTemplate(): Promise<TimetableTemplate | null> {
-  if (typeof window === "undefined") return null;
+/** 이름 있는 타임테이블 템플릿(라이브러리). slots는 TimetableTemplate과 동일 형태 */
+export type NamedTimetableTemplate = {
+  id: string;
+  name: string;
+  slots: TimetableTemplate["slots"];
+  sortOrder?: number;
+};
+
+/** 백업 JSON 등에서 이름 템플릿 배열 파싱 */
+export function parseNamedTimetableTemplatesForImport(raw: unknown): NamedTimetableTemplate[] {
+  if (!Array.isArray(raw)) return [];
+  const out: NamedTimetableTemplate[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    if (typeof o.id !== "string" || typeof o.name !== "string" || !Array.isArray(o.slots)) continue;
+    out.push({
+      id: o.id,
+      name: o.name,
+      slots: o.slots as TimetableTemplate["slots"],
+      sortOrder: typeof o.sortOrder === "number" ? o.sortOrder : undefined,
+    });
+  }
+  return out;
+}
+
+const NAMED_TEMPLATES_STORAGE_KEY = "timetable-named-templates";
+const NAMED_TEMPLATES_TABLE = "timetable_named_templates";
+
+function loadNamedTimetableTemplatesFromLocal(): NamedTimetableTemplate[] {
+  if (typeof window === "undefined") return [];
   try {
-    if (supabase) {
+    const raw = window.localStorage.getItem(NAMED_TEMPLATES_STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(isValidNamedTimetableTemplate);
+  } catch {
+    return [];
+  }
+}
+
+function saveNamedTimetableTemplatesToLocal(list: NamedTimetableTemplate[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(NAMED_TEMPLATES_STORAGE_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function isValidNamedTimetableTemplate(x: unknown): x is NamedTimetableTemplate {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  return typeof o.id === "string" && typeof o.name === "string" && Array.isArray(o.slots);
+}
+
+function mapNamedTemplateRow(row: {
+  id: string;
+  name: string;
+  slots: unknown;
+  sort_order: number | null;
+}): NamedTimetableTemplate | null {
+  if (!row?.id || !Array.isArray(row.slots)) return null;
+  return {
+    id: row.id,
+    name: String(row.name ?? ""),
+    slots: row.slots as TimetableTemplate["slots"],
+    sortOrder: row.sort_order ?? undefined,
+  };
+}
+
+export function generateNamedTimetableTemplateId(): string {
+  return `ntt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** 기존 단일 저장소( Supabase timetable_saved_template / localStorage )를 첫 번째 이름 템플릿으로 옮김 */
+async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTemplate[] | null> {
+  let legacySlots: TimetableTemplate["slots"] | null = null;
+  if (supabase) {
+    try {
       const { data, error } = await supabase
         .from(SAVED_TEMPLATE_TABLE)
         .select("slots")
         .eq("id", SAVED_TEMPLATE_ROW_ID)
         .maybeSingle();
       if (!error && data?.slots && Array.isArray(data.slots) && data.slots.length > 0) {
-        const t = { slots: data.slots as TimetableTemplate["slots"] };
-        window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(t));
-        return t;
+        legacySlots = data.slots as TimetableTemplate["slots"];
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!legacySlots && typeof window !== "undefined") {
+    try {
+      const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+      if (raw) {
+        const t = JSON.parse(raw) as TimetableTemplate;
+        if (t?.slots && Array.isArray(t.slots) && t.slots.length > 0) legacySlots = t.slots;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!legacySlots) return null;
+
+  const entry: NamedTimetableTemplate = {
+    id: SAVED_TEMPLATE_ROW_ID,
+    name: "저장된 템플릿",
+    slots: legacySlots,
+    sortOrder: 0,
+  };
+  saveNamedTimetableTemplatesToLocal([entry]);
+  if (supabase) {
+    try {
+      await supabase.from(NAMED_TEMPLATES_TABLE).upsert(
+        {
+          id: entry.id,
+          name: entry.name,
+          slots: entry.slots,
+          sort_order: 0,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    } catch {
+      /* 테이블 미적용 등 */
+    }
+  }
+  return [entry];
+}
+
+export async function loadAllNamedTimetableTemplates(): Promise<NamedTimetableTemplate[]> {
+  if (typeof window === "undefined") return [];
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(NAMED_TEMPLATES_TABLE)
+        .select("id,name,slots,sort_order")
+        .order("sort_order", { ascending: true });
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          const list = data.map(mapNamedTemplateRow).filter((x): x is NamedTimetableTemplate => x != null);
+          saveNamedTimetableTemplatesToLocal(list);
+          return list;
+        }
+        const migrated = await migrateLegacySingleTemplateToNamed();
+        if (migrated) return migrated;
+        /** 원격이 비어 있어도 로컬에만 있던 템플릿은 지우지 않음(빈 DB가 로컬을 덮어쓰는 버그 방지) */
+        const stillLocal = loadNamedTimetableTemplatesFromLocal();
+        if (stillLocal.length > 0) {
+          void Promise.all(
+            stillLocal.map((t, i) =>
+              supabase.from(NAMED_TEMPLATES_TABLE).upsert(
+                {
+                  id: t.id,
+                  name: t.name,
+                  slots: t.slots,
+                  sort_order: t.sortOrder ?? i,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "id" }
+              )
+            )
+          );
+          return stillLocal;
+        }
+        saveNamedTimetableTemplatesToLocal([]);
+        return [];
       }
     }
-    const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
-    if (!raw) return null;
-    const t = JSON.parse(raw) as TimetableTemplate;
-    if (!t?.slots || !Array.isArray(t.slots)) return null;
-    return t;
+    const localOnly = loadNamedTimetableTemplatesFromLocal();
+    if (localOnly.length > 0) return localOnly;
+    const migrated = await migrateLegacySingleTemplateToNamed();
+    return migrated ?? [];
   } catch {
-    return null;
+    const localOnly = loadNamedTimetableTemplatesFromLocal();
+    if (localOnly.length > 0) return localOnly;
+    const migrated = await migrateLegacySingleTemplateToNamed();
+    return migrated ?? [];
   }
 }
 
-export async function saveTimetableTemplate(template: TimetableTemplate): Promise<void> {
+export async function upsertNamedTimetableTemplate(entry: NamedTimetableTemplate): Promise<void> {
   if (typeof window === "undefined") return;
+  const list = loadNamedTimetableTemplatesFromLocal();
+  const idx = list.findIndex((x) => x.id === entry.id);
+  let next: NamedTimetableTemplate[];
+  if (idx === -1) {
+    const maxOrder = list.reduce((m, x) => Math.max(m, x.sortOrder ?? 0), -1);
+    next = [...list, { ...entry, sortOrder: entry.sortOrder ?? maxOrder + 1 }];
+  } else {
+    next = list.map((x, i) => (i === idx ? { ...x, ...entry } : x));
+  }
+  next.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  saveNamedTimetableTemplatesToLocal(next);
+  const row = next.find((x) => x.id === entry.id);
+  if (!supabase || !row) return;
   try {
-    window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(template));
-    if (supabase) {
-      await supabase.from(SAVED_TEMPLATE_TABLE).upsert(
-        { id: SAVED_TEMPLATE_ROW_ID, slots: template.slots },
-        { onConflict: "id" }
-      );
+    await supabase.from(NAMED_TEMPLATES_TABLE).upsert(
+      {
+        id: row.id,
+        name: row.name,
+        slots: row.slots,
+        sort_order: row.sortOrder ?? 0,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function deleteNamedTimetableTemplate(id: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  const next = loadNamedTimetableTemplatesFromLocal().filter((x) => x.id !== id);
+  saveNamedTimetableTemplatesToLocal(next);
+  if (!supabase) return;
+  try {
+    await supabase.from(NAMED_TEMPLATES_TABLE).delete().eq("id", id);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function replaceAllNamedTimetableTemplates(templates: NamedTimetableTemplate[]): Promise<void> {
+  if (typeof window === "undefined") return;
+  const normalized = templates.map((t, i) => ({
+    ...t,
+    sortOrder: t.sortOrder ?? i,
+  }));
+  normalized.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  saveNamedTimetableTemplatesToLocal(normalized);
+  if (!supabase) return;
+  try {
+    const { data: existing } = await supabase.from(NAMED_TEMPLATES_TABLE).select("id");
+    if (Array.isArray(existing)) {
+      for (const r of existing) {
+        await supabase.from(NAMED_TEMPLATES_TABLE).delete().eq("id", (r as { id: string }).id);
+      }
     }
-  } catch {}
+    if (normalized.length === 0) return;
+    const rows = normalized.map((t, i) => ({
+      id: t.id,
+      name: t.name,
+      slots: t.slots,
+      sort_order: t.sortOrder ?? i,
+      updated_at: new Date().toISOString(),
+    }));
+    await supabase.from(NAMED_TEMPLATES_TABLE).insert(rows);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @deprecated 첫 번째 이름 템플릿만 반환. 백업·구버전 호환용 */
+export async function loadTimetableTemplate(): Promise<TimetableTemplate | null> {
+  const all = await loadAllNamedTimetableTemplates();
+  if (all.length === 0) return null;
+  return { slots: all[0].slots };
+}
+
+/** @deprecated id `default` 템플릿을 덮어씀. 구버전 호환 */
+export async function saveTimetableTemplate(template: TimetableTemplate): Promise<void> {
+  await upsertNamedTimetableTemplate({
+    id: SAVED_TEMPLATE_ROW_ID,
+    name: "기본",
+    slots: template.slots,
+    sortOrder: 0,
+  });
 }
 
 // --- Supabase (optional) ---
