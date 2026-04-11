@@ -10,9 +10,11 @@ export type TimetableTemplateLibraryModalProps = {
   dateLabel: string;
   day: DayTimetable | null;
   templates: NamedTimetableTemplate[];
-  /** 우측 하단 「적용」에 쓸 템플릿 id */
+  /** 모달 밖에서도 기억하는 선택 id(목록에 없는 저장본일 수 있음) */
   selectedApplyId: string | null;
   onSelectedApplyIdChange: (id: string | null) => void;
+  /** 선택한 틀을 지금 보는 날짜에 반영 */
+  onApplyToCurrentDate: () => Promise<void>;
   /** 지금 보이는 날짜의 시간표로 항상 새 템플릿 한 줄 추가 */
   onAddTemplate: (name: string) => Promise<void>;
   onDeleteTemplate: (id: string) => Promise<void>;
@@ -27,6 +29,7 @@ export function TimetableTemplateLibraryModal({
   templates,
   selectedApplyId,
   onSelectedApplyIdChange,
+  onApplyToCurrentDate,
   onAddTemplate,
   onDeleteTemplate,
 }: TimetableTemplateLibraryModalProps) {
@@ -77,6 +80,20 @@ export function TimetableTemplateLibraryModal({
     }
   };
 
+  const applyHiddenSelection =
+    !!selectedApplyId && !templates.some((t) => t.id === selectedApplyId);
+
+  const handleApplyToDate = async () => {
+    if (!selectedApplyId) return;
+    setBusy(true);
+    try {
+      await onApplyToCurrentDate();
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -89,8 +106,9 @@ export function TimetableTemplateLibraryModal({
           <h2 className="text-lg font-semibold text-neutral-900">시간표 틀</h2>
           <p className="mt-1 text-sm text-neutral-600">
             <span className="font-medium text-neutral-800">날짜별로 쌓이는 표</span>가 아니라,{" "}
-            <span className="font-medium text-neutral-800">이름 붙여서 보관해 둔 “예시 시간표”</span>예요. 오른쪽 아래
-            「적용」으로 <strong className="font-medium text-neutral-800">지금 보는 날짜</strong>에 그 모양을 한 번에
+            <span className="font-medium text-neutral-800">이름 붙여서 보관해 둔 “예시 시간표”</span>예요. 아래{" "}
+            <strong className="font-medium text-neutral-800">이 날짜에 적용</strong>으로{" "}
+            <strong className="font-medium text-neutral-800">지금 보는 날짜({dateLabel})</strong>에 그 모양을 한 번에
             가져옵니다.
           </p>
         </div>
@@ -145,6 +163,12 @@ export function TimetableTemplateLibraryModal({
         </>
       )}
 
+      {applyHiddenSelection && (
+        <p className="mt-3 text-xs text-neutral-500">
+          목록에는 안 보이지만 적용할 저장본이 선택된 상태예요. 맨 아래 「이 날짜에 적용」으로 넣을 수 있어요.
+        </p>
+      )}
+
       <div className="mt-6 border-t border-neutral-100 pt-5">
         <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">지금 화면을 틀로 추가</p>
         <p className="mt-1 text-xs text-neutral-500">
@@ -176,13 +200,22 @@ export function TimetableTemplateLibraryModal({
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-100 pt-5">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          className="min-h-[44px] rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
         >
           닫기
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleApplyToDate()}
+          disabled={busy || !selectedApplyId || !day}
+          title={!day ? "시간표를 불러온 뒤에 적용할 수 있어요" : undefined}
+          className="min-h-[44px] rounded-lg bg-neutral-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-40"
+        >
+          {busy ? "적용 중…" : `이 날짜에 적용 (${dateLabel})`}
         </button>
       </div>
     </div>

@@ -680,18 +680,6 @@ export default function TimetablePage() {
         </div>
       )}
 
-      {day && (
-        <button
-          type="button"
-          onClick={() => void applySelectedTemplateToCurrentDate()}
-          disabled={!selectedApplyTemplateId}
-          title="선택한 시간표 틀을 지금 보는 날짜에 넣습니다"
-          className="fixed bottom-24 right-4 z-[60] min-h-[48px] rounded-full bg-neutral-800 px-5 py-3 text-sm font-semibold text-white shadow-lg ring-1 ring-black/10 transition hover:bg-neutral-700 disabled:pointer-events-none disabled:opacity-40 md:bottom-6 md:right-4 [right:max(1rem,env(safe-area-inset-right))]"
-        >
-          적용
-        </button>
-      )}
-
       {/* 전체 화면(사이드바 포함) 어두운 배경 + 가운데 모달 — body 포털(다른 페이지 모달과 동일 패턴) */}
       {anyModalOpen &&
         modalPortalRoot != null &&
@@ -718,6 +706,7 @@ export default function TimetablePage() {
                 templates={templatesForModal}
                 selectedApplyId={selectedApplyTemplateId}
                 onSelectedApplyIdChange={persistApplyTemplateSelection}
+                onApplyToCurrentDate={applySelectedTemplateToCurrentDate}
                 onAddTemplate={addNewTemplateFromCurrentDay}
                 onDeleteTemplate={deleteNamedTemplateAndFixSelection}
               />
