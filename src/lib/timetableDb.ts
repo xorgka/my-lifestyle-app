@@ -205,6 +205,10 @@ export function parseNamedTimetableTemplatesForImport(raw: unknown): NamedTimeta
 const NAMED_TEMPLATES_STORAGE_KEY = "timetable-named-templates";
 const NAMED_TEMPLATES_TABLE = "timetable_named_templates";
 
+/** 옛 데이터를 옮겼을 때 붙이는 틀 이름(칩에 보이는 글자일 뿐, 「기본」 같은 시스템 버튼 아님) */
+const LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME = "예전에 저장한 틀";
+const LEGACY_NAMED_TEMPLATE_DISPLAY_NAME = "저장된 템플릿";
+
 function loadNamedTimetableTemplatesFromLocal(): NamedTimetableTemplate[] {
   if (typeof window === "undefined") return [];
   try {
@@ -282,7 +286,7 @@ async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTempl
 
   const entry: NamedTimetableTemplate = {
     id: SAVED_TEMPLATE_ROW_ID,
-    name: "기본",
+    name: LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME,
     slots: legacySlots,
     sortOrder: 0,
   };
@@ -306,19 +310,24 @@ async function migrateLegacySingleTemplateToNamed(): Promise<NamedTimetableTempl
   return [entry];
 }
 
-/** 구버전에서 온 표시명 — 칩에 그대로 남아 혼란을 주므로 로드 시 「기본」으로 치환 */
-const LEGACY_NAMED_TEMPLATE_DISPLAY_NAME = "저장된 템플릿";
-
+/** 구버전 표시명·자동 붙인 「기본」을 더 알아보기 쉬운 이름으로 치환 */
 async function replaceLegacyNamedTemplateDisplayNames(list: NamedTimetableTemplate[]): Promise<NamedTimetableTemplate[]> {
-  if (!list.some((t) => t.name === LEGACY_NAMED_TEMPLATE_DISPLAY_NAME)) return list;
-  const next = list.map((t) =>
-    t.name === LEGACY_NAMED_TEMPLATE_DISPLAY_NAME ? { ...t, name: "기본" } : t
+  const needsFix = list.some(
+    (t) =>
+      t.name === LEGACY_NAMED_TEMPLATE_DISPLAY_NAME ||
+      (t.id === SAVED_TEMPLATE_ROW_ID && t.name === "기본")
   );
+  if (!needsFix) return list;
+  const next = list.map((t) => {
+    if (t.name === LEGACY_NAMED_TEMPLATE_DISPLAY_NAME) return { ...t, name: LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME };
+    if (t.id === SAVED_TEMPLATE_ROW_ID && t.name === "기본") return { ...t, name: LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME };
+    return t;
+  });
   saveNamedTimetableTemplatesToLocal(next);
   if (supabase) {
     for (const t of next) {
       const prev = list.find((x) => x.id === t.id);
-      if (prev?.name !== LEGACY_NAMED_TEMPLATE_DISPLAY_NAME) continue;
+      if (!prev || prev.name === t.name) continue;
       try {
         await supabase.from(NAMED_TEMPLATES_TABLE).upsert(
           {
@@ -473,7 +482,7 @@ export async function loadTimetableTemplate(): Promise<TimetableTemplate | null>
 export async function saveTimetableTemplate(template: TimetableTemplate): Promise<void> {
   await upsertNamedTimetableTemplate({
     id: SAVED_TEMPLATE_ROW_ID,
-    name: "기본",
+    name: LEGACY_MIGRATED_TEMPLATE_VISIBLE_NAME,
     slots: template.slots,
     sortOrder: 0,
   });
