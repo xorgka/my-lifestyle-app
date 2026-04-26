@@ -8,14 +8,11 @@ import {
   saveYoutubeChannels,
   deleteYoutubeChannel,
 } from "@/lib/youtubeDb";
-import {
-  loadYoutubeActualDeposits,
-  saveYoutubeActualDeposits,
-} from "@/lib/youtubeActualDepositsDb";
+import { type IncomeEntry, loadIncomeEntries } from "@/lib/income";
 import { supabase } from "@/lib/supabase";
 
 /** 수익 입력·저장 단위: 달러. 원 표시 시 이 환율로 곱함 */
-export const USD_TO_KRW = 1350;
+const USD_TO_KRW = 1350;
 
 function getCurrentYearMonth(): string {
   const d = new Date();
@@ -79,30 +76,7 @@ export default function YoutubePage() {
   const [aggregateYear, setAggregateYear] = useState<number | null>(null);
   /** 채널별 수익: 선택한 연도 */
   const [channelRevenueYear, setChannelRevenueYear] = useState<number | null>(null);
-
-  const DEFAULT_DEPOSIT_BANKS = ["국민 6954", "국민 8189"];
-  const BANKS_STORAGE_KEY = "youtube-actual-deposit-banks";
-
-  /** 실제 입금 금액: 키 "국민6954-YYYY-MM" 등, 값 원. Supabase 또는 localStorage 동기화 */
-  const [actualDeposits, setActualDeposits] = useState<Record<string, number>>({});
-  /** 실제 입금에 사용하는 계좌 목록 (추가 가능). localStorage 동기화 */
-  const [actualDepositBanks, setActualDepositBanks] = useState<string[]>(() => {
-    if (typeof window === "undefined") return DEFAULT_DEPOSIT_BANKS;
-    try {
-      const raw = window.localStorage.getItem(BANKS_STORAGE_KEY);
-      if (!raw) return DEFAULT_DEPOSIT_BANKS;
-      const parsed = JSON.parse(raw) as string[];
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_DEPOSIT_BANKS;
-    } catch {
-      return DEFAULT_DEPOSIT_BANKS;
-    }
-  });
-  const [actualDepositForm, setActualDepositForm] = useState({
-    bank: "국민 6954",
-    year: 2026,
-    month: new Date().getMonth() + 1,
-    amountKrw: 0,
-  });
+  const [youtubeIncomeEntries, setYoutubeIncomeEntries] = useState<IncomeEntry[]>([]);
 
   /** 통계 탭: 월별 | 연도. 월별일 때 선택 연도 */
   const [statsTab, setStatsTab] = useState<"월별" | "연도">("월별");
@@ -114,32 +88,25 @@ export default function YoutubePage() {
 
   useEffect(() => {
     setChannelsLoading(true);
-    loadYoutubeChannels()
-      .then(setChannels)
+    Promise.all([loadYoutubeChannels(), loadIncomeEntries()])
+      .then(([loadedChannels, incomeEntries]) => {
+        setChannels(loadedChannels);
+        setYoutubeIncomeEntries(
+          incomeEntries.filter(
+            (entry) =>
+              entry.category.trim() === "애드센스" &&
+              entry.item.trim().includes("유튜브")
+          )
+        );
+      })
       .catch(console.error)
       .finally(() => setChannelsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    loadYoutubeActualDeposits().then(setActualDeposits).catch(console.error);
   }, []);
 
   useEffect(() => {
     if (channelsLoading || channels.length === 0) return;
     saveYoutubeChannels(channels).catch(console.error);
   }, [channels, channelsLoading]);
-
-  useEffect(() => {
-    if (Object.keys(actualDeposits).length === 0) return;
-    saveYoutubeActualDeposits(actualDeposits).catch(console.error);
-  }, [actualDeposits]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(BANKS_STORAGE_KEY, JSON.stringify(actualDepositBanks));
-    } catch {}
-  }, [actualDepositBanks]);
 
   // 채널이 바뀌면 빠른 입력 기본 채널을 첫 채널로
   useEffect(() => {
@@ -166,17 +133,6 @@ export default function YoutubePage() {
       )
     );
     setQuickRevenue((q) => ({ ...q, amount: 0 }));
-  };
-
-  const bankKey = (bank: string) => bank.replace(/\s/g, "");
-
-  const saveActualDeposit = () => {
-    const { bank, year, month, amountKrw } = actualDepositForm;
-    if (amountKrw <= 0) return;
-    const yyyyMm = `${year}-${String(month).padStart(2, "0")}`;
-    const key = `${bankKey(bank)}-${yyyyMm}`;
-    setActualDeposits((prev) => ({ ...prev, [key]: amountKrw }));
-    setActualDepositForm((f) => ({ ...f, amountKrw: 0 }));
   };
 
   const currentYearMonth = getCurrentYearMonth();
@@ -283,7 +239,6 @@ export default function YoutubePage() {
     setModal(null);
     setEditingId(null);
     setForm(emptyChannel());
-    setRevealAccountId(null);
     setMemoModalChannelId(null);
   };
 
@@ -309,7 +264,6 @@ export default function YoutubePage() {
       return;
     deleteYoutubeChannel(id).catch(console.error);
     setChannels((prev) => prev.filter((c) => c.id !== id));
-    setRevealAccountId((prev) => (prev === id ? null : prev));
     setMemoModalChannelId((prev) => (prev === id ? null : prev));
   };
 
@@ -378,13 +332,7 @@ export default function YoutubePage() {
     channelMonthRevenue,
     channelTotalRevenue,
     usdToKrw: USD_TO_KRW,
-    actualDeposits,
-    setActualDeposits,
-    actualDepositBanks,
-    setActualDepositBanks,
-    actualDepositForm,
-    setActualDepositForm,
-    saveActualDeposit,
+    youtubeIncomeEntries,
     statsTab,
     setStatsTab,
     statsYear,
