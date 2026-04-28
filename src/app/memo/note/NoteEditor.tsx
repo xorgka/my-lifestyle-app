@@ -14,6 +14,9 @@ type NoteEditorProps = {
   onPermanentDelete?: () => void;
   /** 모바일에서 목록으로 돌아가기. 있으면 헤더 왼쪽에 뒤로가기 버튼 표시 */
   onBack?: () => void;
+  /** PC에서 왼쪽 노트 목록을 접고 펼침 */
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 };
 
 const HIGHLIGHT_COLOR = "#fef08a";
@@ -93,7 +96,18 @@ function placeCaretInElement(el: HTMLElement, atEnd: boolean) {
   sel.addRange(r);
 }
 
-export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isTrashNote, onRestore, onPermanentDelete, onBack }: NoteEditorProps) {
+export function NoteEditor({
+  note,
+  onTitleChange,
+  onContentChange,
+  onDelete,
+  isTrashNote,
+  onRestore,
+  onPermanentDelete,
+  onBack,
+  isSidebarOpen = true,
+  onToggleSidebar,
+}: NoteEditorProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   /** 한글/한자 IME 후보 창 등에서 Tab이 다음 후보로 가야 함 — 조합 중엔 목록 들여쓰기로 가로채지 않음 */
@@ -252,8 +266,25 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
 
   if (!note) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-white px-6 py-8 text-neutral-400">
-        <p className="text-sm">노트를 선택하거나 새 노트를 만드세요.</p>
+      <div className="flex min-h-0 flex-1 flex-col bg-white">
+        <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-3 py-2 md:px-5 md:py-3">
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="hidden min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 md:flex"
+              aria-label={isSidebarOpen ? "목록 닫기" : "목록 열기"}
+              title={isSidebarOpen ? "목록 닫기" : "목록 열기"}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={isSidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="flex flex-1 items-center justify-center px-6 py-8 text-neutral-400">
+          <p className="text-sm">노트를 선택하거나 새 노트를 만드세요.</p>
+        </div>
       </div>
     );
   }
@@ -270,6 +301,19 @@ export function NoteEditor({ note, onTitleChange, onContentChange, onDelete, isT
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="hidden min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 md:flex"
+            aria-label={isSidebarOpen ? "목록 닫기" : "목록 열기"}
+            title={isSidebarOpen ? "목록 닫기" : "목록 열기"}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d={isSidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
             </svg>
           </button>
         )}

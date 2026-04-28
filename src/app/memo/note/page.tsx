@@ -28,6 +28,7 @@ export default function NotePage() {
   const [trashNotes, setTrashNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [editingNotebookId, setEditingNotebookId] = useState<string | null>(null);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState<{
     message: string;
     onConfirm: () => void;
@@ -212,12 +213,12 @@ export default function NotePage() {
       />
 
       <div className="flex h-[calc(100vh-14rem)] min-h-[320px] overflow-hidden rounded-xl border border-neutral-200 bg-white pr-2 pb-2 shadow-sm sm:min-h-[400px] sm:pr-3 sm:pb-3 md:h-[calc(100vh-18rem)] md:min-h-[400px] md:pr-4 md:pb-4">
-        {/* 모바일: 선택 전에는 목록만, 선택 시 숨김. 데스크톱: 항상 목록 표시 */}
+        {/* 모바일: 선택 전에는 목록만, 선택 시 숨김. 데스크톱: 토글로 목록 표시 */}
         <div
           className={
             selectedNoteId
-              ? "hidden md:flex w-48 shrink-0 flex-col overflow-hidden rounded-tl-xl rounded-bl-xl md:w-56"
-              : "flex w-full shrink-0 flex-col overflow-hidden rounded-tl-xl rounded-bl-xl md:w-56"
+              ? `${isDesktopSidebarOpen ? "md:flex" : "md:hidden"} hidden w-48 shrink-0 flex-col overflow-hidden rounded-tl-xl rounded-bl-xl md:w-56`
+              : `${isDesktopSidebarOpen ? "md:flex" : "md:hidden"} flex w-full shrink-0 flex-col overflow-hidden rounded-tl-xl rounded-bl-xl md:w-56`
           }
         >
           <NoteSidebar
@@ -241,8 +242,8 @@ export default function NotePage() {
         <div
           className={
             selectedNoteId
-              ? "flex min-w-0 flex-1 flex-col pl-0 md:pl-4"
-              : "hidden min-w-0 flex-1 flex-col pl-0 md:flex md:pl-4"
+              ? `flex min-w-0 flex-1 flex-col pl-0 ${isDesktopSidebarOpen ? "md:pl-4" : "md:pl-0"}`
+              : `hidden min-w-0 flex-1 flex-col pl-0 md:flex ${isDesktopSidebarOpen ? "md:pl-4" : "md:pl-0"}`
           }
         >
           <NoteEditor
@@ -254,6 +255,8 @@ export default function NotePage() {
             onRestore={isTrashNote && selectedNote ? () => handleRestore(selectedNote.id) : undefined}
             onPermanentDelete={isTrashNote && selectedNote ? () => handlePermanentDelete(selectedNote.id) : undefined}
             onBack={selectedNoteId ? () => setSelectedNoteId(null) : undefined}
+            isSidebarOpen={isDesktopSidebarOpen}
+            onToggleSidebar={() => setIsDesktopSidebarOpen((open) => !open)}
           />
         </div>
       </div>
