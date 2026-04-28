@@ -40,9 +40,9 @@ export function parseYoutubeUrl(url: string): { videoId: string | null; startSec
     }
     const t = u.searchParams.get("t");
     const startSeconds = t != null ? parseInt(t, 10) : undefined;
-    if (startSeconds !== undefined && (Number.isNaN(startSeconds) || startSeconds < 0))
-      return { videoId, startSeconds: undefined };
-    return { videoId, startSeconds: startSeconds >= 0 ? startSeconds : undefined };
+    if (startSeconds === undefined || Number.isNaN(startSeconds) || startSeconds < 0)
+      return { videoId };
+    return { videoId, startSeconds };
   } catch {
     return { videoId: null };
   }

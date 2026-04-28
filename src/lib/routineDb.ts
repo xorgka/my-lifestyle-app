@@ -113,7 +113,7 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
       .from("routine_items")
       .select("id, title, sort_order, is_important")
       .order("sort_order", { ascending: true });
-    let data = res.data;
+    let data: unknown[] | null = res.data ?? null;
     let hasImportantColumn = !res.error;
     if (res.error) {
       console.warn("[routineDb] is_important 컬럼 없음 또는 조회 실패. Supabase에 schema.sql의 routine_items.is_important 컬럼을 적용해 주세요.", res.error.message);
@@ -125,13 +125,16 @@ export async function loadRoutineItems(): Promise<RoutineItem[]> {
         console.error("[routineDb] loadRoutineItems", fallback.error);
         return mergeImportant(loadItemsFromStorage());
       }
-      data = fallback.data;
+      data = fallback.data ?? null;
     }
-    const fromDb = (data ?? []).map((row) => ({
-      id: Number(row.id),
-      title: String(row.title ?? ""),
-      isImportant: !!(row as { is_important?: boolean }).is_important,
-    }));
+    const fromDb = (data ?? []).map((raw) => {
+      const row = raw as { id?: unknown; title?: unknown; is_important?: boolean };
+      return {
+        id: Number(row.id),
+        title: String(row.title ?? ""),
+        isImportant: !!row.is_important,
+      };
+    });
     // DB에서 is_important를 가져온 경우 DB를 단일 소스로 사용(다른 기기와 동기화). fallback인 경우만 localStorage 병합.
     if (fromDb.length > 0) return hasImportantColumn ? fromDb : mergeImportant(fromDb);
     const fromStorage = loadItemsFromStorage();

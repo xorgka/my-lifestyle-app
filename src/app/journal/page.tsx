@@ -389,8 +389,8 @@ export default function JournalPage() {
 
   useEffect(() => {
     if (!editContextMenu) return;
-    const close = (e?: MouseEvent) => {
-      if (e && editContextMenuRef.current?.contains(e.target as Node)) return;
+    const close = (e?: Event) => {
+      if (e instanceof MouseEvent && editContextMenuRef.current?.contains(e.target as Node)) return;
       setEditContextMenu(null);
     };
     document.addEventListener("mousedown", close, true);

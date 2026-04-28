@@ -244,7 +244,7 @@ export default function SchedulePage() {
     yearlyDay: number | null;
     weeklyDay: number | null;
   }) => {
-    await addScheduleEntry(payload);
+    await addScheduleEntry({ ...payload, time: null });
     refresh();
     setAddOpen(false);
   };

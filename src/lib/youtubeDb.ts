@@ -124,7 +124,9 @@ export async function loadYoutubeChannels(): Promise<YouTubeChannel[]> {
       console.error("[youtube] loadYoutubeChannels", error);
       return loadFromStorage();
     }
-    const fromDb = (data ?? []).map(rowToChannel).map((c, i) => ({ ...c, sortOrder: (c as { sortOrder?: number }).sortOrder ?? i }));
+    const fromDb = (data ?? [])
+      .map((row) => rowToChannel(row as Parameters<typeof rowToChannel>[0]))
+      .map((c, i) => ({ ...c, sortOrder: (c as { sortOrder?: number }).sortOrder ?? i }));
     if (fromDb.length > 0) return fromDb;
     const fromStorage = loadFromStorage();
     if (fromStorage.length > 0) {

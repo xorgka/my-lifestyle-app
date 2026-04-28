@@ -915,7 +915,7 @@ function TimeEditModal({
   onSave: (time: string) => void;
   onDelete: () => void;
   onCancel: () => void;
-  timeInputRef: React.RefObject<HTMLInputElement | null>;
+  timeInputRef: React.RefObject<HTMLInputElement>;
 }) {
   const [time, setTime] = useState(initialTime);
   useEffect(() => {
@@ -977,7 +977,7 @@ function ItemEditModal({
   onSave: (text: string, routineId?: number | null) => void;
   onDelete: () => void;
   onCancel: () => void;
-  itemInputRef: React.RefObject<HTMLInputElement | null>;
+  itemInputRef: React.RefObject<HTMLInputElement>;
 }) {
   const [text, setText] = useState(initialText);
   const [routineId, setRoutineId] = useState<number | null>(initialRoutineId);
