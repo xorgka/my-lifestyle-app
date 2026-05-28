@@ -278,6 +278,12 @@ export async function permanentDeleteMemo(id: string): Promise<void> {
   await saveMemos(all.filter((m) => m.id !== id));
 }
 
+/** 휴지통 비우기 (완전 삭제) */
+export async function emptyTrashMemos(): Promise<void> {
+  const all = await loadAllMemos();
+  await saveMemos(all.filter((m) => !m.deletedAt));
+}
+
 export function createMemo(color: MemoColorId = "black", categoryId?: string): Memo {
   return {
     id: `memo-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,

@@ -12,6 +12,8 @@ import {
   moveMemoToTrash,
   restoreMemo,
   permanentDeleteMemo,
+  emptyTrashMemos,
+  saveMemos,
   MEMO_DEFAULT_WIDTH,
   MEMO_DEFAULT_HEIGHT,
   MEMO_MIN_WIDTH,
@@ -26,21 +28,11 @@ import {
   loadMemoCategories,
   saveMemoCategories,
   generateMemoCategoryId,
-  getSelectedMemoCategoryId,
   setSelectedMemoCategoryId,
-  MEMO_CATEGORY_ALL_ID,
+  MEMO_CATEGORY_TRASH_ID,
   getDefaultMemoCategoryId,
+  resolveSelectedMemoCategoryId,
 } from "@/lib/memoCategoryDb";
-
-const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
-
-function formatMemoDate(iso: string): string {
-  const d = new Date(iso);
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const w = WEEKDAY[d.getDay()];
-  return `${m}.${day}(${w})`;
-}
 
 export default function MemoPage() {
   const [memos, setMemos] = useState<Memo[]>([]);
@@ -49,13 +41,17 @@ export default function MemoPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [trashOpen, setTrashOpen] = useState(false);
   const [trashMemos, setTrashMemos] = useState<Memo[]>([]);
   const [trashCount, setTrashCount] = useState(0);
   /** Supabase 저장 실패 시: 이 브라우저 localStorage에만 있어 다른 기기에 안 보일 수 있음 */
   const [syncError, setSyncError] = useState<string | null>(null);
   const [categories, setCategories] = useState<MemoCategory[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(MEMO_CATEGORY_ALL_ID);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(getDefaultMemoCategoryId());
+  const isTrashView = selectedCategoryId === MEMO_CATEGORY_TRASH_ID;
+  const isTrashViewRef = useRef(isTrashView);
+  isTrashViewRef.current = isTrashView;
+  const memosRef = useRef(memos);
+  memosRef.current = memos;
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     const update = () => setIsDesktop(m.matches);
@@ -93,19 +89,42 @@ export default function MemoPage() {
     }
   }, []);
 
+  const refreshTrash = useCallback(async () => {
+    const raw = await loadTrashMemos();
+    const gap = 20;
+    const normalized = raw.map((m, i) => ({
+      ...m,
+      x: m.x ?? 20 + (i % 4) * (MEMO_DEFAULT_WIDTH + gap),
+      y: m.y ?? 20 + Math.floor(i / 4) * (MEMO_DEFAULT_HEIGHT + gap),
+      width: m.width ?? MEMO_DEFAULT_WIDTH,
+      height: m.height ?? MEMO_DEFAULT_HEIGHT,
+    }));
+    setTrashMemos(normalized);
+    setTrashCount(normalized.length);
+    return normalized;
+  }, []);
+
   useEffect(() => {
     load();
-    loadMemoCategories().then(setCategories);
-    setSelectedCategoryId(getSelectedMemoCategoryId());
-  }, [load]);
-
-  useEffect(() => {
-    loadTrashMemos().then((list) => setTrashCount(list.length));
-  }, [trashOpen, memos.length]);
-
-  useEffect(() => {
-    if (trashOpen) loadTrashMemos().then(setTrashMemos);
-  }, [trashOpen]);
+    loadMemoCategories().then((cats) => {
+      setCategories(cats);
+      let stored = getDefaultMemoCategoryId();
+      if (typeof window !== "undefined") {
+        try {
+          stored = window.localStorage.getItem("memo-selected-category-id") ?? stored;
+        } catch {
+          /* ignore */
+        }
+      }
+      const resolved = resolveSelectedMemoCategoryId(
+        stored,
+        cats.map((c) => c.id)
+      );
+      setSelectedCategoryId(resolved);
+      setSelectedMemoCategoryId(resolved);
+    });
+    void refreshTrash();
+  }, [load, refreshTrash]);
 
   const persist = useCallback(async (next: Memo[]) => {
     setMemos(next);
@@ -119,10 +138,24 @@ export default function MemoPage() {
     }
   }, []);
 
-  const categoryIdForNewMemo =
-    selectedCategoryId === MEMO_CATEGORY_ALL_ID ? getDefaultMemoCategoryId() : selectedCategoryId;
+  const categoryIdForNewMemo = isTrashView ? getDefaultMemoCategoryId() : selectedCategoryId;
+
+  const persistTrash = useCallback(
+    async (nextTrash: Memo[]) => {
+      setTrashMemos(nextTrash);
+      const result = await saveMemos([...memosRef.current, ...nextTrash]);
+      if (!result.ok) {
+        setSyncError(`서버에 저장되지 않았습니다. 원인: ${result.message}`);
+      } else {
+        setSyncError(null);
+      }
+      setTrashCount(nextTrash.length);
+    },
+    []
+  );
 
   const addMemo = () => {
+    if (isTrashView) return;
     const newMemo = createMemo("black", categoryIdForNewMemo);
     newMemo.width = MEMO_DEFAULT_WIDTH;
     newMemo.height = MEMO_DEFAULT_HEIGHT;
@@ -147,9 +180,18 @@ export default function MemoPage() {
       Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height" | "collapsed" | "categoryId">
     >
   ) => {
-    void persist(
-      memos.map((m) => (m.id === id ? { ...m, ...updates } : m))
-    );
+    if (isTrashViewRef.current) {
+      setTrashMemos((prev) => {
+        const next = prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+        void saveMemos([...memosRef.current, ...next]).then((r) => {
+          if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
+          else setSyncError(null);
+        });
+        return next;
+      });
+      return;
+    }
+    void persist(memos.map((m) => (m.id === id ? { ...m, ...updates } : m)));
   };
 
   const deleteMemo = async (id: string) => {
@@ -206,18 +248,43 @@ export default function MemoPage() {
       setCategories(nextCats);
       await saveMemoCategories(nextCats);
       await persist(nextMemos);
-      if (selectedCategoryId === id) handleSelectCategory(MEMO_CATEGORY_ALL_ID);
+      if (selectedCategoryId === id) {
+        handleSelectCategory(categories.find((c) => c.id !== id)?.id ?? getDefaultMemoCategoryId());
+      }
     },
     [categories, memos, persist, selectedCategoryId, handleSelectCategory]
   );
 
+  const handleEmptyTrash = useCallback(async () => {
+    await emptyTrashMemos();
+    setTrashMemos([]);
+    setTrashCount(0);
+  }, []);
+
+  const handleRestoreFromTrash = useCallback(
+    async (id: string) => {
+      await restoreMemo(id);
+      await load();
+      await refreshTrash();
+    },
+    [load, refreshTrash]
+  );
+
+  const handlePermanentDeleteFromTrash = useCallback(
+    async (id: string) => {
+      if (!window.confirm("이 메모를 완전히 삭제할까요? 복원할 수 없어요.")) return;
+      await permanentDeleteMemo(id);
+      await refreshTrash();
+    },
+    [refreshTrash]
+  );
+
   const sortedMemos = useMemo(() => {
-    let list = memos;
-    if (selectedCategoryId !== MEMO_CATEGORY_ALL_ID) {
-      list = list.filter((m) => (m.categoryId ?? getDefaultMemoCategoryId()) === selectedCategoryId);
-    }
+    let list = isTrashView
+      ? trashMemos
+      : memos.filter((m) => (m.categoryId ?? getDefaultMemoCategoryId()) === selectedCategoryId);
     if (searchQ) {
-      list = memos.filter(
+      list = list.filter(
         (m) =>
           (m.title && m.title.toLowerCase().includes(searchQ)) ||
           (m.content && m.content.toLowerCase().includes(searchQ))
@@ -231,10 +298,26 @@ export default function MemoPage() {
       if (bPin !== aPin) return bPin - aPin;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [memos, searchQ, draggingId, resizingId, selectedCategoryId]);
+  }, [memos, trashMemos, isTrashView, searchQ, draggingId, resizingId, selectedCategoryId]);
 
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
+      const trash = isTrashViewRef.current;
+      const patchPos = (id: string, x: number, y: number) => {
+        if (trash) {
+          setTrashMemos((prev) => prev.map((m) => (m.id === id ? { ...m, x, y } : m)));
+        } else {
+          setMemos((prev) => prev.map((m) => (m.id === id ? { ...m, x, y } : m)));
+        }
+      };
+      const patchSize = (id: string, width: number, height: number) => {
+        if (trash) {
+          setTrashMemos((prev) => prev.map((m) => (m.id === id ? { ...m, width, height } : m)));
+        } else {
+          setMemos((prev) => prev.map((m) => (m.id === id ? { ...m, width, height } : m)));
+        }
+      };
+
       if (draggingId && dragStartRef.current) {
         const { startX, startY, memoX, memoY } = dragStartRef.current;
         let x = memoX + (e.clientX - startX);
@@ -243,9 +326,7 @@ export default function MemoPage() {
         y = Math.max(0, y);
         dragStartRef.current.x = x;
         dragStartRef.current.y = y;
-        setMemos((prev) =>
-          prev.map((m) => (m.id === draggingId ? { ...m, x, y } : m))
-        );
+        patchPos(draggingId, x, y);
       } else if (dragPendingRef.current && !draggingId) {
         const p = dragPendingRef.current;
         const dx = e.clientX - p.startX;
@@ -263,57 +344,64 @@ export default function MemoPage() {
             y,
           };
           dragPendingRef.current = null;
-          setMemos((prev) =>
-            prev.map((m) => (m.id === p.id ? { ...m, x, y } : m))
-          );
+          patchPos(p.id, x, y);
         }
       } else if (resizingId && resizeStartRef.current) {
         const { startX, startY, w, h } = resizeStartRef.current;
-        let width = Math.max(MEMO_MIN_WIDTH, w + (e.clientX - startX));
-        let height = Math.max(MEMO_MIN_HEIGHT, h + (e.clientY - startY));
+        const width = Math.max(MEMO_MIN_WIDTH, w + (e.clientX - startX));
+        const height = Math.max(MEMO_MIN_HEIGHT, h + (e.clientY - startY));
         resizeStartRef.current.x = width;
         resizeStartRef.current.y = height;
-        setMemos((prev) =>
-          prev.map((m) =>
-            m.id === resizingId ? { ...m, width, height } : m
-          )
-        );
+        patchSize(resizingId, width, height);
       }
     };
     const onPointerUp = () => {
       dragPendingRef.current = null;
+      const trash = isTrashViewRef.current;
       if (draggingId && dragStartRef.current) {
         const { x, y } = dragStartRef.current;
-        setMemos((prev) => {
-          const next = prev.map((m) =>
-            m.id === draggingId ? { ...m, x, y } : m
-          );
-          void saveMemosKeepingTrash(next).then((r) => {
-            if (!r.ok) {
-              setSyncError(`서버 저장 실패: ${r.message}`);
-            } else {
-              setSyncError(null);
-            }
+        if (trash) {
+          setTrashMemos((prev) => {
+            const next = prev.map((m) => (m.id === draggingId ? { ...m, x, y } : m));
+            void saveMemos([...memosRef.current, ...next]).then((r) => {
+              if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
+              else setSyncError(null);
+            });
+            return next;
           });
-          return next;
-        });
+        } else {
+          setMemos((prev) => {
+            const next = prev.map((m) => (m.id === draggingId ? { ...m, x, y } : m));
+            void saveMemosKeepingTrash(next).then((r) => {
+              if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
+              else setSyncError(null);
+            });
+            return next;
+          });
+        }
         dragStartRef.current = null;
         setDraggingId(null);
       } else if (resizingId && resizeStartRef.current) {
         const { x: width, y: height } = resizeStartRef.current;
-        setMemos((prev) => {
-          const next = prev.map((m) =>
-            m.id === resizingId ? { ...m, width, height } : m
-          );
-          void saveMemosKeepingTrash(next).then((r) => {
-            if (!r.ok) {
-              setSyncError(`서버 저장 실패: ${r.message}`);
-            } else {
-              setSyncError(null);
-            }
+        if (trash) {
+          setTrashMemos((prev) => {
+            const next = prev.map((m) => (m.id === resizingId ? { ...m, width, height } : m));
+            void saveMemos([...memosRef.current, ...next]).then((r) => {
+              if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
+              else setSyncError(null);
+            });
+            return next;
           });
-          return next;
-        });
+        } else {
+          setMemos((prev) => {
+            const next = prev.map((m) => (m.id === resizingId ? { ...m, width, height } : m));
+            void saveMemosKeepingTrash(next).then((r) => {
+              if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
+              else setSyncError(null);
+            });
+            return next;
+          });
+        }
         resizeStartRef.current = null;
         setResizingId(null);
       }
@@ -359,28 +447,14 @@ export default function MemoPage() {
       <MemoCategoryBar
         categories={categories}
         selectedId={selectedCategoryId}
+        trashCount={trashCount}
         onSelect={handleSelectCategory}
         onAddCategory={() => void handleAddCategory()}
         onRenameCategory={(id) => void handleRenameCategory(id)}
         onDeleteCategory={(id) => void handleDeleteCategory(id)}
+        onEmptyTrash={() => void handleEmptyTrash()}
         rightContent={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTrashOpen((prev) => !prev)}
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
-              title="휴지통"
-              aria-label="휴지통"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              {trashCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-medium text-white">
-                  {trashCount > 99 ? "99+" : trashCount}
-                </span>
-              )}
-            </button>
+          !isTrashView ? (
             <button
               type="button"
               onClick={addMemo}
@@ -392,72 +466,9 @@ export default function MemoPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
             </button>
-          </div>
+          ) : null
         }
       />
-
-      {trashOpen && (
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-neutral-700">휴지통</h3>
-            <button
-              type="button"
-              onClick={() => setTrashOpen(false)}
-              className="rounded-lg px-2 py-1 text-sm text-neutral-500 hover:bg-neutral-200"
-            >
-              닫기
-            </button>
-          </div>
-          {trashMemos.length === 0 ? (
-            <p className="py-4 text-center text-sm text-neutral-500">휴지통이 비어 있어요.</p>
-          ) : (
-            <ul className="space-y-2">
-              {trashMemos.map((m) => (
-                <li
-                  key={m.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
-                    {m.title || "(제목 없음)"}
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    {m.deletedAt ? formatMemoDate(m.deletedAt) : ""}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await restoreMemo(m.id);
-                        await load();
-                        const list = await loadTrashMemos();
-                        setTrashMemos(list);
-                        setTrashCount(list.length);
-                      }}
-                      className="rounded-lg bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200"
-                    >
-                      복원
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (window.confirm("이 메모를 완전히 삭제할까요? 복원할 수 없어요.")) {
-                          await permanentDeleteMemo(m.id);
-                          const list = await loadTrashMemos();
-                          setTrashMemos(list);
-                          setTrashCount(list.length);
-                        }
-                      }}
-                      className="rounded-lg bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
-                    >
-                      완전 삭제
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       <div
         ref={canvasRef}
@@ -504,9 +515,12 @@ export default function MemoPage() {
                 memo={memo}
                 variant="full"
                 className="h-full min-h-0 w-full"
-                categories={categories}
+                categories={isTrashView ? undefined : categories}
                 updateMemo={updateMemo}
-                deleteMemo={deleteMemo}
+                deleteMemo={isTrashView ? undefined : deleteMemo}
+                trashMode={isTrashView}
+                onRestore={isTrashView ? handleRestoreFromTrash : undefined}
+                onPermanentDelete={isTrashView ? handlePermanentDeleteFromTrash : undefined}
                 colorMenuId={colorMenuId}
                 setColorMenuId={setColorMenuId}
                 editingTitleId={editingTitleId}
@@ -538,7 +552,7 @@ export default function MemoPage() {
         })}
       </div>
 
-      {memos.length === 0 && (
+      {!isTrashView && memos.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 py-16 text-center text-neutral-500">
           <p className="font-medium">메모가 없어요.</p>
           <p className="mt-1 text-sm">카테고리 줄 오른쪽 + 버튼으로 추가해 보세요.</p>
@@ -551,11 +565,23 @@ export default function MemoPage() {
           </button>
         </div>
       )}
-      {memos.length > 0 && sortedMemos.length === 0 && (
+      {isTrashView && trashMemos.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 py-16 text-center text-neutral-500">
-          <p className="font-medium">{searchQ ? "검색 결과가 없어요." : "이 카테고리에 메모가 없어요."}</p>
+          <p className="font-medium">휴지통이 비어 있어요.</p>
+        </div>
+      )}
+      {((!isTrashView && memos.length > 0) || (isTrashView && trashMemos.length > 0)) &&
+        sortedMemos.length === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 py-16 text-center text-neutral-500">
+          <p className="font-medium">
+            {searchQ ? "검색 결과가 없어요." : isTrashView ? "휴지통에 해당 메모가 없어요." : "이 카테고리에 메모가 없어요."}
+          </p>
           <p className="mt-1 text-sm">
-            {searchQ ? "다른 검색어로 시도해 보세요." : "+ 로 메모를 추가하거나, 다른 카테고리를 선택해 보세요."}
+            {searchQ
+              ? "다른 검색어로 시도해 보세요."
+              : isTrashView
+                ? "다른 카테고리를 선택해 보세요."
+                : "+ 로 메모를 추가하거나, 다른 카테고리를 선택해 보세요."}
           </p>
         </div>
       )}

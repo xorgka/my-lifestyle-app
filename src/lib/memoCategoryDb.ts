@@ -11,7 +11,10 @@ export type MemoCategory = {
   sortOrder: number;
 };
 
-/** 필터용 가상 id — DB에 저장하지 않음 */
+/** 휴지통 보기(카테고리 칩) — DB에 저장하지 않음 */
+export const MEMO_CATEGORY_TRASH_ID = "__trash__";
+
+/** @deprecated 예전 「전체」 선택값 — 로드 시 첫 카테고리로 치환 */
 export const MEMO_CATEGORY_ALL_ID = "__all__";
 
 const CATEGORIES_KEY = "my-lifestyle-memo-categories";
@@ -107,13 +110,26 @@ export function generateMemoCategoryId(): string {
 }
 
 export function getSelectedMemoCategoryId(): string {
-  if (typeof window === "undefined") return MEMO_CATEGORY_ALL_ID;
+  if (typeof window === "undefined") return getDefaultMemoCategoryId();
   try {
     const id = window.localStorage.getItem(SELECTED_CATEGORY_KEY);
-    return id || MEMO_CATEGORY_ALL_ID;
+    if (!id || id === MEMO_CATEGORY_ALL_ID) return getDefaultMemoCategoryId();
+    return id;
   } catch {
-    return MEMO_CATEGORY_ALL_ID;
+    return getDefaultMemoCategoryId();
   }
+}
+
+/** 저장된 선택 id가 유효한지 보정 (없는 카테고리·옛 「전체」) */
+export function resolveSelectedMemoCategoryId(
+  storedId: string,
+  categoryIds: string[]
+): string {
+  if (storedId === MEMO_CATEGORY_TRASH_ID) return MEMO_CATEGORY_TRASH_ID;
+  if (storedId === MEMO_CATEGORY_ALL_ID || !categoryIds.includes(storedId)) {
+    return categoryIds[0] ?? getDefaultMemoCategoryId();
+  }
+  return storedId;
 }
 
 export function setSelectedMemoCategoryId(id: string): void {

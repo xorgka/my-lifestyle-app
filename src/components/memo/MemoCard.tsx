@@ -27,6 +27,10 @@ type MemoCardProps = {
   setColorMenuId?: (id: string | null) => void;
   editingTitleId?: string | null;
   setEditingTitleId?: (id: string | null) => void;
+  /** 휴지통 보기: 복원·완전 삭제만 */
+  trashMode?: boolean;
+  onRestore?: (id: string) => void;
+  onPermanentDelete?: (id: string) => void;
 };
 
 export function MemoCard({
@@ -42,6 +46,9 @@ export function MemoCard({
   setColorMenuId,
   editingTitleId,
   setEditingTitleId,
+  trashMode = false,
+  onRestore,
+  onPermanentDelete,
 }: MemoCardProps) {
   const colors = MEMO_COLORS[memo.color] ?? MEMO_COLORS.black;
   const isColorOpen = colorMenuId === memo.id;
@@ -117,7 +124,7 @@ export function MemoCard({
             ...(isCollapsed ? { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } : {}),
           }}
           onContextMenu={
-            variant === "full" && setColorMenuId
+            variant === "full" && setColorMenuId && !trashMode
               ? (e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -221,7 +228,6 @@ export function MemoCard({
                 }}
               />
               <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[10rem] rounded-xl bg-white px-2 py-2 shadow-lg ring-1 ring-neutral-100">
-                <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wider text-neutral-400">색</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(Object.keys(MEMO_COLORS) as MemoColorId[]).map((c) => (
                     <button
@@ -268,7 +274,37 @@ export function MemoCard({
               </div>
             </>
           )}
-          {variant === "full" && deleteMemo && (
+          {variant === "full" && trashMode && onRestore && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestore(memo.id);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded text-sm font-medium opacity-70 hover:opacity-100"
+              style={{ color: colors.headerFg ?? "currentColor" }}
+              aria-label="복원"
+              title="복원"
+            >
+              ↩
+            </button>
+          )}
+          {variant === "full" && trashMode && onPermanentDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPermanentDelete(memo.id);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded text-2xl font-light opacity-25 hover:opacity-100"
+              style={{ color: colors.headerFg ?? "currentColor" }}
+              aria-label="완전 삭제"
+              title="완전 삭제"
+            >
+              ×
+            </button>
+          )}
+          {variant === "full" && !trashMode && deleteMemo && (
             <button
               type="button"
               onClick={(e) => {
