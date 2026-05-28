@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { anchorContextMenuPosition } from "@/lib/contextMenuPosition";
 import type { MemoCategory } from "@/lib/memoCategoryDb";
+
+const CATEGORY_MENU_SIZE = { width: 176, height: 200 };
 
 type MemoCategoryBarProps = {
   /** sortOrder 순 (추가한 순서 유지) */
@@ -31,6 +35,8 @@ export function MemoCategoryBar({
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -42,9 +48,10 @@ export function MemoCategoryBar({
     return () => window.removeEventListener("keydown", onKey);
   }, [contextMenu]);
 
-  const openContextMenu = (e: MouseEvent, catId: string) => {
+  const openContextMenu = (e: MouseEvent<HTMLButtonElement>, catId: string) => {
     e.preventDefault();
-    setContextMenu({ catId, x: e.clientX, y: e.clientY });
+    const pos = anchorContextMenuPosition(e.currentTarget.getBoundingClientRect(), CATEGORY_MENU_SIZE);
+    setContextMenu({ catId, ...pos });
   };
 
   const menuCatId = contextMenu?.catId;
@@ -62,7 +69,7 @@ export function MemoCategoryBar({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3 pt-1 pl-3 pr-3 sm:pl-4 sm:pr-4 md:pl-6 md:pr-6">
-      <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="메모 카테고리">
+      <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-2" aria-label="메모 카테고리">
         {categories.map((c) => (
           <button
             key={c.id}
@@ -82,12 +89,12 @@ export function MemoCategoryBar({
         <button
           type="button"
           onClick={onAddCategory}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-neutral-300 text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-800"
+          className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-neutral-300 text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-800 sm:ml-2"
           aria-label="카테고리 추가"
           title="카테고리 추가"
         >
           <svg
-            className="h-4 w-4 shrink-0"
+            className="h-3.5 w-3.5 shrink-0"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -102,73 +109,77 @@ export function MemoCategoryBar({
         <div className="flex shrink-0 items-center gap-2">{rightContent}</div>
       ) : null}
 
-      {contextMenu && (
-        <>
-          <div className="fixed inset-0 z-[60]" aria-hidden onClick={() => setContextMenu(null)} />
-          <div
-            className="fixed z-[61] min-w-[10.5rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-            role="menu"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100"
-              onClick={() => {
-                const cat = categories.find((c) => c.id === contextMenu.catId);
-                if (!cat) return;
-                setRenameTarget({ id: cat.id, name: cat.name });
-                setContextMenu(null);
-              }}
+      {contextMenu &&
+        portalReady &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[60]" aria-hidden onClick={() => setContextMenu(null)} />
+            <div
+              className="fixed z-[61] min-w-[10.5rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              role="menu"
             >
-              이름 바꾸기
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              disabled={!canMoveEarlier}
-              className="flex w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent"
-              onClick={() => {
-                onMoveCategoryOrder(contextMenu.catId, "earlier");
-                setContextMenu(null);
-              }}
-            >
-              순서 앞으로
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              disabled={!canMoveLater}
-              className="flex w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent"
-              onClick={() => {
-                onMoveCategoryOrder(contextMenu.catId, "later");
-                setContextMenu(null);
-              }}
-            >
-              순서 뒤로
-            </button>
-            <div className="my-1 border-t border-neutral-100" role="separator" />
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
-              onClick={() => {
-                const cat = categories.find((c) => c.id === contextMenu.catId);
-                if (!cat) return;
-                if (categories.length <= 1) {
-                  setAlertMessage("카테고리는 최소 1개는 있어야 해요.");
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100"
+                onClick={() => {
+                  const cat = categories.find((c) => c.id === contextMenu.catId);
+                  if (!cat) return;
+                  setRenameTarget({ id: cat.id, name: cat.name });
                   setContextMenu(null);
-                  return;
-                }
-                setDeleteTarget({ id: cat.id, name: cat.name });
-                setContextMenu(null);
-              }}
-            >
-              삭제
-            </button>
-          </div>
-        </>
-      )}
+                }}
+              >
+                이름 바꾸기
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!canMoveEarlier}
+                className="flex w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent"
+                onClick={() => {
+                  onMoveCategoryOrder(contextMenu.catId, "earlier");
+                  setContextMenu(null);
+                }}
+              >
+                순서 앞으로
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!canMoveLater}
+                className="flex w-full px-3 py-2 text-left text-sm text-neutral-800 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent"
+                onClick={() => {
+                  onMoveCategoryOrder(contextMenu.catId, "later");
+                  setContextMenu(null);
+                }}
+              >
+                순서 뒤로
+              </button>
+              <div className="my-1 border-t border-neutral-100" role="separator" />
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
+                onClick={() => {
+                  const cat = categories.find((c) => c.id === contextMenu.catId);
+                  if (!cat) return;
+                  if (categories.length <= 1) {
+                    setAlertMessage("카테고리는 최소 1개는 있어야 해요.");
+                    setContextMenu(null);
+                    return;
+                  }
+                  setDeleteTarget({ id: cat.id, name: cat.name });
+                  setContextMenu(null);
+                }}
+              >
+                삭제
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
 
       {renameTarget && (
         <div

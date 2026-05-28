@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { anchorContextMenuPosition } from "@/lib/contextMenuPosition";
 import { useMemoSearch } from "./MemoSearchContext";
 import {
   type Memo,
@@ -53,12 +55,15 @@ export default function MemoPage() {
   const [categories, setCategories] = useState<MemoCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(getDefaultMemoCategoryId());
   const [trashContextMenu, setTrashContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
   const isTrashView = selectedCategoryId === MEMO_CATEGORY_TRASH_ID;
   const isTrashViewRef = useRef(isTrashView);
   isTrashViewRef.current = isTrashView;
   const memosRef = useRef(memos);
   memosRef.current = memos;
   const bringMemoToFrontRef = useRef<(id: string, options?: { persist?: boolean }) => void>(() => {});
+  useEffect(() => setPortalReady(true), []);
+
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     const update = () => setIsDesktop(m.matches);
@@ -544,7 +549,11 @@ export default function MemoPage() {
               onClick={() => void handleSelectCategory(MEMO_CATEGORY_TRASH_ID)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                setTrashContextMenu({ x: e.clientX, y: e.clientY });
+                const pos = anchorContextMenuPosition(
+                  e.currentTarget.getBoundingClientRect(),
+                  { width: 152, height: 48 }
+                );
+                setTrashContextMenu(pos);
               }}
               className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition ${
                 isTrashView
@@ -702,30 +711,34 @@ export default function MemoPage() {
         </div>
       )}
 
-      {trashContextMenu && (
-        <>
-          <div className="fixed inset-0 z-[60]" aria-hidden onClick={() => setTrashContextMenu(null)} />
-          <div
-            className="fixed z-[61] min-w-[9.5rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
-            style={{ left: trashContextMenu.x, top: trashContextMenu.y }}
-            role="menu"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              disabled={trashCount === 0}
-              className="flex w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent"
-              onClick={() => {
-                setTrashContextMenu(null);
-                void requestEmptyTrash();
-              }}
+      {trashContextMenu &&
+        portalReady &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[60]" aria-hidden onClick={() => setTrashContextMenu(null)} />
+            <div
+              className="fixed z-[61] min-w-[9.5rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+              style={{ left: trashContextMenu.x, top: trashContextMenu.y }}
+              role="menu"
             >
-              전체 삭제
-              {trashCount > 0 ? ` (${trashCount})` : ""}
-            </button>
-          </div>
-        </>
-      )}
+              <button
+                type="button"
+                role="menuitem"
+                disabled={trashCount === 0}
+                className="flex w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:hover:bg-transparent"
+                onClick={() => {
+                  setTrashContextMenu(null);
+                  void requestEmptyTrash();
+                }}
+              >
+                전체 삭제
+                {trashCount > 0 ? ` (${trashCount})` : ""}
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }
