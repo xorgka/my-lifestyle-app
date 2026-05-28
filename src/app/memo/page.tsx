@@ -122,12 +122,6 @@ export default function MemoPage() {
         stored,
         list.map((c) => c.id)
       );
-      if (resolved !== MEMO_CATEGORY_TRASH_ID && list.some((c) => c.id === resolved)) {
-        const pinned = pinMemoCategoryFirst(list, resolved);
-        const orderChanged = pinned.some((c, i) => c.id !== list[i]?.id);
-        list = pinned;
-        if (orderChanged) void saveMemoCategories(pinned);
-      }
       setCategories(list);
       setSelectedCategoryId(resolved);
       setSelectedMemoCategoryId(resolved);
@@ -218,13 +212,7 @@ export default function MemoPage() {
       setSelectedMemoCategoryId(id);
       if (id === MEMO_CATEGORY_TRASH_ID) {
         await refreshTrash();
-        return;
       }
-      setCategories((prev) => {
-        const next = pinMemoCategoryFirst(prev, id);
-        void saveMemoCategories(next);
-        return next;
-      });
     },
     [refreshTrash]
   );
