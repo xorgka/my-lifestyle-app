@@ -478,27 +478,55 @@ export default function MemoPage() {
 
       <MemoCategoryBar
         categories={categories}
-        selectedId={selectedCategoryId}
-        trashCount={trashCount}
+        selectedId={isTrashView ? "" : selectedCategoryId}
         onSelect={handleSelectCategory}
         onAddCategory={() => void handleAddCategory()}
         onRenameCategory={(id) => void handleRenameCategory(id)}
         onDeleteCategory={(id) => void handleDeleteCategory(id)}
-        onEmptyTrash={() => void handleEmptyTrash()}
         rightContent={
-          !isTrashView ? (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={addMemo}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-800 text-white transition hover:bg-neutral-700"
-              title="메모 추가"
-              aria-label="메모 추가"
+              onClick={() => void handleSelectCategory(MEMO_CATEGORY_TRASH_ID)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                void handleEmptyTrash();
+              }}
+              className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition ${
+                isTrashView
+                  ? "bg-neutral-800 text-white"
+                  : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+              }`}
+              title="휴지통 · 우클릭: 휴지통 비우기"
+              aria-label="휴지통"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
+              {trashCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-medium text-white">
+                  {trashCount > 99 ? "99+" : trashCount}
+                </span>
+              )}
             </button>
-          ) : null
+            {!isTrashView && (
+              <button
+                type="button"
+                onClick={addMemo}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-800 text-white transition hover:bg-neutral-700"
+                title="메모 추가"
+                aria-label="메모 추가"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            )}
+          </div>
         }
       />
 
