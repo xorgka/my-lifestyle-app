@@ -4,6 +4,7 @@ import { useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import type { Memo, MemoColorId } from "@/lib/memoDb";
 import { MEMO_COLORS } from "@/lib/memoDb";
+import type { MemoCategory } from "@/lib/memoCategoryDb";
 
 const EDIT_TITLE_DELAY_MS = 250;
 
@@ -15,8 +16,12 @@ type MemoCardProps = {
   headerRight?: ReactNode;
   /** preview: 설정 시 헤더 전체 클릭으로 해당 URL 이동 (홈용) */
   headerHref?: string;
+  categories?: MemoCategory[];
   /** full only */
-  updateMemo?: (id: string, updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "collapsed">>) => void;
+  updateMemo?: (
+    id: string,
+    updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "collapsed" | "categoryId">>
+  ) => void;
   deleteMemo?: (id: string) => void;
   colorMenuId?: string | null;
   setColorMenuId?: (id: string | null) => void;
@@ -30,6 +35,7 @@ export function MemoCard({
   className = "",
   headerRight,
   headerHref,
+  categories,
   updateMemo,
   deleteMemo,
   colorMenuId,
@@ -214,21 +220,51 @@ export function MemoCard({
                   setColorMenuId(null);
                 }}
               />
-              <div className="absolute left-0 top-full z-20 mt-1.5 flex gap-1.5 rounded-xl bg-white px-2 py-2 shadow-lg ring-1 ring-neutral-100">
-                {(Object.keys(MEMO_COLORS) as MemoColorId[]).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      updateMemo(memo.id, { color: c });
-                      setColorMenuId(null);
-                    }}
-                    className={`h-6 w-6 shrink-0 rounded-full transition hover:scale-110 ${memo.color === c ? "ring-2 ring-neutral-800 ring-offset-1" : ""}`}
-                    style={{ backgroundColor: MEMO_COLORS[c].headerBg }}
-                    title={MEMO_COLORS[c].label}
-                  />
-                ))}
+              <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[10rem] rounded-xl bg-white px-2 py-2 shadow-lg ring-1 ring-neutral-100">
+                <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wider text-neutral-400">색</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(Object.keys(MEMO_COLORS) as MemoColorId[]).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateMemo(memo.id, { color: c });
+                        setColorMenuId(null);
+                      }}
+                      className={`h-6 w-6 shrink-0 rounded-full transition hover:scale-110 ${memo.color === c ? "ring-2 ring-neutral-800 ring-offset-1" : ""}`}
+                      style={{ backgroundColor: MEMO_COLORS[c].headerBg }}
+                      title={MEMO_COLORS[c].label}
+                    />
+                  ))}
+                </div>
+                {categories && categories.length > 0 && (
+                  <>
+                    <p className="mb-1 mt-2 px-1 text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+                      카테고리
+                    </p>
+                    <div className="flex max-w-[14rem] flex-col gap-0.5">
+                      {categories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateMemo(memo.id, { categoryId: cat.id });
+                            setColorMenuId(null);
+                          }}
+                          className={`rounded-lg px-2 py-1.5 text-left text-xs font-medium transition ${
+                            memo.categoryId === cat.id
+                              ? "bg-neutral-800 text-white"
+                              : "text-neutral-700 hover:bg-neutral-100"
+                          }`}
+                        >
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}

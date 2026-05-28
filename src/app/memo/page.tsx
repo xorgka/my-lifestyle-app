@@ -19,7 +19,18 @@ import {
 } from "@/lib/memoDb";
 import { MemoCard } from "@/components/memo/MemoCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
-import { MemoNoteTabs } from "./MemoNoteTabs";
+import { MemoCategoryBar } from "./MemoCategoryBar";
+import { MemoSiblingNav } from "./MemoSiblingNav";
+import {
+  type MemoCategory,
+  loadMemoCategories,
+  saveMemoCategories,
+  generateMemoCategoryId,
+  getSelectedMemoCategoryId,
+  setSelectedMemoCategoryId,
+  MEMO_CATEGORY_ALL_ID,
+  getDefaultMemoCategoryId,
+} from "@/lib/memoCategoryDb";
 
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -43,6 +54,8 @@ export default function MemoPage() {
   const [trashCount, setTrashCount] = useState(0);
   /** Supabase 저장 실패 시: 이 브라우저 localStorage에만 있어 다른 기기에 안 보일 수 있음 */
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<MemoCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(MEMO_CATEGORY_ALL_ID);
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     const update = () => setIsDesktop(m.matches);
@@ -82,6 +95,8 @@ export default function MemoPage() {
 
   useEffect(() => {
     load();
+    loadMemoCategories().then(setCategories);
+    setSelectedCategoryId(getSelectedMemoCategoryId());
   }, [load]);
 
   useEffect(() => {
@@ -104,8 +119,11 @@ export default function MemoPage() {
     }
   }, []);
 
+  const categoryIdForNewMemo =
+    selectedCategoryId === MEMO_CATEGORY_ALL_ID ? getDefaultMemoCategoryId() : selectedCategoryId;
+
   const addMemo = () => {
-    const newMemo = createMemo();
+    const newMemo = createMemo("black", categoryIdForNewMemo);
     newMemo.width = MEMO_DEFAULT_WIDTH;
     newMemo.height = MEMO_DEFAULT_HEIGHT;
     if (isDesktop && typeof window !== "undefined" && canvasRef.current) {
@@ -125,7 +143,9 @@ export default function MemoPage() {
 
   const updateMemo = (
     id: string,
-    updates: Partial<Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height" | "collapsed">>
+    updates: Partial<
+      Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height" | "collapsed" | "categoryId">
+    >
   ) => {
     void persist(
       memos.map((m) => (m.id === id ? { ...m, ...updates } : m))
@@ -141,8 +161,61 @@ export default function MemoPage() {
   };
 
   /** 검색어 있으면 제목·내용 기준 필터 후, 핀한 메모 먼저·최신순 정렬. 드래그/리사이즈 중인 카드는 맨 앞에 */
+  const handleSelectCategory = useCallback((id: string) => {
+    setSelectedCategoryId(id);
+    setSelectedMemoCategoryId(id);
+  }, []);
+
+  const handleAddCategory = useCallback(async () => {
+    const name = window.prompt("새 카테고리 이름");
+    if (!name?.trim()) return;
+    const maxOrder = categories.reduce((m, c) => Math.max(m, c.sortOrder), -1);
+    const next = [...categories, { id: generateMemoCategoryId(), name: name.trim(), sortOrder: maxOrder + 1 }];
+    setCategories(next);
+    await saveMemoCategories(next);
+    handleSelectCategory(next[next.length - 1]!.id);
+  }, [categories, handleSelectCategory]);
+
+  const handleRenameCategory = useCallback(
+    async (id: string) => {
+      const cat = categories.find((c) => c.id === id);
+      if (!cat) return;
+      const name = window.prompt("카테고리 이름", cat.name);
+      if (!name?.trim() || name.trim() === cat.name) return;
+      const next = categories.map((c) => (c.id === id ? { ...c, name: name.trim() } : c));
+      setCategories(next);
+      await saveMemoCategories(next);
+    },
+    [categories]
+  );
+
+  const handleDeleteCategory = useCallback(
+    async (id: string) => {
+      if (categories.length <= 1) {
+        window.alert("카테고리는 최소 1개는 있어야 해요.");
+        return;
+      }
+      const cat = categories.find((c) => c.id === id);
+      if (!cat) return;
+      const fallback = categories.find((c) => c.id !== id)?.id ?? getDefaultMemoCategoryId();
+      if (!window.confirm(`「${cat.name}」 카테고리를 삭제할까요?\n안의 메모는 다른 카테고리로 옮겨요.`)) return;
+      const nextCats = categories.filter((c) => c.id !== id);
+      const nextMemos = memos.map((m) =>
+        m.categoryId === id ? { ...m, categoryId: fallback } : m
+      );
+      setCategories(nextCats);
+      await saveMemoCategories(nextCats);
+      await persist(nextMemos);
+      if (selectedCategoryId === id) handleSelectCategory(MEMO_CATEGORY_ALL_ID);
+    },
+    [categories, memos, persist, selectedCategoryId, handleSelectCategory]
+  );
+
   const sortedMemos = useMemo(() => {
     let list = memos;
+    if (selectedCategoryId !== MEMO_CATEGORY_ALL_ID) {
+      list = list.filter((m) => (m.categoryId ?? getDefaultMemoCategoryId()) === selectedCategoryId);
+    }
     if (searchQ) {
       list = memos.filter(
         (m) =>
@@ -158,7 +231,7 @@ export default function MemoPage() {
       if (bPin !== aPin) return bPin - aPin;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [memos, searchQ, draggingId, resizingId]);
+  }, [memos, searchQ, draggingId, resizingId, selectedCategoryId]);
 
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
@@ -257,10 +330,15 @@ export default function MemoPage() {
 
   return (
     <div className="min-h-[180vh] min-w-0 space-y-6">
-      <SectionTitle
-        title="메모"
-        subtitle="포스트잇처럼 메모를 추가하고 관리해요."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <SectionTitle
+          title="메모"
+          subtitle="포스트잇처럼 메모를 추가하고 관리해요."
+        />
+        <div className="mt-2 flex shrink-0 items-center gap-2 sm:mt-4">
+          <MemoSiblingNav variant="on-memo" />
+        </div>
+      </div>
 
       {syncError && (
         <div
@@ -278,7 +356,13 @@ export default function MemoPage() {
         </div>
       )}
 
-      <MemoNoteTabs
+      <MemoCategoryBar
+        categories={categories}
+        selectedId={selectedCategoryId}
+        onSelect={handleSelectCategory}
+        onAddCategory={() => void handleAddCategory()}
+        onRenameCategory={(id) => void handleRenameCategory(id)}
+        onDeleteCategory={(id) => void handleDeleteCategory(id)}
         rightContent={
           <div className="flex items-center gap-2">
             <button
@@ -420,6 +504,7 @@ export default function MemoPage() {
                 memo={memo}
                 variant="full"
                 className="h-full min-h-0 w-full"
+                categories={categories}
                 updateMemo={updateMemo}
                 deleteMemo={deleteMemo}
                 colorMenuId={colorMenuId}
@@ -456,7 +541,7 @@ export default function MemoPage() {
       {memos.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 py-16 text-center text-neutral-500">
           <p className="font-medium">메모가 없어요.</p>
-          <p className="mt-1 text-sm">우측 상단 &quot;메모 추가&quot;로 추가해 보세요.</p>
+          <p className="mt-1 text-sm">카테고리 줄 오른쪽 + 버튼으로 추가해 보세요.</p>
           <button
             type="button"
             onClick={addMemo}
@@ -468,8 +553,10 @@ export default function MemoPage() {
       )}
       {memos.length > 0 && sortedMemos.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 py-16 text-center text-neutral-500">
-          <p className="font-medium">검색 결과가 없어요.</p>
-          <p className="mt-1 text-sm">다른 검색어로 시도해 보세요.</p>
+          <p className="font-medium">{searchQ ? "검색 결과가 없어요." : "이 카테고리에 메모가 없어요."}</p>
+          <p className="mt-1 text-sm">
+            {searchQ ? "다른 검색어로 시도해 보세요." : "+ 로 메모를 추가하거나, 다른 카테고리를 선택해 보세요."}
+          </p>
         </div>
       )}
     </div>

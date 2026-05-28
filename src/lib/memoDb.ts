@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "./supabase";
+import { getDefaultMemoCategoryId } from "./memoCategoryDb";
 
 const MEMO_KEY = "my-lifestyle-memos";
 
@@ -32,6 +33,8 @@ export type Memo = {
   height?: number;
   /** 헤더만 보이도록 접힌 상태 (더블클릭으로 토글) */
   collapsed?: boolean;
+  /** memo_categories.id */
+  categoryId?: string;
 };
 
 export const MEMO_DEFAULT_WIDTH = 320;
@@ -78,6 +81,14 @@ function rowToMemo(row: Record<string, unknown>): Memo {
     width: row.width != null ? Number(row.width) : undefined,
     height: row.height != null ? Number(row.height) : undefined,
     collapsed: row.collapsed === true,
+    categoryId: row.category_id != null ? String(row.category_id) : undefined,
+  };
+}
+
+function normalizeMemo(m: Memo): Memo {
+  return {
+    ...m,
+    categoryId: m.categoryId || getDefaultMemoCategoryId(),
   };
 }
 
@@ -102,6 +113,7 @@ function memoToRow(m: Memo): Record<string, unknown> {
     width: intCol(m.width),
     height: intCol(m.height),
     collapsed: m.collapsed ?? false,
+    category_id: m.categoryId ?? getDefaultMemoCategoryId(),
   };
 }
 
@@ -123,7 +135,7 @@ async function fetchAllMemosFromSupabase(): Promise<
     console.error("[memoDb] fetchAllMemosFromSupabase", error);
     return { ok: false, message: error.message };
   }
-  return { ok: true, memos: (data ?? []).map((row) => rowToMemo(row)) };
+  return { ok: true, memos: (data ?? []).map((row) => normalizeMemo(rowToMemo(row))) };
 }
 
 /** 전체 메모 로드 (Supabase 또는 localStorage). 휴지통 포함 */
@@ -145,19 +157,20 @@ export async function loadAllMemos(): Promise<Memo[]> {
     }
     // DB 조회 성공 시: 서버가 단일 기준.
     if (fromDb.length > 0) {
-      saveJson(MEMO_KEY, fromDb);
-      return fromDb;
+      const normalized = fromDb.map(normalizeMemo);
+      saveJson(MEMO_KEY, normalized);
+      return normalized;
     }
     saveJson(MEMO_KEY, []);
     return [];
   }
-  return fromStorage;
+  return fromStorage.map(normalizeMemo);
 }
 
 /** 일반 메모만 (휴지통 제외) */
 export async function loadMemos(): Promise<Memo[]> {
   const all = await loadAllMemos();
-  return all.filter((m) => !m.deletedAt);
+  return all.filter((m) => !m.deletedAt).map(normalizeMemo);
 }
 
 /** 휴지통에 있는 메모만 */
@@ -265,13 +278,14 @@ export async function permanentDeleteMemo(id: string): Promise<void> {
   await saveMemos(all.filter((m) => m.id !== id));
 }
 
-export function createMemo(color: MemoColorId = "black"): Memo {
+export function createMemo(color: MemoColorId = "black", categoryId?: string): Memo {
   return {
     id: `memo-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     content: "",
     createdAt: new Date().toISOString(),
     color,
     pinned: false,
+    categoryId: categoryId || getDefaultMemoCategoryId(),
     x: 20,
     y: 20,
     width: MEMO_DEFAULT_WIDTH,
