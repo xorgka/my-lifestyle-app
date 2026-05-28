@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, type MouseEvent, type ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import type { MemoCategory } from "@/lib/memoCategoryDb";
 import { MEMO_CATEGORY_TRASH_ID } from "@/lib/memoCategoryDb";
 
 type MemoCategoryBarProps = {
-  /** 선택된 카테고리가 맨 앞에 오도록 정렬된 목록 */
+  /** sortOrder 순 (선택 시 맨 앞으로 저장됨) */
   categories: MemoCategory[];
   selectedId: string;
   trashCount: number;
@@ -51,44 +51,10 @@ export function MemoCategoryBar({
 
   const trashSelected = selectedId === MEMO_CATEGORY_TRASH_ID;
 
-  const orderedCategories = useMemo(() => {
-    if (trashSelected) return categories;
-    const idx = categories.findIndex((c) => c.id === selectedId);
-    if (idx <= 0) return categories;
-    const selected = categories[idx]!;
-    return [selected, ...categories.slice(0, idx), ...categories.slice(idx + 1)];
-  }, [categories, selectedId, trashSelected]);
-
-  const trashChip = (
-    <button
-      type="button"
-      onClick={() => onSelect(MEMO_CATEGORY_TRASH_ID)}
-      onContextMenu={handleTrashContext}
-      title="클릭: 휴지통 보기 · 우클릭: 휴지통 비우기"
-      className={`relative min-h-[40px] rounded-lg px-3 py-2 text-sm font-medium transition sm:min-h-0 ${
-        trashSelected
-          ? "bg-neutral-800 text-white"
-          : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-      }`}
-    >
-      휴지통
-      {trashCount > 0 && (
-        <span
-          className={`ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
-            trashSelected ? "bg-white/25 text-white" : "bg-amber-500 text-white"
-          }`}
-        >
-          {trashCount > 99 ? "99+" : trashCount}
-        </span>
-      )}
-    </button>
-  );
-
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3 pt-1 pl-3 pr-3 sm:pl-4 sm:pr-4 md:pl-6 md:pr-6">
       <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="메모 카테고리">
-        {trashSelected ? trashChip : null}
-        {orderedCategories.map((c) => (
+        {categories.map((c) => (
           <button
             key={c.id}
             type="button"
@@ -104,7 +70,28 @@ export function MemoCategoryBar({
             {c.name || "이름 없음"}
           </button>
         ))}
-        {!trashSelected ? trashChip : null}
+        <button
+          type="button"
+          onClick={() => onSelect(MEMO_CATEGORY_TRASH_ID)}
+          onContextMenu={handleTrashContext}
+          title="클릭: 휴지통 보기 · 우클릭: 휴지통 비우기"
+          className={`relative min-h-[40px] rounded-lg px-3 py-2 text-sm font-medium transition sm:min-h-0 ${
+            trashSelected
+              ? "bg-neutral-800 text-white"
+              : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+          }`}
+        >
+          휴지통
+          {trashCount > 0 && (
+            <span
+              className={`ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+                trashSelected ? "bg-white/25 text-white" : "bg-amber-500 text-white"
+              }`}
+            >
+              {trashCount > 99 ? "99+" : trashCount}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={onAddCategory}

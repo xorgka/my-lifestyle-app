@@ -32,6 +32,8 @@ import {
   MEMO_CATEGORY_TRASH_ID,
   getDefaultMemoCategoryId,
   resolveSelectedMemoCategoryId,
+  sortMemoCategories,
+  pinMemoCategoryFirst,
 } from "@/lib/memoCategoryDb";
 
 export default function MemoPage() {
@@ -107,7 +109,7 @@ export default function MemoPage() {
   useEffect(() => {
     load();
     loadMemoCategories().then((cats) => {
-      setCategories(cats);
+      let list = sortMemoCategories(cats);
       let stored = getDefaultMemoCategoryId();
       if (typeof window !== "undefined") {
         try {
@@ -118,8 +120,15 @@ export default function MemoPage() {
       }
       const resolved = resolveSelectedMemoCategoryId(
         stored,
-        cats.map((c) => c.id)
+        list.map((c) => c.id)
       );
+      if (resolved !== MEMO_CATEGORY_TRASH_ID && list.some((c) => c.id === resolved)) {
+        const pinned = pinMemoCategoryFirst(list, resolved);
+        const orderChanged = pinned.some((c, i) => c.id !== list[i]?.id);
+        list = pinned;
+        if (orderChanged) void saveMemoCategories(pinned);
+      }
+      setCategories(list);
       setSelectedCategoryId(resolved);
       setSelectedMemoCategoryId(resolved);
     });
@@ -203,19 +212,37 @@ export default function MemoPage() {
   };
 
   /** 검색어 있으면 제목·내용 기준 필터 후, 핀한 메모 먼저·최신순 정렬. 드래그/리사이즈 중인 카드는 맨 앞에 */
-  const handleSelectCategory = useCallback((id: string) => {
-    setSelectedCategoryId(id);
-    setSelectedMemoCategoryId(id);
-  }, []);
+  const handleSelectCategory = useCallback(
+    async (id: string) => {
+      setSelectedCategoryId(id);
+      setSelectedMemoCategoryId(id);
+      if (id === MEMO_CATEGORY_TRASH_ID) {
+        await refreshTrash();
+        return;
+      }
+      setCategories((prev) => {
+        const next = pinMemoCategoryFirst(prev, id);
+        void saveMemoCategories(next);
+        return next;
+      });
+    },
+    [refreshTrash]
+  );
 
   const handleAddCategory = useCallback(async () => {
     const name = window.prompt("새 카테고리 이름");
     if (!name?.trim()) return;
     const maxOrder = categories.reduce((m, c) => Math.max(m, c.sortOrder), -1);
-    const next = [...categories, { id: generateMemoCategoryId(), name: name.trim(), sortOrder: maxOrder + 1 }];
-    setCategories(next);
-    await saveMemoCategories(next);
-    handleSelectCategory(next[next.length - 1]!.id);
+    const newId = generateMemoCategoryId();
+    const next = sortMemoCategories([
+      ...categories,
+      { id: newId, name: name.trim(), sortOrder: maxOrder + 1 },
+    ]);
+    const pinned = pinMemoCategoryFirst(next, newId);
+    setCategories(pinned);
+    await saveMemoCategories(pinned);
+    setSelectedCategoryId(newId);
+    setSelectedMemoCategoryId(newId);
   }, [categories, handleSelectCategory]);
 
   const handleRenameCategory = useCallback(
@@ -224,7 +251,9 @@ export default function MemoPage() {
       if (!cat) return;
       const name = window.prompt("카테고리 이름", cat.name);
       if (!name?.trim() || name.trim() === cat.name) return;
-      const next = categories.map((c) => (c.id === id ? { ...c, name: name.trim() } : c));
+      const next = sortMemoCategories(
+        categories.map((c) => (c.id === id ? { ...c, name: name.trim() } : c))
+      );
       setCategories(next);
       await saveMemoCategories(next);
     },
@@ -241,7 +270,10 @@ export default function MemoPage() {
       if (!cat) return;
       const fallback = categories.find((c) => c.id !== id)?.id ?? getDefaultMemoCategoryId();
       if (!window.confirm(`「${cat.name}」 카테고리를 삭제할까요?\n안의 메모는 다른 카테고리로 옮겨요.`)) return;
-      const nextCats = categories.filter((c) => c.id !== id);
+      const nextCats = sortMemoCategories(categories.filter((c) => c.id !== id)).map((c, i) => ({
+        ...c,
+        sortOrder: i,
+      }));
       const nextMemos = memos.map((m) =>
         m.categoryId === id ? { ...m, categoryId: fallback } : m
       );
