@@ -36,6 +36,22 @@ export function sortMemoCategories(list: MemoCategory[]): MemoCategory[] {
   );
 }
 
+/** 카테고리 칩 순서: earlier=왼쪽(앞), later=오른쪽(뒤). 바꿀 수 없으면 null */
+export function moveMemoCategoryOrder(
+  list: MemoCategory[],
+  id: string,
+  direction: "earlier" | "later"
+): MemoCategory[] | null {
+  const sorted = sortMemoCategories(list);
+  const idx = sorted.findIndex((c) => c.id === id);
+  if (idx < 0) return null;
+  const swapIdx = direction === "earlier" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= sorted.length) return null;
+  const next = [...sorted];
+  [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
+  return next.map((c, i) => ({ ...c, sortOrder: i }));
+}
+
 function loadCategoriesFromLocal(): MemoCategory[] {
   if (typeof window === "undefined") return [...DEFAULT_MEMO_CATEGORIES];
   try {

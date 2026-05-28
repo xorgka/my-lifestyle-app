@@ -35,6 +35,8 @@ export type Memo = {
   collapsed?: boolean;
   /** memo_categories.id */
   categoryId?: string;
+  /** 캔버스 겹침 순서. 클수록 위(z-index). */
+  stackOrder?: number;
 };
 
 export const MEMO_DEFAULT_WIDTH = 320;
@@ -82,6 +84,7 @@ function rowToMemo(row: Record<string, unknown>): Memo {
     height: row.height != null ? Number(row.height) : undefined,
     collapsed: row.collapsed === true,
     categoryId: row.category_id != null ? String(row.category_id) : undefined,
+    stackOrder: row.stack_order != null ? Number(row.stack_order) : undefined,
   };
 }
 
@@ -114,7 +117,40 @@ function memoToRow(m: Memo): Record<string, unknown> {
     height: intCol(m.height),
     collapsed: m.collapsed ?? false,
     category_id: m.categoryId ?? getDefaultMemoCategoryId(),
+    stack_order: m.stackOrder != null ? Math.round(m.stackOrder) : null,
   };
+}
+
+/** 목록에서 다음 stackOrder (새 메모·맨 앞으로) */
+export function nextMemoStackOrder(memos: Memo[]): number {
+  return memos.reduce((max, m) => Math.max(max, m.stackOrder ?? 0), 0) + 1;
+}
+
+/** stackOrder 없는 기존 메모에 생성 순으로 0..n-1 부여 */
+export function assignMissingMemoStackOrders(memos: Memo[]): { memos: Memo[]; changed: boolean } {
+  if (memos.every((m) => m.stackOrder != null)) {
+    return { memos, changed: false };
+  }
+  const byCreated = [...memos].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+  const orderById = new Map(byCreated.map((m, i) => [m.id, i]));
+  let changed = false;
+  const next = memos.map((m) => {
+    if (m.stackOrder != null) return m;
+    changed = true;
+    return { ...m, stackOrder: orderById.get(m.id) ?? 0 };
+  });
+  return { memos: next, changed };
+}
+
+/** 선택·드래그 종료 시 해당 메모를 맨 위로 */
+export function bringMemoToFrontInList(memos: Memo[], id: string): Memo[] {
+  if (!memos.some((m) => m.id === id)) return memos;
+  const nextOrder = nextMemoStackOrder(memos);
+  const target = memos.find((m) => m.id === id)!;
+  if (target.stackOrder === nextOrder) return memos;
+  return memos.map((m) => (m.id === id ? { ...m, stackOrder: nextOrder } : m));
 }
 
 function loadAllFromStorage(): Memo[] {
