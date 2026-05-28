@@ -36,16 +36,6 @@ export function sortMemoCategories(list: MemoCategory[]): MemoCategory[] {
   );
 }
 
-/** 선택한 카테고리를 맨 앞(sortOrder 0)으로 두고 나머지 순서 유지 */
-export function pinMemoCategoryFirst(list: MemoCategory[], selectedId: string): MemoCategory[] {
-  const sorted = sortMemoCategories(list);
-  const idx = sorted.findIndex((c) => c.id === selectedId);
-  if (idx <= 0) return sorted;
-  const selected = sorted[idx]!;
-  const reordered = [selected, ...sorted.slice(0, idx), ...sorted.slice(idx + 1)];
-  return reordered.map((c, i) => ({ ...c, sortOrder: i }));
-}
-
 function loadCategoriesFromLocal(): MemoCategory[] {
   if (typeof window === "undefined") return [...DEFAULT_MEMO_CATEGORIES];
   try {

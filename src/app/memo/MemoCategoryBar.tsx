@@ -4,7 +4,7 @@ import type { MouseEvent, ReactNode } from "react";
 import type { MemoCategory } from "@/lib/memoCategoryDb";
 
 type MemoCategoryBarProps = {
-  /** sortOrder 순 (새로 추가한 카테고리만 맨 앞) */
+  /** sortOrder 순 (추가한 순서 유지) */
   categories: MemoCategory[];
   selectedId: string;
   onSelect: (id: string) => void;

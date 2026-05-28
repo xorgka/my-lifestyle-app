@@ -33,7 +33,6 @@ import {
   getDefaultMemoCategoryId,
   resolveSelectedMemoCategoryId,
   sortMemoCategories,
-  pinMemoCategoryFirst,
 } from "@/lib/memoCategoryDb";
 
 export default function MemoPage() {
@@ -226,9 +225,8 @@ export default function MemoPage() {
       ...categories,
       { id: newId, name: name.trim(), sortOrder: maxOrder + 1 },
     ]);
-    const pinned = pinMemoCategoryFirst(next, newId);
-    setCategories(pinned);
-    await saveMemoCategories(pinned);
+    setCategories(next);
+    await saveMemoCategories(next);
     setSelectedCategoryId(newId);
     setSelectedMemoCategoryId(newId);
   }, [categories, handleSelectCategory]);
