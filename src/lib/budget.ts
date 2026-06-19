@@ -96,6 +96,14 @@ export const DEFAULT_KEYWORDS: Record<CategoryId, string[]> = {
   기타: [],
 };
 
+/** 항목명이 건강보험(수입·세금 집계·가계부 분류)인지 */
+const HEALTH_INSURANCE_ITEM_MARKERS = ["건강보험", "국민건강", "건보료"] as const;
+
+export function matchesHealthInsuranceItem(item: string): boolean {
+  const lower = item.trim().toLowerCase();
+  return HEALTH_INSURANCE_ITEM_MARKERS.some((m) => lower.includes(m));
+}
+
 export type BudgetEntry = {
   id: string;
   date: string; // YYYY-MM-DD
@@ -496,8 +504,8 @@ export function getCategoryForEntry(
   keywordsForMonth: CategoryKeywords
 ): CategoryId {
   const lower = item.trim().toLowerCase();
-  // 건강보험·국민연금은 키워드 설정과 관계없이 항상 세금·공과금으로 분류
-  if (lower.includes("건강보험") || lower.includes("국민연금")) return "세금";
+  // 건강보험(국민건강·건보료 포함)·국민연금은 키워드 설정과 관계없이 항상 세금·공과금으로 분류
+  if (matchesHealthInsuranceItem(item) || lower.includes("국민연금")) return "세금";
   const order: CategoryId[] = ["고정비", "사업경비", "세금", "생활비", "기타"];
   for (const cat of order) {
     if (cat !== "기타" && matchesKeyword(item, keywordsForMonth[cat])) return cat;
@@ -529,7 +537,7 @@ export function getTaxExpenseByMonth(
     if (lower.includes("부가세")) R["부가세"] += amount;
     else if (lower.includes("종합소득세")) R["종합소득세"] += amount;
     else if (lower.includes("국민연금")) R["국민연금"] += amount;
-    else if (lower.includes("건강보험")) R["건강보험"] += amount;
+    else if (matchesHealthInsuranceItem(item)) R["건강보험"] += amount;
     else if (lower.includes("사업경비") || cat === "사업경비") R["사업경비"] += amount;
     else if (lower.includes("자동차세") || lower.includes("면허세")) R["기타"] += amount;
   };
@@ -576,7 +584,7 @@ export function getTaxExpenseDetailsByMonth(
     if (lower.includes("부가세")) target = "부가세";
     else if (lower.includes("종합소득세")) target = "종합소득세";
     else if (lower.includes("국민연금")) target = "국민연금";
-    else if (lower.includes("건강보험")) target = "건강보험";
+    else if (matchesHealthInsuranceItem(item)) target = "건강보험";
     else if (lower.includes("사업경비") || cat === "사업경비") target = "사업경비";
     else if (lower.includes("자동차세") || lower.includes("면허세")) target = "기타";
     if (target) R[target].push({ item: item.trim() || "(항목 없음)", amount });
