@@ -59,6 +59,8 @@ export default function MemoPage() {
   const isTrashView = selectedCategoryId === MEMO_CATEGORY_TRASH_ID;
   const isTrashViewRef = useRef(isTrashView);
   isTrashViewRef.current = isTrashView;
+  const isDesktopRef = useRef(isDesktop);
+  isDesktopRef.current = isDesktop;
   const memosRef = useRef(memos);
   memosRef.current = memos;
   const bringMemoToFrontRef = useRef<(id: string, options?: { persist?: boolean }) => void>(() => {});
@@ -171,6 +173,7 @@ export default function MemoPage() {
 
   const bringMemoToFront = useCallback(
     (id: string, options?: { persist?: boolean }) => {
+      if (!isDesktopRef.current) return;
       const shouldPersist = options?.persist !== false;
       if (isTrashViewRef.current) {
         setTrashMemos((prev) => {
@@ -229,7 +232,7 @@ export default function MemoPage() {
     if (isTrashViewRef.current) {
       setTrashMemos((prev) => {
         let next = prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
-        if (bumpStack) next = bringMemoToFrontInList(next, id);
+        if (bumpStack && isDesktopRef.current) next = bringMemoToFrontInList(next, id);
         void saveMemos([...memosRef.current, ...next]).then((r) => {
           if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
           else setSyncError(null);
@@ -239,7 +242,7 @@ export default function MemoPage() {
       return;
     }
     let next = memos.map((m) => (m.id === id ? { ...m, ...updates } : m));
-    if (bumpStack) next = bringMemoToFrontInList(next, id);
+    if (bumpStack && isDesktopRef.current) next = bringMemoToFrontInList(next, id);
     void persist(next);
   };
 
@@ -375,6 +378,7 @@ export default function MemoPage() {
     [refreshTrash]
   );
 
+  /** 데스크톱: stackOrder↑ = 겹침 맨 위. 모바일: 생성 순 고정(선택해도 목록 안 움직임) */
   const sortedMemos = useMemo(() => {
     let list = isTrashView
       ? trashMemos
@@ -387,10 +391,12 @@ export default function MemoPage() {
       );
     }
     return [...list].sort((a, b) => {
-      if (a.id === draggingId || a.id === resizingId) return 1;
-      if (b.id === draggingId || b.id === resizingId) return -1;
-      const diff = (a.stackOrder ?? 0) - (b.stackOrder ?? 0);
-      return isDesktop ? diff : -diff;
+      if (isDesktop) {
+        if (a.id === draggingId || a.id === resizingId) return 1;
+        if (b.id === draggingId || b.id === resizingId) return -1;
+        return (a.stackOrder ?? 0) - (b.stackOrder ?? 0);
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [memos, trashMemos, isTrashView, searchQ, draggingId, resizingId, selectedCategoryId, isDesktop]);
 
@@ -624,7 +630,7 @@ export default function MemoPage() {
               key={memo.id}
               onPointerDown={(e) => {
                 if ((e.target as HTMLElement).closest("[data-resize-handle]")) return;
-                bringMemoToFront(memo.id);
+                if (isDesktop) bringMemoToFront(memo.id);
                 if (!isDesktop) return;
                 if (!(e.target as HTMLElement).closest("[data-memo-drag-handle]")) return;
                 if ((e.target as HTMLElement).closest("button")) return;
@@ -665,7 +671,7 @@ export default function MemoPage() {
                 setColorMenuId={setColorMenuId}
                 editingTitleId={editingTitleId}
                 setEditingTitleId={setEditingTitleId}
-                onMemoActivate={(id) => bringMemoToFront(id)}
+                onMemoActivate={isDesktop ? (id) => bringMemoToFront(id) : undefined}
               />
               {isDesktop && !isCollapsed && (
                 <div
