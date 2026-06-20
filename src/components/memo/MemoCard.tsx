@@ -329,7 +329,7 @@ export function MemoCard({
 
       {/* 본문 (접힌 상태면 숨김. preview는 모바일에서 좌우 패딩 크게 → 화살표와 겹치지 않도록) */}
       {!isCollapsed && (
-      <div className={`min-h-0 flex-1 overflow-hidden py-3 bg-white rounded-b-[10px] ${variant === "preview" ? "px-12 md:px-4" : "px-4"}`}>
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden py-3 bg-white rounded-b-[10px] ${variant === "preview" ? "px-12 md:px-4" : "px-4"}`}>
         {variant === "full" && updateMemo ? (
           <textarea
             value={memo.content}
@@ -337,8 +337,7 @@ export function MemoCard({
             onFocus={() => onMemoActivate?.(memo.id)}
             onClick={(e) => e.stopPropagation()}
             placeholder="메모를 입력하세요..."
-            className="h-full min-h-0 w-full resize-none rounded border-0 bg-white p-0 text-[19px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none"
-            style={{ minHeight: 140 }}
+            className="min-h-[188px] w-full flex-1 resize-none rounded border-0 bg-white p-0 text-[19px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none md:min-h-0"
           />
         ) : (
           <div className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[19px] text-neutral-800 whitespace-pre-wrap break-words ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}>

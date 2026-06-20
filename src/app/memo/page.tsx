@@ -638,7 +638,7 @@ export default function MemoPage() {
                   memoY: my,
                 };
               }}
-              className={`flex min-h-[320px] w-full cursor-default flex-col overflow-hidden rounded-xl transition-shadow md:absolute md:min-h-0 md:w-auto ${
+              className={`flex h-auto w-full cursor-default flex-col overflow-hidden rounded-xl transition-shadow md:absolute md:min-h-0 md:w-auto ${
                 isCollapsed ? "" : "shadow-lg"
               } ${isDragging || isResizing ? "select-none" : ""}`}
               style={{
@@ -650,7 +650,11 @@ export default function MemoPage() {
               <MemoCard
                 memo={memo}
                 variant="full"
-                className="h-full min-h-0 w-full"
+                className={
+                  isDesktop
+                    ? "h-full min-h-0 w-full"
+                    : "flex min-h-[300px] w-full flex-col"
+                }
                 categories={isTrashView ? undefined : categories}
                 updateMemo={updateMemo}
                 deleteMemo={isTrashView ? undefined : deleteMemo}
