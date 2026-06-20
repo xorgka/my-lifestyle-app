@@ -219,9 +219,17 @@ export default function MemoPage() {
       Pick<Memo, "content" | "title" | "color" | "pinned" | "pinnedAt" | "x" | "y" | "width" | "height" | "collapsed" | "categoryId" | "stackOrder">
     >
   ) => {
+    const bumpStack =
+      updates.content !== undefined ||
+      updates.title !== undefined ||
+      updates.color !== undefined ||
+      updates.categoryId !== undefined ||
+      updates.collapsed !== undefined;
+
     if (isTrashViewRef.current) {
       setTrashMemos((prev) => {
-        const next = prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+        let next = prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+        if (bumpStack) next = bringMemoToFrontInList(next, id);
         void saveMemos([...memosRef.current, ...next]).then((r) => {
           if (!r.ok) setSyncError(`서버 저장 실패: ${r.message}`);
           else setSyncError(null);
@@ -230,7 +238,9 @@ export default function MemoPage() {
       });
       return;
     }
-    void persist(memos.map((m) => (m.id === id ? { ...m, ...updates } : m)));
+    let next = memos.map((m) => (m.id === id ? { ...m, ...updates } : m));
+    if (bumpStack) next = bringMemoToFrontInList(next, id);
+    void persist(next);
   };
 
   const deleteMemo = async (id: string) => {
@@ -379,9 +389,10 @@ export default function MemoPage() {
     return [...list].sort((a, b) => {
       if (a.id === draggingId || a.id === resizingId) return 1;
       if (b.id === draggingId || b.id === resizingId) return -1;
-      return (a.stackOrder ?? 0) - (b.stackOrder ?? 0);
+      const diff = (a.stackOrder ?? 0) - (b.stackOrder ?? 0);
+      return isDesktop ? diff : -diff;
     });
-  }, [memos, trashMemos, isTrashView, searchQ, draggingId, resizingId, selectedCategoryId]);
+  }, [memos, trashMemos, isTrashView, searchQ, draggingId, resizingId, selectedCategoryId, isDesktop]);
 
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
@@ -627,7 +638,7 @@ export default function MemoPage() {
                   memoY: my,
                 };
               }}
-              className={`flex min-h-[280px] w-full cursor-default flex-col overflow-hidden rounded-xl transition-shadow md:absolute md:min-h-0 md:w-auto ${
+              className={`flex min-h-[320px] w-full cursor-default flex-col overflow-hidden rounded-xl transition-shadow md:absolute md:min-h-0 md:w-auto ${
                 isCollapsed ? "" : "shadow-lg"
               } ${isDragging || isResizing ? "select-none" : ""}`}
               style={{
@@ -650,6 +661,7 @@ export default function MemoPage() {
                 setColorMenuId={setColorMenuId}
                 editingTitleId={editingTitleId}
                 setEditingTitleId={setEditingTitleId}
+                onMemoActivate={(id) => bringMemoToFront(id)}
               />
               {isDesktop && !isCollapsed && (
                 <div

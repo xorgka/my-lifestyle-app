@@ -31,6 +31,8 @@ type MemoCardProps = {
   trashMode?: boolean;
   onRestore?: (id: string) => void;
   onPermanentDelete?: (id: string) => void;
+  /** 포커스·터치 시 맨 위(stackOrder)로 */
+  onMemoActivate?: (id: string) => void;
 };
 
 export function MemoCard({
@@ -49,6 +51,7 @@ export function MemoCard({
   trashMode = false,
   onRestore,
   onPermanentDelete,
+  onMemoActivate,
 }: MemoCardProps) {
   const colors = MEMO_COLORS[memo.color] ?? MEMO_COLORS.black;
   const isColorOpen = colorMenuId === memo.id;
@@ -158,6 +161,7 @@ export function MemoCard({
               className="min-w-0 flex-1 rounded bg-transparent px-0 py-0 text-[17px] font-semibold outline-none placeholder:opacity-60"
               style={{ color: colors.headerFg ?? "inherit" }}
               autoFocus
+              onFocus={() => onMemoActivate?.(memo.id)}
             />
           ) : (
             <span
@@ -330,10 +334,11 @@ export function MemoCard({
           <textarea
             value={memo.content}
             onChange={(e) => updateMemo(memo.id, { content: e.target.value })}
+            onFocus={() => onMemoActivate?.(memo.id)}
             onClick={(e) => e.stopPropagation()}
             placeholder="메모를 입력하세요..."
             className="h-full min-h-0 w-full resize-none rounded border-0 bg-white p-0 text-[19px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none"
-            style={{ minHeight: 120 }}
+            style={{ minHeight: 140 }}
           />
         ) : (
           <div className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[19px] text-neutral-800 whitespace-pre-wrap break-words ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}>
