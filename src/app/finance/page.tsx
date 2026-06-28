@@ -22,6 +22,7 @@ import {
   SEED_GLANCE_BY_YEAR,
   isExcludedFromMonthTotal,
   insertEntry,
+  updateEntryFields,
   loadEntries,
   loadEntryDetails,
   loadKeywords,
@@ -622,16 +623,17 @@ export default function FinancePage() {
   const updateEntry = (id: string, item: string, amount: number, date?: string) => {
     const trimmed = item.trim();
     if (!trimmed || !Number.isFinite(amount) || amount <= 0) return;
-    const next = entries.map((e) =>
-      e.id === id
-        ? { ...e, item: trimmed, amount, ...(date != null && date !== "" ? { date } : {}) }
-        : e
-    );
-    setEntries(next);
-    saveEntries(next)
-      .then((updated) => setEntries(updated))
+    const fields = { item: trimmed, amount, ...(date != null && date !== "" ? { date } : {}) };
+    // 낙관적 갱신
+    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...fields } : e)));
+    // 대상 행만 직접 UPDATE (전체 재저장 X). 실패하면 에러를 드러내고 되돌림.
+    updateEntryFields(id, fields)
+      .then((saved) =>
+        setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...saved } : e)))
+      )
       .catch((err) => {
-        console.error(err);
+        console.error("[finance] 항목 수정 저장 실패", err);
+        alert("수정 저장에 실패했어요: " + (err?.message ?? String(err)) + "\nF12 콘솔도 확인해 주세요.");
         load();
       });
   };

@@ -50,6 +50,32 @@ export async function insertEntryToDb(entry: BudgetEntryRow): Promise<BudgetEntr
   };
 }
 
+/** 한 행만 수정 (항목명/금액/날짜). 전체 재저장 대신 대상 행만 UPDATE하고, 실패 시 throw. */
+export async function updateEntryToDb(
+  id: string,
+  fields: { item?: string; amount?: number; date?: string }
+): Promise<BudgetEntryRow> {
+  if (!supabase) throw new Error("supabase_not_configured");
+  const patch: Record<string, unknown> = {};
+  if (fields.item !== undefined) patch.item = fields.item;
+  if (fields.amount !== undefined) patch.amount = fields.amount;
+  if (fields.date !== undefined) patch.date = fields.date;
+  const { data, error } = await supabase
+    .from("budget_entries")
+    .update(patch)
+    .eq("id", id)
+    .select("id, date, item, amount")
+    .single();
+  if (error) throw error;
+  if (!data) throw new Error("update affected no row (id=" + id + ")");
+  return {
+    id: String(data.id),
+    date: data.date,
+    item: data.item,
+    amount: Number(data.amount),
+  };
+}
+
 /** 저장 후 앱에서 쓸 목록 반환 (새 행은 DB id로 갱신됨). 삭제된 항목은 DB에서도 제거됨. */
 export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<BudgetEntryRow[]> {
   if (!supabase) return entries;

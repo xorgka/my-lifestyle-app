@@ -9,6 +9,7 @@ import { supabase } from "./supabase";
 import {
   loadEntriesFromDb,
   saveEntriesToDb,
+  updateEntryToDb,
   insertEntryToDb,
   loadKeywordsFromDb,
   saveKeywordsToDb,
@@ -332,6 +333,20 @@ export async function saveEntries(entries: BudgetEntry[]): Promise<BudgetEntry[]
   if (supabase) return saveEntriesToDb(entries);
   saveJson(BUDGET_ENTRIES_KEY, entries);
   return entries;
+}
+
+/** 한 항목만 수정 (이름/금액/날짜). 전체 재저장 없이 대상 행만 갱신. 실패 시 throw. */
+export async function updateEntryFields(
+  id: string,
+  fields: { item?: string; amount?: number; date?: string }
+): Promise<BudgetEntry> {
+  if (supabase) return updateEntryToDb(id, fields);
+  const entries = await loadEntries();
+  const next = entries.map((e) => (e.id === id ? { ...e, ...fields } : e));
+  saveJson(BUDGET_ENTRIES_KEY, next);
+  const updated = next.find((e) => e.id === id);
+  if (!updated) throw new Error("entry not found (id=" + id + ")");
+  return updated;
 }
 
 /** 새 항목 하나만 추가할 때 사용. DB는 insert 1회만 함. */
