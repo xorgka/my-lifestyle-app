@@ -17,12 +17,6 @@ export function ConditionalShell({ children }: { children: React.ReactNode }) {
     const onKeyDown = (e: KeyboardEvent) => {
       const el = document.activeElement;
       const inInput = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
-      if (e.key === "Home") {
-        if (inInput) return;
-        e.preventDefault();
-        router.push("/");
-        return;
-      }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "m") {
         if (inInput) return;
         e.preventDefault();

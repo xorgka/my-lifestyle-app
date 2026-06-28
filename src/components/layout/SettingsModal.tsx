@@ -572,7 +572,6 @@ export function SettingsModal({ onClose }: Props) {
         {
           title: "전역",
           items: [
-            { keys: "Home", desc: "홈(/)으로 이동" },
             { keys: ". (마침표)", desc: "수면관리로 이동" },
             { keys: "0", desc: "타임테이블로 이동" },
             { keys: "1", desc: "재생 / 일시정지" },
