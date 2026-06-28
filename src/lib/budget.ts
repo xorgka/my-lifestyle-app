@@ -105,6 +105,19 @@ export function matchesHealthInsuranceItem(item: string): boolean {
   return HEALTH_INSURANCE_ITEM_MARKERS.some((m) => lower.includes(m));
 }
 
+/**
+ * 국민연금·건강보험은 SMS 청구월 접두사("２６０３국민연금" 등) 때문에 매번 다른 항목으로
+ * 잡혀 묶이지 않음. 해당 키워드가 들어 있으면 접두·접미사를 떼고 정해진 이름으로 통일한다.
+ * (건강보험: 국민건강·건보료 포함)
+ */
+export function canonicalizeBudgetItemName(item: string): string {
+  const t = item.trim();
+  if (!t) return item;
+  if (matchesHealthInsuranceItem(t)) return "건강보험";
+  if (t.toLowerCase().includes("국민연금")) return "국민연금";
+  return t;
+}
+
 export type BudgetEntry = {
   id: string;
   date: string; // YYYY-MM-DD

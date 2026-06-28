@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { parseBankSmsTransaction } from "@/lib/smsTransactionParser";
 import { loadSmsGroupRulesFromDb } from "@/lib/budgetDb";
-import { applySmsGroupRulesToItem } from "@/lib/budget";
+import { applySmsGroupRulesToItem, canonicalizeBudgetItemName } from "@/lib/budget";
 import { createSupabaseAnonClient } from "@/lib/supabaseAnon";
 
 type ImportSmsRequest = {
@@ -176,8 +176,10 @@ export async function POST(req: Request) {
       }
 
       const rawItem = parsed.itemName?.trim() || "";
-      const item = rawItem
-        ? applySmsGroupRulesToItem(rawItem, smsGroupRules)
+      // 국민연금·건강보험은 청구월 접두사를 떼고 정해진 이름으로 통일 (묶음용)
+      const canonItem = rawItem ? canonicalizeBudgetItemName(rawItem) : "";
+      const item = canonItem
+        ? applySmsGroupRulesToItem(canonItem, smsGroupRules)
         : sender
           ? `출금(${sender})`
           : "출금";

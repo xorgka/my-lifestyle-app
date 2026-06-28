@@ -34,6 +34,7 @@ import {
   loadSmsGroupRules,
   saveSmsGroupRules,
   applySmsGroupRulesToItem,
+  canonicalizeBudgetItemName,
   looksLikeCardBulkSettlementItem,
   todayStr,
   toYearMonth,
@@ -516,7 +517,7 @@ export default function FinancePage() {
         details.forEach((d) => {
           const cat = getCategoryForEntry(d.item.trim(), kw);
           const rawItem = d.item.trim();
-          const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+          const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
           if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
           out[cat][itemKey].total += d.amount;
           out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
@@ -531,7 +532,7 @@ export default function FinancePage() {
       } else {
         const cat = getCategoryForEntry(e.item, kw);
         const rawItem = e.item.trim();
-        const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+        const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
         if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
         out[cat][itemKey].total += e.amount;
         out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem });
@@ -1079,7 +1080,7 @@ export default function FinancePage() {
           if (isExcludedFromMonthTotal(d.item)) return;
           const cat = getCategoryForEntry(d.item.trim(), kw);
           const rawItem = d.item.trim();
-          const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+          const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
           if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
           out[cat][itemKey].total += d.amount;
           out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
@@ -1095,7 +1096,7 @@ export default function FinancePage() {
         if (isExcludedFromMonthTotal(e.item)) return;
         const cat = getCategoryForEntry(e.item, kw);
         const rawItem = e.item.trim();
-        const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+        const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
         if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
         out[cat][itemKey].total += e.amount;
         out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem });
