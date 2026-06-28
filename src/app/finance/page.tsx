@@ -140,6 +140,20 @@ export default function FinancePage() {
   const [smsRuleMatch, setSmsRuleMatch] = useState("");
   const [smsRuleLabel, setSmsRuleLabel] = useState("");
   const [categoryDetailModal, setCategoryDetailModal] = useState<DisplayCategoryId | null>(null);
+  /** 연도별 통계 카드 탭: 기존 표 / 지출 분석(순위·카테고리별) */
+  const [statsTab, setStatsTab] = useState<"yearly" | "spending">("yearly");
+  /** 지출 분석 대상 연도 (항목별 데이터가 있는 2026년 이상) */
+  const [analysisYear, setAnalysisYear] = useState(() => Math.max(2026, new Date().getFullYear()));
+  /** 항목 순위 정렬: 금액순 / 건수순 */
+  const [rankSort, setRankSort] = useState<"amount" | "count">("amount");
+  /** 항목 순위 페이지 (10개씩) */
+  const [rankPage, setRankPage] = useState(0);
+  /** 순위 목록에서 펼친 항목 (날짜별 내역) */
+  const [rankExpanded, setRankExpanded] = useState<Set<string>>(new Set());
+  /** 지출 분석 카테고리 상세 모달 (연 단위) */
+  const [spendingCategoryModal, setSpendingCategoryModal] = useState<DisplayCategoryId | null>(null);
+  /** 지출 분석 카테고리 모달에서 펼친 항목 */
+  const [spendingExpandedItems, setSpendingExpandedItems] = useState<Set<string>>(new Set());
   const [showCardExpenseDetailModal, setShowCardExpenseDetailModal] = useState(false);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -267,6 +281,16 @@ export default function FinancePage() {
   }, [categoryDetailModal]);
 
   useEffect(() => {
+    if (spendingCategoryModal) setSpendingExpandedItems(new Set());
+  }, [spendingCategoryModal]);
+
+  // 연도·정렬 바뀌면 순위 1페이지로, 펼친 항목 닫기
+  useEffect(() => {
+    setRankPage(0);
+    setRankExpanded(new Set());
+  }, [analysisYear, rankSort]);
+
+  useEffect(() => {
     setListEditId(null);
   }, [selectedDate]);
 
@@ -280,6 +304,26 @@ export default function FinancePage() {
     if (viewMode === "yearAtGlance") return `${glanceYear}-01`;
     return toYearMonth(todayStr());
   }, [viewMode, yearMonthSelect, customYear, customMonth, glanceYear]);
+
+  /** 현재 보고 있는 월을 ±1개월 이동 (연도 넘어가면 자동 처리). 올해면 이번달 모드, 아니면 특정 모드로. */
+  const stepViewMonth = useCallback(
+    (dir: -1 | 1) => {
+      const [y, m] = yearMonthForView.split("-").map(Number);
+      const d = new Date(y, m - 1 + dir, 1);
+      const ny = d.getFullYear();
+      const nm = d.getMonth() + 1;
+      setPeriodDropdown(null);
+      if (ny === new Date().getFullYear()) {
+        setViewMode("yearMonth");
+        setYearMonthSelect(nm);
+      } else {
+        setViewMode("custom");
+        setCustomYear(ny);
+        setCustomMonth(nm);
+      }
+    },
+    [yearMonthForView]
+  );
 
   const keywordsForSelectedMonth = getKeywordsForMonth(
     keywords,
@@ -1006,6 +1050,103 @@ export default function FinancePage() {
     });
   }, [incomeEntries, entries, keywords, monthExtras, seed2024Business, seed2025Business]);
 
+  /** 지출 분석 연도 선택지: 항목별 데이터가 있는 2026년부터 올해까지 (years 재사용) */
+  const analysisYears = years;
+
+  /**
+   * 선택 연도의 카테고리별 → 항목별 상세 (viewMonthByCategoryDetail의 연 단위 버전).
+   * 적금·IRP·ISA·주택청약(제외 항목)은 순위·총액에서 빠짐.
+   */
+  const yearByCategoryDetail = useMemo(() => {
+    const out: Record<DisplayCategoryId, Record<string, { total: number; entries: DetailEntry[] }>> = {
+      고정비: {},
+      사업경비: {},
+      세금: {},
+      생활비: {},
+      기타: {},
+      미분류: {},
+    };
+    const yearPrefix = String(analysisYear);
+    const inYear = displayEntries.filter((e) => e.date.startsWith(yearPrefix));
+    inYear.forEach((e) => {
+      const details = entryDetails.filter((d) => d.parentId === e.id);
+      const kw = getKeywordsForMonth(keywords, monthExtras, toYearMonth(e.date));
+      if (details.length > 0) {
+        const detailSum = details.reduce((s, d) => s + d.amount, 0);
+        details.forEach((d) => {
+          if (isExcludedFromMonthTotal(d.item)) return;
+          const cat = getCategoryForEntry(d.item.trim(), kw);
+          const rawItem = d.item.trim();
+          const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+          if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
+          out[cat][itemKey].total += d.amount;
+          out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
+        });
+        const unclassified = e.amount - detailSum;
+        if (unclassified > 0) {
+          const label = `${e.item} (미분류)`;
+          if (!out.미분류[label]) out.미분류[label] = { total: 0, entries: [] };
+          out.미분류[label].total += unclassified;
+          out.미분류[label].entries.push({ date: e.date, amount: unclassified, item: label });
+        }
+      } else {
+        if (isExcludedFromMonthTotal(e.item)) return;
+        const cat = getCategoryForEntry(e.item, kw);
+        const rawItem = e.item.trim();
+        const itemKey = applySmsGroupRulesToItem(rawItem, smsGroupRules);
+        if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
+        out[cat][itemKey].total += e.amount;
+        out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem });
+      }
+    });
+    (Object.keys(out) as DisplayCategoryId[]).forEach((cat) => {
+      Object.keys(out[cat]).forEach((item) => {
+        out[cat][item].entries.sort((a, b) => a.date.localeCompare(b.date));
+      });
+    });
+    return out;
+  }, [displayEntries, entryDetails, analysisYear, keywords, monthExtras, smsGroupRules]);
+
+  /** 카테고리별 연 총액 + 항목 순위(묶음 적용). yearByCategoryDetail에서 파생 */
+  const yearSpending = useMemo(() => {
+    const byCategory = {
+      고정비: 0,
+      사업경비: 0,
+      세금: 0,
+      생활비: 0,
+      기타: 0,
+      미분류: 0,
+    } as Record<DisplayCategoryId, number>;
+    const items: { item: string; total: number; count: number; category: DisplayCategoryId; entries: DetailEntry[] }[] = [];
+    (Object.keys(yearByCategoryDetail) as DisplayCategoryId[]).forEach((cat) => {
+      const grouped = groupByBaseName(yearByCategoryDetail[cat]);
+      let catTotal = 0;
+      Object.entries(grouped).forEach(([item, { total, entries }]) => {
+        catTotal += total;
+        items.push({ item, total, count: entries.length, category: cat, entries });
+      });
+      byCategory[cat] = catTotal;
+    });
+    const total = items.reduce((s, i) => s + i.total, 0);
+    return { byCategory, items, total };
+  }, [yearByCategoryDetail]);
+
+  /** 정렬 적용된 항목 순위 (금액순 / 건수순) */
+  const rankedItems = useMemo(() => {
+    const arr = [...yearSpending.items];
+    arr.sort((a, b) =>
+      rankSort === "amount"
+        ? b.total - a.total || b.count - a.count
+        : b.count - a.count || b.total - a.total
+    );
+    return arr;
+  }, [yearSpending.items, rankSort]);
+
+  const rankPageCount = Math.max(1, Math.ceil(rankedItems.length / 10));
+  const rankPageItems = rankedItems.slice(rankPage * 10, rankPage * 10 + 10);
+  /** 카테고리 카드 표시 순서: 미분류 제외 고정 순서 + 총액 큰 순 보정용 */
+  const categoryCardOrder: DisplayCategoryId[] = ["고정비", "생활비", "사업경비", "세금", "기타", "미분류"];
+
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
       <div className="relative pr-12 sm:pr-0">
@@ -1670,10 +1811,30 @@ placeholder="항목"
           <div className="mt-4 space-y-4">
             <div>
               <div className="inline-flex items-center gap-1.5 text-2xl font-semibold text-neutral-900">
+                <button
+                  type="button"
+                  onClick={() => stepViewMonth(-1)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-base text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
+                  title="이전 달"
+                  aria-label="이전 달"
+                >
+                  ◀
+                </button>
                 <span>
+                  {parseInt(yearMonthForView.split("-")[0], 10) !== new Date().getFullYear() &&
+                    `${parseInt(yearMonthForView.split("-")[0], 10)}년 `}
                   {parseInt(yearMonthForView.split("-")[1], 10)}월 지출:{" "}
                   <AmountToggle amount={viewMonthTotalDisplay} />
                 </span>
+                <button
+                  type="button"
+                  onClick={() => stepViewMonth(1)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-base text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
+                  title="다음 달"
+                  aria-label="다음 달"
+                >
+                  ▶
+                </button>
                 <div
                   className="relative"
                   onMouseEnter={() => {
@@ -2868,8 +3029,33 @@ placeholder="항목"
 
       {/* 연도별 통계 */}
       <Card className="overflow-hidden">
-        <h2 className="text-lg font-semibold text-neutral-900">연도별 통계</h2>
-        <p className="mt-1 text-sm text-neutral-500">
+        {/* 제목 + 우측 상단 탭: 연도별 통계 표 / 지출 분석(순위·카테고리별) */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-neutral-900">연도별 통계</h2>
+          <div className="inline-flex rounded-xl border border-neutral-200 bg-neutral-100/70 p-1">
+            {([
+              { id: "yearly", label: "연도별 통계" },
+              { id: "spending", label: "지출 분석" },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setStatsTab(t.id)}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
+                  statsTab === t.id
+                    ? "bg-white text-neutral-900 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+      {statsTab === "yearly" && (
+        <>
+        <p className="mt-3 text-sm text-neutral-500">
           수입 데이터와 연도별 총 지출을 반영해요.
         </p>
         <div className="mt-4 overflow-auto rounded-xl">
@@ -2944,7 +3130,270 @@ placeholder="항목"
             </tbody>
           </table>
         </div>
+        </>
+      )}
+
+      {statsTab === "spending" && (
+        <div className="mt-4">
+          {/* 연도 선택 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-neutral-500">연도</span>
+            <select
+              value={analysisYear}
+              onChange={(e) => setAnalysisYear(Number(e.target.value))}
+              className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800"
+            >
+              {analysisYears.map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+            <span className="ml-auto text-sm text-neutral-500">
+              총 지출 <strong className="text-neutral-800">{formatNum(yearSpending.total)}</strong>원
+              <span className="ml-1 text-xs text-neutral-400">(적금·IRP·ISA·주택청약 제외)</span>
+            </span>
+          </div>
+
+          {yearSpending.total === 0 ? (
+            <p className="mt-6 py-8 text-center text-sm text-neutral-400">
+              {analysisYear}년 항목별 지출 데이터가 없어요.
+            </p>
+          ) : (
+            <>
+              {/* 카테고리별 연 총액 — 클릭 시 상세 */}
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {categoryCardOrder
+                  .filter((cat) => yearSpending.byCategory[cat] > 0)
+                  .map((cat) => {
+                    const amount = yearSpending.byCategory[cat];
+                    const pct = yearSpending.total > 0 ? (amount / yearSpending.total) * 100 : 0;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSpendingCategoryModal(cat)}
+                        className="rounded-xl border border-neutral-200 bg-white p-3 text-left transition hover:border-neutral-300 hover:bg-neutral-50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-neutral-600">{CATEGORY_LABELS[cat]}</span>
+                          <span className="text-xs text-neutral-400">{pct.toFixed(0)}%</span>
+                        </div>
+                        <div className="mt-1 text-base font-semibold text-neutral-900">{formatNum(amount)}원</div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                          <div className="h-full rounded-full bg-neutral-400" style={{ width: `${pct}%` }} />
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* 항목 순위 */}
+              <div className="mt-6 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-neutral-700">항목 순위</h3>
+                <div className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/70 p-0.5">
+                  {([
+                    { id: "amount", label: "금액순" },
+                    { id: "count", label: "건수순" },
+                  ] as const).map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setRankSort(s.id)}
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                        rankSort === s.id ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-1.5">
+                {rankPageItems.map((it, i) => {
+                  const rank = rankPage * 10 + i + 1;
+                  const pct = yearSpending.total > 0 ? (it.total / yearSpending.total) * 100 : 0;
+                  const isExpanded = rankExpanded.has(it.item);
+                  return (
+                    <div key={it.item} className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRankExpanded((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(it.item)) next.delete(it.item);
+                            else next.add(it.item);
+                            return next;
+                          })
+                        }
+                        className="flex w-full items-center gap-3 p-3 text-left transition hover:bg-neutral-50"
+                      >
+                        <span className="w-6 shrink-0 text-center text-sm font-semibold text-neutral-400">{rank}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-neutral-900">{it.item}</span>
+                          <span className="mt-0.5 flex items-center gap-1.5">
+                            <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500">{CATEGORY_LABELS[it.category]}</span>
+                            <span className="text-[11px] text-neutral-400">{it.count}건</span>
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right">
+                          <span className="block text-sm font-semibold text-neutral-900">{formatNum(it.total)}원</span>
+                          <span className="text-[11px] text-neutral-400">{pct.toFixed(1)}%</span>
+                        </span>
+                        <span className={`shrink-0 text-neutral-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden>▼</span>
+                      </button>
+                      {isExpanded && (
+                        <ul className="space-y-1.5 border-t border-neutral-200 px-3 pb-3 pt-2 text-[13px] text-neutral-600">
+                          {it.entries
+                            .slice()
+                            .sort((a, b) => b.date.localeCompare(a.date))
+                            .map(({ date, amount, item }, j) => (
+                              <li key={`${date}-${item}-${j}`} className="flex justify-between gap-2 rounded-lg bg-neutral-50 px-3 py-1.5">
+                                <span className="min-w-0">
+                                  <span className="mr-3 text-neutral-500">{formatDateLabelShort(date)}</span>
+                                  <span>{item}</span>
+                                </span>
+                                <span className="shrink-0 font-medium">{formatNum(amount)}원</span>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 페이지네이션 */}
+              {rankPageCount > 1 && (
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRankPage((p) => Math.max(0, p - 1))}
+                    disabled={rankPage === 0}
+                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    이전
+                  </button>
+                  <span className="text-sm text-neutral-500">
+                    {rankPage + 1} / {rankPageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRankPage((p) => Math.min(rankPageCount - 1, p + 1))}
+                    disabled={rankPage >= rankPageCount - 1}
+                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    다음
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
       </Card>
+
+      {/* 지출 분석 카테고리 상세 모달 (연 단위) */}
+      {spendingCategoryModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
+            onClick={() => {
+              setSpendingCategoryModal(null);
+              setSpendingExpandedItems(new Set());
+            }}
+          >
+            <div
+              className="my-auto max-h-[85vh] w-full max-w-2xl shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {CATEGORY_LABELS[spendingCategoryModal]} · {analysisYear}년 상세
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                항목별 내역이에요. 날짜별 세부는 펼쳐서 볼 수 있어요.
+              </p>
+              <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
+                <span className="text-sm font-medium text-neutral-600">총합</span>
+                <span className="ml-2 text-xl font-semibold text-neutral-900">
+                  {formatNum(yearSpending.byCategory[spendingCategoryModal])}원
+                </span>
+              </div>
+              <div className="mt-4 space-y-4">
+                {(() => {
+                  const grouped = groupByBaseName(yearByCategoryDetail[spendingCategoryModal]);
+                  return Object.keys(grouped).length === 0 ? (
+                    <p className="text-sm text-neutral-400">해당 카테고리 내역이 없어요.</p>
+                  ) : (
+                    Object.entries(grouped)
+                      .sort(([, a], [, b]) => b.total - a.total)
+                      .map(([itemName, { total, entries }]) => {
+                        const isExpanded = spendingExpandedItems.has(itemName);
+                        return (
+                          <div
+                            key={itemName}
+                            className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50/50"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSpendingExpandedItems((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(itemName)) next.delete(itemName);
+                                  else next.add(itemName);
+                                  return next;
+                                })
+                              }
+                              className="flex w-full items-center justify-between p-4 text-left text-[13px] transition-colors hover:bg-neutral-100/80 md:text-base"
+                            >
+                              <span className="font-semibold text-neutral-900">{itemName} ({entries.length})</span>
+                              <span className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-neutral-900 md:text-lg">
+                                  {formatNum(total)}원
+                                </span>
+                                <span
+                                  className={`text-neutral-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                                  aria-hidden
+                                >
+                                  ▼
+                                </span>
+                              </span>
+                            </button>
+                            {isExpanded && (
+                              <ul className="space-y-1.5 border-t border-neutral-200 px-4 pb-4 pl-0 pt-2 text-[13px] text-neutral-600 md:text-sm">
+                                {entries.map(({ date, amount, item }, i) => (
+                                  <li
+                                    key={`${date}-${item}-${i}`}
+                                    className="flex justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="mr-3 text-neutral-500">{formatDateLabelShort(date)}</span>
+                                      <span>{item}</span>
+                                    </span>
+                                    <span className="shrink-0 font-medium">{formatNum(amount)}원</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })
+                  );
+                })()}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSpendingCategoryModal(null)}
+                  className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
     </div>
   );
