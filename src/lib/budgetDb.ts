@@ -186,6 +186,31 @@ export async function saveMonthExtrasToDb(extras: MonthExtraKeywords): Promise<v
   }
 }
 
+/** 기간별 보기 월별 메모: year_month → 메모 텍스트 */
+export async function loadMonthMemosFromDb(): Promise<Record<string, string>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase.from("budget_month_memos").select("year_month, memo");
+  if (error) {
+    console.error("[budgetDb] loadMonthMemos", error);
+    return {};
+  }
+  const out: Record<string, string> = {};
+  (data ?? []).forEach((row: { year_month: string; memo: unknown }) => {
+    out[row.year_month] = typeof row.memo === "string" ? row.memo : "";
+  });
+  return out;
+}
+
+/** 한 달 메모만 upsert (자동저장용). 빈 문자열도 저장(지움 표현). */
+export async function saveMonthMemoToDb(yearMonth: string, memo: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("budget_month_memos").upsert(
+    { year_month: yearMonth, memo, updated_at: new Date().toISOString() },
+    { onConflict: "year_month" }
+  );
+  if (error) console.error("[budgetDb] saveMonthMemo", error);
+}
+
 export async function loadEntryDetailsFromDb(): Promise<BudgetEntryDetailRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase

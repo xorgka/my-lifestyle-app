@@ -27,6 +27,8 @@ import {
   loadEntryDetails,
   loadKeywords,
   loadMonthExtras,
+  loadMonthMemos,
+  saveMonthMemo,
   saveEntries,
   saveEntryDetails,
   saveKeywords,
@@ -124,6 +126,11 @@ export default function FinancePage() {
   const [entryDetails, setEntryDetails] = useState<BudgetEntryDetail[]>([]);
   const [keywords, setKeywords] = useState<CategoryKeywords>(DEFAULT_KEYWORDS);
   const [monthExtras, setMonthExtras] = useState<MonthExtraKeywords>({});
+  /** 기간별 보기 월별 메모: { "2026-05": "내용" } */
+  const [monthMemos, setMonthMemos] = useState<Record<string, string>>({});
+  const [showMemoModal, setShowMemoModal] = useState(false);
+  /** 메모 자동저장 디바운스 타이머 */
+  const memoSaveTimerRef = useRef<number | null>(null);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [viewMode, setViewMode] = useState<ViewMode>("yearMonth");
   const [yearMonthSelect, setYearMonthSelect] = useState(new Date().getMonth() + 1);
@@ -256,17 +263,19 @@ export default function FinancePage() {
   const load = useCallback(async () => {
     setBudgetLoading(true);
     try {
-      const [e, ed, k, m, smsRules] = await Promise.all([
+      const [e, ed, k, m, memos, smsRules] = await Promise.all([
         loadEntries(),
         loadEntryDetails(),
         loadKeywords(),
         loadMonthExtras(),
+        loadMonthMemos(),
         loadSmsGroupRules(),
       ]);
       setEntries(Array.isArray(e) ? e : []);
       setEntryDetails(Array.isArray(ed) ? ed : []);
       setKeywords(k);
       setMonthExtras(m);
+      setMonthMemos(memos && typeof memos === "object" ? memos : {});
       setSmsGroupRules(Array.isArray(smsRules) ? smsRules : []);
       setIncomeEntries(await loadIncomeEntries());
     } finally {
@@ -306,6 +315,38 @@ export default function FinancePage() {
     if (viewMode === "yearAtGlance") return `${glanceYear}-01`;
     return toYearMonth(todayStr());
   }, [viewMode, yearMonthSelect, customYear, customMonth, glanceYear]);
+
+  /** 현재 보는 월의 메모 텍스트 */
+  const currentMonthMemo = monthMemos[yearMonthForView] ?? "";
+
+  /** 메모 입력: 상태 즉시 반영 + 0.5초 디바운스 자동저장 */
+  const onMonthMemoChange = useCallback(
+    (value: string) => {
+      const ym = yearMonthForView;
+      setMonthMemos((prev) => ({ ...prev, [ym]: value }));
+      if (memoSaveTimerRef.current != null) window.clearTimeout(memoSaveTimerRef.current);
+      memoSaveTimerRef.current = window.setTimeout(() => {
+        saveMonthMemo(ym, value).catch(console.error);
+      }, 500);
+    },
+    [yearMonthForView]
+  );
+
+  /** 모달 닫을 때 대기 중인 자동저장을 즉시 반영 */
+  const closeMemoModal = useCallback(() => {
+    if (memoSaveTimerRef.current != null) {
+      window.clearTimeout(memoSaveTimerRef.current);
+      memoSaveTimerRef.current = null;
+      saveMonthMemo(yearMonthForView, monthMemos[yearMonthForView] ?? "").catch(console.error);
+    }
+    setShowMemoModal(false);
+  }, [yearMonthForView, monthMemos]);
+
+  /** "2026년 5월" 형태 라벨 (메모 모달 제목용) */
+  const memoMonthLabel = useMemo(() => {
+    const [y, m] = yearMonthForView.split("-").map(Number);
+    return `${y}년 ${m}월`;
+  }, [yearMonthForView]);
 
   /** 현재 보고 있는 월을 ±1개월 이동 (연도 넘어가면 자동 처리). 올해면 이번달 모드, 아니면 특정 모드로. */
   const stepViewMonth = useCallback(
@@ -1671,7 +1712,33 @@ placeholder="항목"
 
       {/* 보기: 이번달(1~12월 드롭다운, 기본 현재월) / 특정(2026·2027) / 한눈에 */}
       <Card>
-        <h2 className="text-lg font-semibold text-neutral-900">기간별 보기</h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-lg font-semibold text-neutral-900">기간별 보기</h2>
+          <button
+            type="button"
+            onClick={() => setShowMemoModal(true)}
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
+            title={`${memoMonthLabel} 메모`}
+            aria-label={`${memoMonthLabel} 메모`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-[18px] w-[18px]"
+            >
+              <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z" />
+              <path d="M8 8h8M8 12h8M8 16h5" />
+            </svg>
+            {currentMonthMemo.trim() !== "" && (
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+            )}
+          </button>
+        </div>
         <div ref={periodDropdownRef} className="mt-3 mb-4 flex flex-wrap items-center gap-2">
           <div className="relative">
             <button
@@ -2108,6 +2175,45 @@ placeholder="항목"
                   닫기
                 </button>
               </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 월별 메모 모달 (자동저장, 뒷배경 클릭 시 닫힘) */}
+      {showMemoModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-[100dvh] min-w-[100vw] items-center justify-center overflow-y-auto bg-black/65 p-4"
+            style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={closeMemoModal}
+          >
+            <div
+              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold text-neutral-900">{memoMonthLabel} 메모</h3>
+                <button
+                  type="button"
+                  onClick={closeMemoModal}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+                  aria-label="닫기"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-neutral-500">
+                이 달({memoMonthLabel})에만 저장되는 메모예요. 입력하면 자동저장돼요.
+              </p>
+              <textarea
+                autoFocus
+                value={currentMonthMemo}
+                onChange={(e) => onMonthMemoChange(e.target.value)}
+                placeholder="메모를 입력하세요…"
+                className="mt-4 h-48 w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-neutral-800 outline-none focus:border-neutral-400"
+              />
             </div>
           </div>,
           document.body

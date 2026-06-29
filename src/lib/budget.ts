@@ -15,6 +15,8 @@ import {
   saveKeywordsToDb,
   loadMonthExtrasFromDb,
   saveMonthExtrasToDb,
+  loadMonthMemosFromDb,
+  saveMonthMemoToDb,
   loadEntryDetailsFromDb,
   saveEntryDetailsToDb,
   loadSmsGroupRulesFromDb,
@@ -25,6 +27,7 @@ import {
 export const BUDGET_ENTRIES_KEY = "my-lifestyle-budget-entries";
 export const BUDGET_KEYWORDS_KEY = "my-lifestyle-budget-keywords";
 export const BUDGET_MONTH_EXTRAS_KEY = "my-lifestyle-budget-month-extras";
+export const BUDGET_MONTH_MEMOS_KEY = "my-lifestyle-budget-month-memos";
 export const BUDGET_ENTRY_DETAILS_KEY = "my-lifestyle-budget-entry-details";
 export const BUDGET_SMS_GROUP_RULES_KEY = "my-lifestyle-budget-sms-group-rules";
 
@@ -420,6 +423,20 @@ export async function loadMonthExtras(): Promise<MonthExtraKeywords> {
 export async function saveMonthExtras(extras: MonthExtraKeywords): Promise<void> {
   if (supabase) return saveMonthExtrasToDb(extras);
   saveJson(BUDGET_MONTH_EXTRAS_KEY, extras);
+}
+
+/** 기간별 보기 월별 메모 전체 로드: { "2026-05": "내용" } */
+export async function loadMonthMemos(): Promise<Record<string, string>> {
+  if (supabase) return loadMonthMemosFromDb();
+  const data = loadJson<Record<string, string>>(BUDGET_MONTH_MEMOS_KEY, {});
+  return typeof data === "object" && data !== null ? data : {};
+}
+
+/** 한 달 메모만 저장 (자동저장). localStorage는 전체 맵을 읽어 해당 월만 갱신. */
+export async function saveMonthMemo(yearMonth: string, memo: string): Promise<void> {
+  if (supabase) return saveMonthMemoToDb(yearMonth, memo);
+  const data = loadJson<Record<string, string>>(BUDGET_MONTH_MEMOS_KEY, {});
+  saveJson(BUDGET_MONTH_MEMOS_KEY, { ...data, [yearMonth]: memo });
 }
 
 export async function loadEntryDetails(): Promise<BudgetEntryDetail[]> {
