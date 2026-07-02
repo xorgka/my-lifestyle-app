@@ -6,7 +6,7 @@ create table if not exists production_requests (
   year_month text not null, -- 예: "2026-07" (시트 탭 매칭용)
   request_date date not null,
   client_name text not null default '',
-  source text not null default '', -- 유입: 기존/신규
+  source text not null default '', -- 유입: 크몽/기존
   inquiry_channel text not null default '', -- 문의 ID
   category text not null default '', -- 업종
   amount numeric not null default 0, -- 금액

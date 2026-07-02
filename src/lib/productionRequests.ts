@@ -22,7 +22,7 @@ export type ProductionRequest = {
   yearMonth: string; // "2026-07"
   requestDate: string; // "2026-07-02"
   clientName: string;
-  source: string; // 유입: 기존/신규
+  source: string; // 유입: 크몽/기존
   inquiryChannel: string; // 문의 ID
   category: string; // 업종
   amount: number;
@@ -40,7 +40,7 @@ export type ProductionRequest = {
   sheetRow: number | null;
 };
 
-export const SOURCE_OPTIONS = ["신규", "기존"] as const;
+export const SOURCE_OPTIONS = ["크몽", "기존"] as const;
 
 /** 클릭 시 순환: 해당없음 → 진행중 → 완료 → 해당없음 */
 export function nextProgressStatus(current: ProgressStatus): ProgressStatus {
@@ -74,7 +74,7 @@ export function emptyProductionRequest(requestDate: string): Omit<ProductionRequ
     yearMonth: toYearMonth(requestDate),
     requestDate,
     clientName: "",
-    source: "신규",
+    source: "크몽",
     inquiryChannel: "",
     category: "",
     amount: 0,
