@@ -102,16 +102,16 @@ function StatusDot({
       title={`${label}: ${status === "O" ? "완료" : status === "~" ? "진행중" : "해당없음"} (클릭해서 변경)`}
       className="flex flex-col items-center gap-1.5"
     >
-      <span className="text-sm font-semibold text-neutral-600">{label}</span>
+      <span className="text-xs font-semibold text-neutral-600 sm:text-sm">{label}</span>
       <span
         style={status === "~" ? { background: IN_PROGRESS_BG } : undefined}
         className={clsx(
-          "flex h-9 w-9 items-center justify-center rounded-lg border-2 text-sm font-bold transition",
+          "flex h-7 w-7 items-center justify-center rounded-lg border-2 text-sm font-bold transition sm:h-9 sm:w-9",
           status === "O" && isFinalStep ? FINAL_STEP_O_STYLE : STATUS_STYLE[status]
         )}
       >
         {status === "O" ? (
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+          <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         ) : null}
@@ -185,7 +185,7 @@ export default function ProjectsPage() {
     const set = new Set(availableMonths);
     set.add(toYearMonth(todayStr()));
     set.add(selectedYearMonth);
-    return Array.from(set).sort();
+    return Array.from(set).sort().reverse();
   }, [availableMonths, selectedYearMonth]);
 
   const monthNetProfit = sumNetProfit(requests);
@@ -323,16 +323,16 @@ export default function ProjectsPage() {
           <Card>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               <div>
-                <div className="text-xs text-neutral-400">총 매출</div>
-                <div className="mt-1 text-2xl font-bold text-neutral-900">{formatAmount(totalAmount)}원</div>
+                <div className="text-xs font-medium text-amber-700">총 매출</div>
+                <div className="mt-1 text-2xl font-bold text-amber-900">{formatAmount(totalAmount)}원</div>
               </div>
               <div>
-                <div className="text-xs text-neutral-400">총 순수익</div>
+                <div className="text-xs font-medium text-neutral-500">총 순수익</div>
                 <div className="mt-1 text-2xl font-bold text-neutral-900">{formatAmount(totalNetProfit)}원</div>
               </div>
               <div>
-                <div className="text-xs text-neutral-400">월 평균 순수익</div>
-                <div className="mt-1 text-2xl font-bold text-neutral-900">{formatAmount(Math.round(avgMonthlyNetProfit))}원</div>
+                <div className="text-xs font-medium text-sky-600">월 평균 순수익</div>
+                <div className="mt-1 text-2xl font-bold text-sky-800">{formatAmount(Math.round(avgMonthlyNetProfit))}원</div>
               </div>
             </div>
           </Card>
@@ -343,12 +343,13 @@ export default function ProjectsPage() {
             ) : monthStats.length === 0 ? (
               <div className="py-10 text-center text-sm text-neutral-400">데이터가 없습니다.</div>
             ) : (
-              <div className="divide-y divide-neutral-100">
-                <div className="grid grid-cols-4 gap-2 pb-3 text-xs font-medium text-neutral-400">
-                  <span>월</span>
-                  <span className="text-right">건수</span>
-                  <span className="text-right">매출</span>
-                  <span className="text-right">순수익</span>
+              <div className="-mx-1 overflow-x-auto px-1">
+              <div className="min-w-[17rem] divide-y divide-neutral-100">
+                <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3 pb-3 text-xs font-medium text-neutral-400 sm:gap-x-4">
+                  <span className="whitespace-nowrap">월</span>
+                  <span className="whitespace-nowrap text-right">건수</span>
+                  <span className="whitespace-nowrap text-right">매출</span>
+                  <span className="whitespace-nowrap text-right">순수익</span>
                 </div>
                 {monthStats.map((stat) => (
                   <button
@@ -358,14 +359,19 @@ export default function ProjectsPage() {
                       setSelectedYearMonth(stat.yearMonth);
                       setView("month");
                     }}
-                    className="grid w-full grid-cols-4 gap-2 py-3 text-left text-sm transition hover:bg-neutral-50"
+                    className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3 py-3 text-left text-sm transition hover:bg-neutral-50 sm:gap-x-4"
                   >
-                    <span className="font-medium text-neutral-900">{monthTabLabel(stat.yearMonth, now.getFullYear())}</span>
-                    <span className="text-right text-neutral-500">{stat.count}건</span>
-                    <span className="text-right text-neutral-700">{formatAmount(stat.amount)}원</span>
-                    <span className="text-right font-semibold text-neutral-900">{formatAmount(stat.netProfit)}원</span>
+                    <span className="whitespace-nowrap font-medium text-neutral-900">
+                      {monthTabLabel(stat.yearMonth, now.getFullYear())}
+                    </span>
+                    <span className="whitespace-nowrap text-right tabular-nums text-neutral-500">{stat.count}건</span>
+                    <span className="whitespace-nowrap text-right tabular-nums text-neutral-700">{formatAmount(stat.amount)}원</span>
+                    <span className="whitespace-nowrap text-right tabular-nums font-semibold text-neutral-900">
+                      {formatAmount(stat.netProfit)}원
+                    </span>
                   </button>
                 ))}
+              </div>
               </div>
             )}
           </Card>
@@ -419,7 +425,7 @@ export default function ProjectsPage() {
                 key={r.id}
                 className={clsx("!p-0", r.statusComplete === "O" && "opacity-60 transition-opacity hover:opacity-100")}
               >
-                <div className="flex flex-wrap items-stretch">
+                <div className="flex flex-col sm:flex-row sm:items-stretch">
                   <div className="min-w-0 flex-1 p-5 md:p-6">
                     <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-400">
                       <span>{formatKoreanMonthDay(r.requestDate)}</span>
@@ -482,7 +488,7 @@ export default function ProjectsPage() {
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-l border-neutral-100 px-5 py-5">
+                  <div className="grid grid-cols-4 justify-items-center gap-3 border-t border-neutral-100 px-5 py-5 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:border-l sm:border-t-0 sm:shrink-0">
                     {PROGRESS_STEPS.map((step) => (
                       <StatusDot
                         key={step.key}
