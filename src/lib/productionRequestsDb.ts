@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 import type { ProductionRequest } from "./productionRequests";
 
 const SELECT_COLUMNS =
-  "id, year_month, request_date, client_name, source, inquiry_channel, category, amount, net_profit, note, status_guide, status_payment, status_invoice, status_material, status_production, status_revision, status_complete, sheet_row";
+  "id, year_month, request_date, client_name, source, inquiry_channel, category, amount, net_profit, note, deposit_amount, status_guide, status_payment, status_invoice, status_material, status_production, status_revision, status_complete, sheet_row";
 
 function rowFromDb(row: Record<string, unknown>): ProductionRequest {
   return {
@@ -21,6 +21,7 @@ function rowFromDb(row: Record<string, unknown>): ProductionRequest {
     amount: Number(row.amount ?? 0),
     netProfit: Number(row.net_profit ?? 0),
     note: String(row.note ?? ""),
+    depositAmount: Number(row.deposit_amount ?? 0),
     statusGuide: (row.status_guide as ProductionRequest["statusGuide"]) ?? "",
     statusPayment: (row.status_payment as ProductionRequest["statusPayment"]) ?? "",
     statusInvoice: (row.status_invoice as ProductionRequest["statusInvoice"]) ?? "",
@@ -43,6 +44,7 @@ function patchToDb(patch: Partial<Omit<ProductionRequest, "id" | "sheetRow">>): 
   if (patch.amount !== undefined) out.amount = patch.amount;
   if (patch.netProfit !== undefined) out.net_profit = patch.netProfit;
   if (patch.note !== undefined) out.note = patch.note;
+  if (patch.depositAmount !== undefined) out.deposit_amount = patch.depositAmount;
   if (patch.statusGuide !== undefined) out.status_guide = patch.statusGuide;
   if (patch.statusPayment !== undefined) out.status_payment = patch.statusPayment;
   if (patch.statusInvoice !== undefined) out.status_invoice = patch.statusInvoice;
@@ -63,10 +65,26 @@ export async function loadProductionRequests(
     .from("production_requests")
     .select(SELECT_COLUMNS)
     .eq("year_month", yearMonth)
-    .order("request_date", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("request_date", { ascending: false })
+    .order("created_at", { ascending: false });
   if (error) {
     console.error("[productionRequestsDb] load", error);
+    return [];
+  }
+  return (data ?? []).map(rowFromDb);
+}
+
+/** 전체 통계용: 모든 의뢰 (월 상관없이) */
+export async function loadAllProductionRequests(client?: SupabaseClient | null): Promise<ProductionRequest[]> {
+  const db = client ?? supabase;
+  if (!db) return [];
+  const { data, error } = await db
+    .from("production_requests")
+    .select(SELECT_COLUMNS)
+    .order("year_month", { ascending: true })
+    .order("request_date", { ascending: true });
+  if (error) {
+    console.error("[productionRequestsDb] loadAll", error);
     return [];
   }
   return (data ?? []).map(rowFromDb);

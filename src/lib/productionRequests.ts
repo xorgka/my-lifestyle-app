@@ -28,6 +28,8 @@ export type ProductionRequest = {
   amount: number;
   netProfit: number;
   note: string;
+  /** 결제를 선금만 받은 경우의 선금액. 0이면 선금 없음(또는 전액 완납) */
+  depositAmount: number;
   statusGuide: ProgressStatus;
   statusPayment: ProgressStatus;
   statusInvoice: ProgressStatus;
@@ -61,6 +63,12 @@ export function formatAmount(n: number): string {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
 }
 
+/** 만 원 단위로 반올림해서 "143만원" 형식 */
+export function formatManWon(n: number): string {
+  const man = Math.round(n / 10000);
+  return `${man.toLocaleString("ko-KR")}만원`;
+}
+
 export function emptyProductionRequest(requestDate: string): Omit<ProductionRequest, "id" | "sheetRow"> {
   return {
     yearMonth: toYearMonth(requestDate),
@@ -72,6 +80,7 @@ export function emptyProductionRequest(requestDate: string): Omit<ProductionRequ
     amount: 0,
     netProfit: 0,
     note: "",
+    depositAmount: 0,
     statusGuide: "",
     statusPayment: "",
     statusInvoice: "",
@@ -90,10 +99,19 @@ export function sumNetProfit(requests: ProductionRequest[]): number {
   return requests.reduce((sum, r) => sum + r.netProfit, 0);
 }
 
-export function shiftYearMonth(yearMonth: string, delta: number): string {
-  const [y, m] = yearMonth.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+export type MonthStat = { yearMonth: string; amount: number; netProfit: number; count: number };
+
+/** year_month 오름차순으로 월별 매출/순수익/건수 집계 */
+export function groupStatsByMonth(requests: ProductionRequest[]): MonthStat[] {
+  const map = new Map<string, MonthStat>();
+  for (const r of requests) {
+    const stat = map.get(r.yearMonth) ?? { yearMonth: r.yearMonth, amount: 0, netProfit: 0, count: 0 };
+    stat.amount += r.amount;
+    stat.netProfit += r.netProfit;
+    stat.count += 1;
+    map.set(r.yearMonth, stat);
+  }
+  return Array.from(map.values()).sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 }
 
 /** 올해면 "7월", 아니면 "2025년 7월" */

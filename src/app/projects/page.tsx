@@ -15,9 +15,10 @@ import {
   emptyProductionRequest,
   formatAmount,
   formatKoreanMonthDay,
+  formatManWon,
+  groupStatsByMonth,
   monthTabLabel,
   nextProgressStatus,
-  shiftYearMonth,
   sumAmount,
   sumNetProfit,
   toYearMonth,
@@ -25,6 +26,7 @@ import {
 import {
   deleteProductionRequest,
   insertProductionRequest,
+  loadAllProductionRequests,
   loadDistinctYearMonths,
   loadProductionRequests,
   syncProductionRequestToSheet,
@@ -40,6 +42,7 @@ type FormState = {
   amount: string;
   netProfit: string;
   note: string;
+  depositAmount: string;
 };
 
 function formStateFromRequest(r: ProductionRequest): FormState {
@@ -52,6 +55,7 @@ function formStateFromRequest(r: ProductionRequest): FormState {
     amount: r.amount ? String(r.amount) : "",
     netProfit: r.netProfit ? String(r.netProfit) : "",
     note: r.note,
+    depositAmount: r.depositAmount ? String(r.depositAmount) : "",
   };
 }
 
@@ -66,22 +70,29 @@ function emptyFormState(requestDate: string): FormState {
     amount: "",
     netProfit: "",
     note: "",
+    depositAmount: "",
   };
 }
 
 const STATUS_STYLE: Record<ProgressStatus, string> = {
   "": "border-neutral-200 bg-white text-neutral-300",
-  "~": "border-amber-400 bg-amber-50 text-amber-600",
-  O: "border-emerald-500 bg-emerald-500 text-white",
+  "~": "border-amber-500 text-white",
+  O: "border-neutral-900 bg-neutral-900 text-white",
 };
+const FINAL_STEP_O_STYLE = "border-blue-600 bg-blue-600 text-white";
+
+/** 진행중은 절반만 채운 사각형으로 완료(꽉 찬 사각형)와 뚜렷하게 구분 */
+const IN_PROGRESS_BG = "linear-gradient(to right, #f59e0b 50%, #ffffff 50%)";
 
 function StatusDot({
   status,
   label,
+  isFinalStep,
   onClick,
 }: {
   status: ProgressStatus;
   label: string;
+  isFinalStep: boolean;
   onClick: () => void;
 }) {
   return (
@@ -89,38 +100,47 @@ function StatusDot({
       type="button"
       onClick={onClick}
       title={`${label}: ${status === "O" ? "완료" : status === "~" ? "진행중" : "해당없음"} (클릭해서 변경)`}
-      className="flex flex-col items-center gap-1"
+      className="flex flex-col items-center gap-1.5"
     >
+      <span className="text-sm font-semibold text-neutral-600">{label}</span>
       <span
+        style={status === "~" ? { background: IN_PROGRESS_BG } : undefined}
         className={clsx(
-          "flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold transition",
-          STATUS_STYLE[status]
+          "flex h-9 w-9 items-center justify-center rounded-lg border-2 text-sm font-bold transition",
+          status === "O" && isFinalStep ? FINAL_STEP_O_STYLE : STATUS_STYLE[status]
         )}
       >
-        {status === "O" ? "✓" : status === "~" ? "·" : ""}
+        {status === "O" ? (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        ) : null}
       </span>
-      <span className="text-[10px] text-neutral-400">{label}</span>
     </button>
   );
 }
 
+type ViewMode = "month" | "stats";
+
 export default function ProjectsPage() {
   const now = new Date();
+  const [view, setView] = useState<ViewMode>("month");
   const [selectedYearMonth, setSelectedYearMonth] = useState(toYearMonth(todayStr()));
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [requests, setRequests] = useState<ProductionRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allRequests, setAllRequests] = useState<ProductionRequest[]>([]);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingRequest, setEditingRequest] = useState<ProductionRequest | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyFormState(todayStr()));
   const [saving, setSaving] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<ProductionRequest | null>(null);
 
-  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [syncErrorIds, setSyncErrorIds] = useState<Set<string>>(new Set());
-  const [syncedIds, setSyncedIds] = useState<Set<string>>(new Set());
 
   const loadMonth = useCallback(async (yearMonth: string) => {
     setLoading(true);
@@ -129,13 +149,37 @@ export default function ProjectsPage() {
     setLoading(false);
   }, []);
 
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    const list = await loadAllProductionRequests();
+    setAllRequests(list);
+    setStatsLoading(false);
+  }, []);
+
   useEffect(() => {
     loadMonth(selectedYearMonth);
   }, [selectedYearMonth, loadMonth]);
 
   useEffect(() => {
     loadDistinctYearMonths().then(setAvailableMonths);
-  }, []);
+    loadStats();
+  }, [loadStats]);
+
+  const monthStats = useMemo(() => groupStatsByMonth(allRequests), [allRequests]);
+  const totalAmount = sumAmount(allRequests);
+  const totalNetProfit = sumNetProfit(allRequests);
+  const avgMonthlyNetProfit = monthStats.length > 0 ? totalNetProfit / monthStats.length : 0;
+
+  /** 월별 완료 안 된(진행중/해당없음) 의뢰 건수 */
+  const incompleteCountByMonth = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of allRequests) {
+      if (r.statusComplete !== "O") {
+        map.set(r.yearMonth, (map.get(r.yearMonth) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [allRequests]);
 
   const monthsToShow = useMemo(() => {
     const set = new Set(availableMonths);
@@ -144,30 +188,21 @@ export default function ProjectsPage() {
     return Array.from(set).sort();
   }, [availableMonths, selectedYearMonth]);
 
-  const monthAmount = sumAmount(requests);
   const monthNetProfit = sumNetProfit(requests);
 
   const runSync = useCallback(async (id: string) => {
-    setSyncingIds((s) => new Set(s).add(id));
     const result = await syncProductionRequestToSheet(id);
-    setSyncingIds((s) => {
-      const n = new Set(s);
-      n.delete(id);
-      return n;
-    });
     setSyncErrorIds((s) => {
       const n = new Set(s);
       if (result.ok) n.delete(id);
       else n.add(id);
       return n;
     });
-    if (result.ok) {
-      setSyncedIds((s) => new Set(s).add(id));
-    }
   }, []);
 
   const openNewModal = () => {
     setEditingId(null);
+    setEditingRequest(null);
     const defaultDate =
       selectedYearMonth === toYearMonth(todayStr()) ? todayStr() : `${selectedYearMonth}-01`;
     setForm(emptyFormState(defaultDate));
@@ -176,6 +211,7 @@ export default function ProjectsPage() {
 
   const openEditModal = (r: ProductionRequest) => {
     setEditingId(r.id);
+    setEditingRequest(r);
     setForm(formStateFromRequest(r));
     setShowModal(true);
   };
@@ -198,6 +234,7 @@ export default function ProjectsPage() {
       amount: Number(form.amount) || 0,
       netProfit: Number(form.netProfit) || 0,
       note: form.note.trim(),
+      depositAmount: Number(form.depositAmount) || 0,
     };
     try {
       let saved: ProductionRequest;
@@ -223,6 +260,7 @@ export default function ProjectsPage() {
       }
       setAvailableMonths((prev) => (prev.includes(saved.yearMonth) ? prev : [...prev, saved.yearMonth].sort()));
       runSync(saved.id);
+      loadStats();
     } finally {
       setSaving(false);
     }
@@ -240,66 +278,128 @@ export default function ProjectsPage() {
     await deleteProductionRequest(deleteTarget.id);
     setRequests((prev) => prev.filter((r) => r.id !== deleteTarget.id));
     setDeleteTarget(null);
+    loadStats();
   };
 
   return (
     <div className="min-w-0 space-y-6">
-      <SectionTitle title="프로젝트" subtitle="홈페이지·로고 제작 의뢰 진행 상황을 관리하세요." />
-
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionTitle title="프로젝트" subtitle="홈페이지·로고 제작 의뢰 진행 상황을 관리하세요." />
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1 rounded-full bg-neutral-100 p-1">
             <button
               type="button"
-              onClick={() => setSelectedYearMonth((m) => shiftYearMonth(m, -1))}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100"
-              aria-label="이전 달"
+              onClick={() => setView("month")}
+              className={clsx(
+                "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                view === "month" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"
+              )}
             >
-              ‹
+              월별
             </button>
-            <div className="flex flex-wrap gap-1.5">
-              {monthsToShow.map((ym) => (
-                <button
-                  key={ym}
-                  type="button"
-                  onClick={() => setSelectedYearMonth(ym)}
-                  className={clsx(
-                    "rounded-full px-3.5 py-1.5 text-sm font-medium transition",
-                    ym === selectedYearMonth
-                      ? "bg-neutral-900 text-white"
-                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                  )}
-                >
-                  {monthTabLabel(ym, now.getFullYear())}
-                </button>
-              ))}
-            </div>
             <button
               type="button"
-              onClick={() => setSelectedYearMonth((m) => shiftYearMonth(m, 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100"
-              aria-label="다음 달"
+              onClick={() => setView("stats")}
+              className={clsx(
+                "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                view === "stats" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"
+              )}
             >
-              ›
+              전체 통계
             </button>
           </div>
+          <button
+            type="button"
+            onClick={openNewModal}
+            className="rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-700"
+          >
+            + 새 의뢰
+          </button>
+        </div>
+      </div>
 
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <div className="text-xs text-neutral-400">매출</div>
-              <div className="text-lg font-bold text-neutral-900">{formatAmount(monthAmount)}원</div>
+      {view === "stats" ? (
+        <>
+          <Card>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+              <div>
+                <div className="text-xs text-neutral-400">총 매출</div>
+                <div className="mt-1 text-2xl font-bold text-neutral-900">{formatAmount(totalAmount)}원</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-400">총 순수익</div>
+                <div className="mt-1 text-2xl font-bold text-neutral-900">{formatAmount(totalNetProfit)}원</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-400">월 평균 순수익</div>
+                <div className="mt-1 text-2xl font-bold text-neutral-900">{formatAmount(Math.round(avgMonthlyNetProfit))}원</div>
+              </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs text-neutral-400">순수익</div>
-              <div className="text-lg font-bold text-neutral-900">{formatAmount(monthNetProfit)}원</div>
-            </div>
-            <button
-              type="button"
-              onClick={openNewModal}
-              className="rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-700"
-            >
-              + 새 의뢰
-            </button>
+          </Card>
+
+          <Card>
+            {statsLoading ? (
+              <div className="py-10 text-center text-sm text-neutral-400">불러오는 중…</div>
+            ) : monthStats.length === 0 ? (
+              <div className="py-10 text-center text-sm text-neutral-400">데이터가 없습니다.</div>
+            ) : (
+              <div className="divide-y divide-neutral-100">
+                <div className="grid grid-cols-4 gap-2 pb-3 text-xs font-medium text-neutral-400">
+                  <span>월</span>
+                  <span className="text-right">건수</span>
+                  <span className="text-right">매출</span>
+                  <span className="text-right">순수익</span>
+                </div>
+                {monthStats.map((stat) => (
+                  <button
+                    key={stat.yearMonth}
+                    type="button"
+                    onClick={() => {
+                      setSelectedYearMonth(stat.yearMonth);
+                      setView("month");
+                    }}
+                    className="grid w-full grid-cols-4 gap-2 py-3 text-left text-sm transition hover:bg-neutral-50"
+                  >
+                    <span className="font-medium text-neutral-900">{monthTabLabel(stat.yearMonth, now.getFullYear())}</span>
+                    <span className="text-right text-neutral-500">{stat.count}건</span>
+                    <span className="text-right text-neutral-700">{formatAmount(stat.amount)}원</span>
+                    <span className="text-right font-semibold text-neutral-900">{formatAmount(stat.netProfit)}원</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
+      ) : (
+        <>
+      <Card>
+        <div className="flex flex-nowrap items-center gap-4">
+          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1">
+            {monthsToShow.map((ym) => (
+              <button
+                key={ym}
+                type="button"
+                onClick={() => setSelectedYearMonth(ym)}
+                className={clsx(
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition",
+                  ym === selectedYearMonth
+                    ? "bg-neutral-900 text-white"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                )}
+              >
+                {monthTabLabel(ym, now.getFullYear())}
+                {incompleteCountByMonth.get(ym) ? (
+                  <span className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold text-white">
+                    {incompleteCountByMonth.get(ym)}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+
+          <div className="shrink-0 text-right">
+            <div className="text-xs text-neutral-400">순수익</div>
+            <div className="text-lg font-bold text-neutral-900">{formatManWon(monthNetProfit)}</div>
           </div>
         </div>
       </Card>
@@ -313,90 +413,93 @@ export default function ProjectsPage() {
       ) : (
         <div className="space-y-3">
           {requests.map((r) => {
-            const isSynced = syncedIds.has(r.id) || r.sheetRow != null;
-            const isSyncing = syncingIds.has(r.id);
             const isSyncError = syncErrorIds.has(r.id);
             return (
-              <Card key={r.id} className="!p-4 md:!p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-neutral-400">{formatKoreanMonthDay(r.requestDate)}</span>
-                      <span className="text-base font-bold text-neutral-900">{r.clientName}</span>
-                      {r.source && (
-                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
-                          {r.source}
-                        </span>
-                      )}
+              <Card
+                key={r.id}
+                className={clsx("!p-0", r.statusComplete === "O" && "opacity-60 transition-opacity hover:opacity-100")}
+              >
+                <div className="flex flex-wrap items-stretch">
+                  <div className="min-w-0 flex-1 p-5 md:p-6">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-400">
+                      <span>{formatKoreanMonthDay(r.requestDate)}</span>
                       {r.category && (
-                        <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">
+                        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-600">
                           {r.category}
                         </span>
                       )}
+                      {r.source && (
+                        <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500">
+                          {r.source}
+                        </span>
+                      )}
                       {r.inquiryChannel && (
-                        <span className="text-[11px] text-neutral-400">{r.inquiryChannel}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white">
+                          <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                            />
+                          </svg>
+                          {r.inquiryChannel}
+                        </span>
                       )}
                     </div>
-                    {r.note && <p className="mt-1.5 text-sm text-neutral-500">{r.note}</p>}
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-neutral-900">{formatAmount(r.amount)}원</div>
-                      <div className="text-xs text-neutral-400">순수익 {formatAmount(r.netProfit)}원</div>
-                    </div>
-                    <div className="flex gap-1">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+                      <span className="text-lg font-bold text-neutral-900 sm:text-xl">{r.clientName}</span>
+                      <span className="text-neutral-400" aria-hidden>
+                        |
+                      </span>
+                      <span className="text-lg font-bold text-neutral-900 sm:text-xl">{formatAmount(r.netProfit)}원</span>
                       <button
                         type="button"
                         onClick={() => openEditModal(r)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                         aria-label="수정"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                         </svg>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(r)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-500"
-                        aria-label="삭제"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                        </svg>
-                      </button>
+                      {isSyncError && (
+                        <button type="button" onClick={() => runSync(r.id)} className="text-xs text-amber-500 hover:underline">
+                          ⚠ 시트 반영 실패 (재시도)
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-baseline gap-2 text-sm text-neutral-400">
+                      {r.note || (r.depositAmount > 0 && r.statusPayment !== "O") ? (
+                        <>
+                          {r.note && <span>{r.note}</span>}
+                          {r.depositAmount > 0 && r.statusPayment !== "O" && (
+                            <span className="font-medium text-amber-600">선금 {formatAmount(r.depositAmount)}원</span>
+                          )}
+                        </>
+                      ) : (
+                        <span>&nbsp;</span>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-neutral-100 pt-4">
-                  {PROGRESS_STEPS.map((step) => (
-                    <StatusDot
-                      key={step.key}
-                      status={r[step.key]}
-                      label={step.label}
-                      onClick={() => handleToggleStatus(r, step.key)}
-                    />
-                  ))}
-                  <span className="ml-auto flex items-center gap-1 text-[11px] text-neutral-300" title="구글 시트 동기화 상태">
-                    {isSyncing ? (
-                      "동기화 중…"
-                    ) : isSyncError ? (
-                      <button type="button" onClick={() => runSync(r.id)} className="text-amber-500 hover:underline">
-                        ⚠ 시트 반영 실패 (재시도)
-                      </button>
-                    ) : isSynced ? (
-                      "시트 반영됨"
-                    ) : (
-                      ""
-                    )}
-                  </span>
+                  <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-l border-neutral-100 px-5 py-5">
+                    {PROGRESS_STEPS.map((step) => (
+                      <StatusDot
+                        key={step.key}
+                        status={r[step.key]}
+                        label={step.label}
+                        isFinalStep={step.key === "statusComplete"}
+                        onClick={() => handleToggleStatus(r, step.key)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </Card>
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {showModal && (
@@ -407,6 +510,14 @@ export default function ProjectsPage() {
           isEdit={editingId != null}
           onClose={closeModal}
           onSave={handleSave}
+          onDelete={
+            editingRequest
+              ? () => {
+                  setShowModal(false);
+                  setDeleteTarget(editingRequest);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -430,6 +541,7 @@ function ProjectFormModal({
   isEdit,
   onClose,
   onSave,
+  onDelete,
 }: {
   form: FormState;
   setForm: (updater: (prev: FormState) => FormState) => void;
@@ -437,6 +549,7 @@ function ProjectFormModal({
   isEdit: boolean;
   onClose: () => void;
   onSave: () => void;
+  onDelete?: () => void;
 }) {
   const field = (key: keyof FormState) => ({
     value: form[key],
@@ -468,16 +581,31 @@ function ProjectFormModal({
             </label>
             <label className="block">
               <span className="text-xs font-medium text-neutral-500">유입</span>
-              <select
-                {...field("source")}
-                className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
-              >
-                {SOURCE_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+              <div className="relative mt-1">
+                <input
+                  type="text"
+                  placeholder="직접 입력"
+                  {...field("source")}
+                  className="block h-[42px] w-full rounded-lg border border-neutral-200 bg-white py-2 pl-3 pr-[108px] text-sm text-neutral-800"
+                />
+                <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 gap-1">
+                  {SOURCE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, source: opt }))}
+                      className={clsx(
+                        "rounded-full px-2.5 py-1 text-xs font-medium transition",
+                        form.source === opt
+                          ? "bg-neutral-900 text-white"
+                          : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </label>
           </div>
           <label className="block">
@@ -527,6 +655,15 @@ function ProjectFormModal({
             </label>
           </div>
           <label className="block">
+            <span className="text-xs font-medium text-neutral-500">선금액 (결제를 선금만 받은 경우)</span>
+            <input
+              type="number"
+              placeholder="선금 없으면 비워두세요"
+              {...field("depositAmount")}
+              className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+            />
+          </label>
+          <label className="block">
             <span className="text-xs font-medium text-neutral-500">비고</span>
             <textarea
               rows={2}
@@ -535,7 +672,19 @@ function ProjectFormModal({
             />
           </label>
         </div>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex items-center justify-between gap-2">
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
+            >
+              삭제
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -551,6 +700,7 @@ function ProjectFormModal({
           >
             {saving ? "저장 중…" : "저장"}
           </button>
+          </div>
         </div>
       </div>
     </div>,
