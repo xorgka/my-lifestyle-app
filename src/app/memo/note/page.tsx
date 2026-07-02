@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { MemoSiblingNav } from "../MemoSiblingNav";
 import { NoteSearchBar } from "../NoteSearchBar";
 import { NoteSidebar } from "./NoteSidebar";
 import { NoteEditor } from "./NoteEditor";
@@ -203,15 +202,15 @@ export default function NotePage() {
           confirmLabel={confirmDialog.confirmLabel}
         />
       )}
-      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
-        <SectionTitle
-          title="노트"
-          subtitle="긴글을 적고, 노트북으로 묶어서 볼 수 있어요."
-        />
-        <div className="mt-2 flex shrink-0 items-center gap-2 sm:mt-4">
-          <MemoSiblingNav variant="on-note" />
-        </div>
-      </div>
+      <SectionTitle
+        title="노트"
+        subtitle="긴글을 적고, 노트북으로 묶어서 볼 수 있어요."
+        siblings={[
+          { label: "메모", href: "/memo", active: false },
+          { label: "노트", href: "/memo/note", active: true },
+          { label: "일기장", href: "/journal", active: false },
+        ]}
+      />
       <NoteSearchBar
         notesForSearch={notes}
         trashNotesForSearch={trashNotes}

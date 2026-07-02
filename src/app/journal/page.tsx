@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
+import { SiblingTitle } from "@/components/ui/SiblingTitle";
 import { localDateStr } from "@/lib/dateUtil";
 import {
   type JournalEntry,
@@ -993,7 +994,17 @@ export default function JournalPage() {
         <header className="mb-8 pt-4 pl-4 md:mb-10 md:pt-6 md:pl-6 !mb-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="min-w-0 flex-1 text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
-              {journalViewMode === "collect" && collectYear != null ? `${collectYear}년 모아보기` : "일기장"}
+              {journalViewMode === "collect" && collectYear != null ? (
+                `${collectYear}년 모아보기`
+              ) : (
+                <SiblingTitle
+                  items={[
+                    { label: "메모", href: "/memo", active: false },
+                    { label: "노트", href: "/memo/note", active: false },
+                    { label: "일기장", href: "/journal", active: true },
+                  ]}
+                />
+              )}
             </h1>
             <div className="flex shrink-0 items-center gap-1 sm:hidden">
               {journalViewMode === "collect" ? (

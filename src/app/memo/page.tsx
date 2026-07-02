@@ -27,7 +27,6 @@ import {
 import { MemoCard } from "@/components/memo/MemoCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { MemoCategoryBar } from "./MemoCategoryBar";
-import { MemoSiblingNav } from "./MemoSiblingNav";
 import {
   type MemoCategory,
   loadMemoCategories,
@@ -525,15 +524,15 @@ export default function MemoPage() {
 
   return (
     <div className="min-h-[180vh] min-w-0 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
-        <SectionTitle
-          title="메모"
-          subtitle="포스트잇처럼 메모를 추가하고 관리해요."
-        />
-        <div className="mt-2 flex shrink-0 items-center gap-2 sm:mt-4">
-          <MemoSiblingNav variant="on-memo" />
-        </div>
-      </div>
+      <SectionTitle
+        title="메모"
+        subtitle="포스트잇처럼 메모를 추가하고 관리해요."
+        siblings={[
+          { label: "메모", href: "/memo", active: true },
+          { label: "노트", href: "/memo/note", active: false },
+          { label: "일기장", href: "/journal", active: false },
+        ]}
+      />
 
       {syncError && (
         <div
