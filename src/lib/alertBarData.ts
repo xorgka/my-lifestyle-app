@@ -45,7 +45,7 @@ export const ALERT_BAR_MOTTO_KEYS = new Set<string>(ALERT_BAR_MOTTO_KEY_ORDER);
 const MOTTO_DEFAULTS: Record<(typeof ALERT_BAR_MOTTO_KEY_ORDER)[number], { text: string; href: string }> = {
   antivision: { text: "지금 멍때리고 있다면 안티비젼에 답변해보세요.", href: "/" },
   godsae: { text: "갓생의 시작은 일찍 자는 것부터입니다.", href: "/" },
-  muscle: { text: "근육 1kg은 1500만원의 가치가 있다.", href: "/routine" },
+  muscle: { text: "근육 1kg은 1500만원의 가치가 있다.", href: "/routine/list" },
   pace: { text: "당신의 속도대로 천천히.", href: "/" },
   stillness: { text: "가만히 있으면 아무 변화도 없다.", href: "/" },
 };
@@ -264,7 +264,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
     pushPlain(
       "routine_incomplete",
       `오늘 루틴 ${incompleteToday.length}개 남았어요. (${incompleteToday.length}/${totalRoutine}) 📋`,
-      "/routine",
+      "/routine/list",
       { N: incompleteToday.length, total: totalRoutine }
     );
   }
@@ -276,7 +276,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
   const minute = now.getMinutes();
   const ampm = hour >= 12 ? "PM" : "AM";
   const timeLabel = `[${ampm} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}]`;
-  pushPlain("routine_rate", `${timeLabel} 루틴 달성률 ${rate}% 🕐`, "/routine", { TIME: timeLabel, N: rate });
+  pushPlain("routine_rate", `${timeLabel} 루틴 달성률 ${rate}% 🕐`, "/routine/list", { TIME: timeLabel, N: rate });
 
   // --- 일기 연속 N일 ---
   const streak = getJournalStreak(journalEntries);
@@ -338,7 +338,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
       const label = keyword === "헬스" ? "헬스장" : keyword;
       const verb = keyword === "헬스" ? "갔어요" : "했어요";
       const particle = label === "독서" ? "는" : "은";
-      pushPlain("routine_month", `이번달 ${label}${particle} ${days}일 ${verb}. 🔥`, "/routine", {
+      pushPlain("routine_month", `이번달 ${label}${particle} ${days}일 ${verb}. 🔥`, "/routine/list", {
         label,
         N: days,
         verb,
@@ -370,17 +370,17 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
       }
     }
     if (overrides["gym"]?.customText?.trim()) {
-      pushPlain("gym", overrides["gym"].customText!.trim(), "/routine", { N: gymN });
+      pushPlain("gym", overrides["gym"].customText!.trim(), "/routine/list", { N: gymN });
     } else {
       if (!didYesterday) {
         if (gymN === 1) {
-          pushPlain("gym", "어제 헬스장 안 갔어요! ⚠️", "/routine");
+          pushPlain("gym", "어제 헬스장 안 갔어요! ⚠️", "/routine/list");
         } else {
-          pushPlain("gym", `${gymN}일째 ${label} 안 가고 있어요! ⚠️`, "/routine", { N: gymN });
+          pushPlain("gym", `${gymN}일째 ${label} 안 가고 있어요! ⚠️`, "/routine/list", { N: gymN });
         }
       } else {
         if (gymN === 1) {
-          pushPlain("gym", "어제 헬스장 갔어요! 오늘도 도전? 💪", "/routine");
+          pushPlain("gym", "어제 헬스장 갔어요! 오늘도 도전? 💪", "/routine/list");
         } else {
           const firstDayOfCurrent = addDays(today, -gymN);
           const pastGymDates = (Object.keys(routineCompletions) as string[])
@@ -399,7 +399,7 @@ export async function loadAllAlertItems(): Promise<AlertItem[]> {
           pushPlain(
             "gym",
             isNewRecord ? `${gymN}일 연속 ${label}! 신기록이에요! 🎉` : `${gymN}일째 ${label}에 나가고 있어요! 💪`,
-            "/routine",
+            "/routine/list",
             { N: gymN }
           );
         }

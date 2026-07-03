@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { createPortal } from "react-dom";
 import { Card } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TimeInputWithAmPm } from "@/components/ui/TimeInputWithAmPm";
 import { loadSleepData, saveSleepRecord, clearSleepRecordField, type SleepData } from "@/lib/sleepDb";
 import {
@@ -275,19 +275,14 @@ export default function SleepPage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <Link
-          href="/routine"
-          className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          루틴으로
-        </Link>
-        <h1 className="text-2xl font-bold text-neutral-900">수면 관리</h1>
-        <div className="w-20" />
-      </div>
+      <SectionTitle
+        title="수면"
+        siblings={[
+          { label: "일과", href: "/routine", active: false },
+          { label: "루틴", href: "/routine/list", active: false },
+          { label: "수면", href: "/routine/sleep", active: true },
+        ]}
+      />
       {sleepSource === "local" && (
         <p className="rounded-xl bg-amber-50 border border-amber-200/80 px-4 py-2.5 text-sm text-amber-800">
           <span className="font-medium">이 기기만 저장 중</span> — PC·모바일 동기화: .env.local에 <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_URL</code>, <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> 설정 후, Supabase SQL Editor에서 <code className="rounded bg-amber-100 px-1">supabase/migration-sleep.sql</code> 실행해 주세요.

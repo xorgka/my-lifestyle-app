@@ -256,7 +256,7 @@ export function YoutubePlayerBar() {
       }
       if (e.key === "0") {
         e.preventDefault();
-        router.push("/routine/timetable");
+        router.push("/routine");
         return;
       }
       if (e.key === ".") {

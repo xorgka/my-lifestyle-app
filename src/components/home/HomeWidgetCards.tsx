@@ -255,7 +255,7 @@ export function RoutineCard({
 
   return (
     <Link
-      href="/routine"
+      href="/routine/list"
       className={`group ${className} flex min-h-[170px] min-w-0 flex-col items-center justify-center gap-0 rounded-3xl border border-neutral-200/90 bg-white px-4 py-5 shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-1.5 hover:border-[#1CBD87] hover:bg-[#1CBD87] hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(28,189,135,0.4)]`}
     >
       <span className="text-sm font-medium text-emerald-500/90 transition-colors group-hover:text-white">Routine</span>
@@ -444,7 +444,7 @@ export function TimetableCard({
 
   return (
     <Link
-      href="/routine/timetable"
+      href="/routine"
       className={`${className} flex max-h-[170px] min-h-[170px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_1px_0_0_rgba(255,255,255,0.2)_inset,0_12px_28px_rgba(0,0,0,0.18)] ${
         isB
           ? "widget-grain-texture border-neutral-200/90 bg-white shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)]"

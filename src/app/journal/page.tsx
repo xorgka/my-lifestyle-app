@@ -993,7 +993,7 @@ export default function JournalPage() {
       <div className="-mb-4">
         <header className="mb-8 pt-4 pl-4 md:mb-10 md:pt-6 md:pl-6 !mb-3">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="min-w-0 flex-1 text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
+            <h1 className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
               {journalViewMode === "collect" && collectYear != null ? (
                 `${collectYear}년 모아보기`
               ) : (

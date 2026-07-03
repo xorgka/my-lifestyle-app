@@ -9,14 +9,14 @@ export function SiblingTitle({ items }: { items: SiblingLink[] }) {
       {items.map((item, i) => (
         <span key={item.href}>
           {i > 0 && (
-            <span className="mx-1 text-neutral-300" aria-hidden>
+            <span className="mx-1 font-normal text-neutral-300" aria-hidden>
               ·
             </span>
           )}
           {item.active ? (
             item.label
           ) : (
-            <Link href={item.href} className="text-neutral-300 transition hover:text-neutral-500">
+            <Link href={item.href} className="font-normal text-neutral-300 transition hover:text-neutral-500">
               {item.label}
             </Link>
           )}

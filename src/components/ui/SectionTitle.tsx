@@ -12,7 +12,7 @@ interface SectionTitleProps {
 export function SectionTitle({ title, subtitle, className, siblings }: SectionTitleProps) {
   return (
     <header className={clsx("mb-6 pt-2 pl-2 sm:mb-8 sm:pt-4 sm:pl-4 md:mb-10 md:pt-6 md:pl-6", className)}>
-      <h1 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl md:text-5xl">
+      <h1 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl md:text-4xl">
         {siblings ? <SiblingTitle items={siblings} /> : title}
       </h1>
       {subtitle && (
