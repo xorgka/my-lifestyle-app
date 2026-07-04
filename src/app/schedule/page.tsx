@@ -243,8 +243,9 @@ export default function SchedulePage() {
     yearlyMonth: number | null;
     yearlyDay: number | null;
     weeklyDay: number | null;
+    time: string | null;
   }) => {
-    await addScheduleEntry({ ...payload, time: null });
+    await addScheduleEntry(payload);
     refresh();
     setAddOpen(false);
   };
