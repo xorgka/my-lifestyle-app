@@ -114,12 +114,15 @@ export function matchesHealthInsuranceItem(item: string): boolean {
  * 국민연금·건강보험은 SMS 청구월 접두사("２６０３국민연금" 등) 때문에 매번 다른 항목으로
  * 잡혀 묶이지 않음. 해당 키워드가 들어 있으면 접두·접미사를 떼고 정해진 이름으로 통일한다.
  * (건강보험: 국민건강·건보료 포함)
+ * 주택청약: 계좌이체 문자에 "801707"로 시작하는 마스킹 계좌번호로만 찍혀서 매번 다른
+ * 항목으로 잡힘 (예: "801707**91,2605-97") → 주택청약 계좌로 통일.
  */
 export function canonicalizeBudgetItemName(item: string): string {
   const t = item.trim();
   if (!t) return item;
   if (matchesHealthInsuranceItem(t)) return "건강보험";
   if (t.toLowerCase().includes("국민연금")) return "국민연금";
+  if (t.startsWith("801707")) return "주택청약";
   return t;
 }
 
