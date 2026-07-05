@@ -178,11 +178,10 @@ export async function POST(req: Request) {
       const rawItem = parsed.itemName?.trim() || "";
       // 국민연금·건강보험은 청구월 접두사를 떼고 정해진 이름으로 통일 (묶음용)
       const canonItem = rawItem ? canonicalizeBudgetItemName(rawItem) : "";
-      const item = canonItem
-        ? applySmsGroupRulesToItem(canonItem, smsGroupRules)
-        : sender
-          ? `출금(${sender})`
-          : "출금";
+      // 문자에서 상호를 못 뽑아낸 경우(예: KB카드 알림이 "출금(1644-9999)"로만 옴)도
+      // 묶음 규칙 대상에 포함시켜서, 발신번호로 "KB카드출금" 같은 이름을 붙일 수 있게 함
+      const fallbackItem = sender ? `출금(${sender})` : "출금";
+      const item = applySmsGroupRulesToItem(canonItem || fallbackItem, smsGroupRules);
       const { error } = await supabase.from("budget_entries").insert({
         date: toDateOnlyFromReceivedAt(receivedAt),
         item,
