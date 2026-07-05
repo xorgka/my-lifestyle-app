@@ -8,7 +8,8 @@ import { localDateStr, todayStr as todayStrFromUtil } from "./dateUtil";
 import { supabase } from "./supabase";
 import {
   loadEntriesFromDb,
-  saveEntriesToDb,
+  deleteEntryFromDb,
+  restoreAllEntriesToDb,
   updateEntryToDb,
   insertEntryToDb,
   loadKeywordsFromDb,
@@ -18,7 +19,8 @@ import {
   loadMonthMemosFromDb,
   saveMonthMemoToDb,
   loadEntryDetailsFromDb,
-  saveEntryDetailsToDb,
+  replaceEntryDetailsForParentInDb,
+  restoreAllEntryDetailsToDb,
   loadSmsGroupRulesFromDb,
   saveSmsGroupRulesToDb,
   type SmsGroupRuleRow,
@@ -344,9 +346,27 @@ export async function loadEntries(): Promise<BudgetEntry[]> {
   return Array.isArray(data) ? data : [];
 }
 
-/** 저장 후 갱신된 목록 반환 (Supabase 사용 시 새 행은 DB id로 바뀜) */
-export async function saveEntries(entries: BudgetEntry[]): Promise<BudgetEntry[]> {
-  if (supabase) return saveEntriesToDb(entries);
+/**
+ * 항목 하나만 삭제. 삭제 대상 id만 지워서 다른 항목·다른 달 데이터는 절대 건드리지 않음.
+ * 세부내역은 Supabase에서는 FK cascade로, 로컬(localStorage)에서는 여기서 같이 정리함.
+ */
+export async function deleteEntry(id: string): Promise<void> {
+  if (supabase) {
+    await deleteEntryFromDb(id);
+    return;
+  }
+  const entries = loadJson<BudgetEntry[]>(BUDGET_ENTRIES_KEY, []);
+  saveJson(BUDGET_ENTRIES_KEY, entries.filter((e) => e.id !== id));
+  const details = loadJson<BudgetEntryDetail[]>(BUDGET_ENTRY_DETAILS_KEY, []);
+  saveJson(BUDGET_ENTRY_DETAILS_KEY, details.filter((d) => d.parentId !== id));
+}
+
+/**
+ * 백업 파일 전체 복원 전용. 넘긴 목록에 없는 기존 항목은 전부 삭제됨 —
+ * 일상적인 추가/수정/삭제에는 절대 쓰지 말 것 (insertEntry/updateEntryFields/deleteEntry 사용).
+ */
+export async function restoreAllEntries(entries: BudgetEntry[]): Promise<BudgetEntry[]> {
+  if (supabase) return restoreAllEntriesToDb(entries);
   saveJson(BUDGET_ENTRIES_KEY, entries);
   return entries;
 }
@@ -445,8 +465,36 @@ export async function loadEntryDetails(): Promise<BudgetEntryDetail[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export async function saveEntryDetails(details: BudgetEntryDetail[]): Promise<BudgetEntryDetail[]> {
-  if (supabase) return saveEntryDetailsToDb(details);
+/**
+ * parentId 하나에 딸린 세부내역만 교체. 삭제 범위를 해당 parentId로 한정해서
+ * 다른 항목·다른 달의 세부내역은 절대 건드리지 않음.
+ */
+export async function replaceEntryDetailsForParent(
+  parentId: string,
+  details: { id: string; item: string; amount: number }[]
+): Promise<BudgetEntryDetail[]> {
+  if (supabase) return replaceEntryDetailsForParentInDb(parentId, details);
+  const all = loadJson<BudgetEntryDetail[]>(BUDGET_ENTRY_DETAILS_KEY, []);
+  const others = all.filter((d) => d.parentId !== parentId);
+  const next = [
+    ...others,
+    ...details.map((d) => ({
+      id: d.id || `d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      parentId,
+      item: d.item,
+      amount: d.amount,
+    })),
+  ];
+  saveJson(BUDGET_ENTRY_DETAILS_KEY, next);
+  return next;
+}
+
+/**
+ * 백업 파일 전체 복원 전용. 넘긴 목록에 없는 세부내역은 부모 구분 없이 전부 삭제됨 —
+ * 일상적인 수정에는 절대 쓰지 말 것 (replaceEntryDetailsForParent 사용).
+ */
+export async function restoreAllEntryDetails(details: BudgetEntryDetail[]): Promise<BudgetEntryDetail[]> {
+  if (supabase) return restoreAllEntryDetailsToDb(details);
   saveJson(BUDGET_ENTRY_DETAILS_KEY, details);
   return details;
 }

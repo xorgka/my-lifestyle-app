@@ -29,8 +29,8 @@ import {
   loadMonthExtras,
   loadMonthMemos,
   saveMonthMemo,
-  saveEntries,
-  saveEntryDetails,
+  deleteEntry,
+  replaceEntryDetailsForParent,
   saveKeywords,
   saveMonthExtras,
   loadSmsGroupRules,
@@ -648,18 +648,19 @@ export default function FinancePage() {
   });
 
   const removeEntry = (id: string) => {
+    const target = entries.find((e) => e.id === id);
+    const detailCount = entryDetails.filter((d) => d.parentId === id).length;
+    const detailNote = detailCount > 0 ? `\n(세부내역 ${detailCount}건도 함께 삭제됩니다)` : "";
+    const label = target ? `"${target.item}" (${formatNum(target.amount)}원)` : "이 항목";
+    if (!window.confirm(`${label}을(를) 삭제할까요? 되돌릴 수 없습니다.${detailNote}`)) return;
     const next = entries.filter((e) => e.id !== id);
     setEntries(next);
     const nextDetails = entryDetails.filter((d) => d.parentId !== id);
     setEntryDetails(nextDetails);
-    saveEntries(next)
-      .then((updated) => setEntries(updated))
-      .then(() => saveEntryDetails(nextDetails))
-      .then((saved) => setEntryDetails(saved))
-      .catch((err) => {
-        console.error(err);
-        load();
-      });
+    deleteEntry(id).catch((err) => {
+      console.error(err);
+      load();
+    });
   };
 
   const updateEntry = (id: string, item: string, amount: number, date?: string) => {
@@ -771,22 +772,16 @@ export default function FinancePage() {
     if (cardModalEditEntry) {
       setCardExpenseApplying(true);
       updateEntry(cardModalEditEntry.id, item, amount, cardModalDate.trim() || undefined);
-      const others = entryDetails.filter((d) => d.parentId !== cardModalEditEntry.id);
+      const parentId = cardModalEditEntry.id;
       const validDetails = cardModalDetails.filter(
         (r) => String(r.item || "").trim() && Number.isFinite(Number(r.amount)) && Number(r.amount) > 0
       );
-      const nextDetails: BudgetEntryDetail[] = [
-        ...others,
-        ...validDetails.map((r) => ({
-          id: r.id,
-          parentId: cardModalEditEntry.id,
-          item: String(r.item).trim(),
-          amount: Number(r.amount),
-        })),
-      ];
-      saveEntryDetails(nextDetails)
+      replaceEntryDetailsForParent(
+        parentId,
+        validDetails.map((r) => ({ id: r.id, item: String(r.item).trim(), amount: Number(r.amount) }))
+      )
         .then((saved) => {
-          setEntryDetails(saved);
+          setEntryDetails((prev) => [...prev.filter((d) => d.parentId !== parentId), ...saved]);
           setShowCardExpenseModal(false);
           setCardModalEditEntry(null);
           setCardModalDate("");
@@ -847,16 +842,17 @@ export default function FinancePage() {
           setEntries((prev) => prev.map((e) => (e.id === parentId ? saved : e)));
         }
         const finalParentId = saved.id;
-        const newDetailRows: BudgetEntryDetail[] = validDetails.map((r) => ({
-          id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-          parentId: finalParentId,
-          item: String(r.item).trim(),
-          amount: Number(r.amount),
-        }));
-        return saveEntryDetails([...entryDetails, ...newDetailRows]);
+        return replaceEntryDetailsForParent(
+          finalParentId,
+          validDetails.map((r) => ({
+            id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            item: String(r.item).trim(),
+            amount: Number(r.amount),
+          }))
+        );
       })
       .then((savedDetails) => {
-        setEntryDetails(savedDetails);
+        setEntryDetails((prev) => [...prev, ...savedDetails]);
         setCardSectionTotal("");
         setCardSectionDetails([]);
       })

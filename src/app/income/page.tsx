@@ -16,7 +16,6 @@ import {
   loadKeywords,
   loadMonthExtras,
   type MonthExtraKeywords,
-  saveEntries as saveBudgetEntries,
   SEED_BUDGET_2021_TAX,
   SEED_BUDGET_2022_TAX,
   SEED_BUDGET_2023_TAX,

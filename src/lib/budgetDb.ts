@@ -76,8 +76,23 @@ export async function updateEntryToDb(
   };
 }
 
-/** 저장 후 앱에서 쓸 목록 반환 (새 행은 DB id로 갱신됨). 삭제된 항목은 DB에서도 제거됨. */
-export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<BudgetEntryRow[]> {
+/**
+ * 항목 하나만 삭제. 삭제 대상 id만 지정해서 지우므로 다른 항목은 절대 건드리지 않음.
+ * 세부내역(budget_entry_details)은 FK on delete cascade로 DB가 알아서 같이 지움.
+ */
+export async function deleteEntryFromDb(id: string): Promise<void> {
+  if (!supabase) return;
+  if (!isUuid(id)) return; // DB에 없던(로컬 임시) id는 지울 대상 없음
+  const { error } = await supabase.from("budget_entries").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * 백업 전체 복원 전용: 전달받은 목록에 없는 기존 app-source 항목은 전부 삭제하고
+ * 나머지는 upsert/insert. 일상적인 단건 삭제/수정에는 절대 쓰지 말 것 —
+ * 로컬 상태가 불완전한 상태로 호출되면 그 차이만큼 DB에서 진짜로 지워짐.
+ */
+export async function restoreAllEntriesToDb(entries: BudgetEntryRow[]): Promise<BudgetEntryRow[]> {
   if (!supabase) return entries;
   const keepIds = entries.filter((e) => isUuid(e.id)).map((e) => e.id);
   const { data: existingRows } = await supabase
@@ -88,7 +103,7 @@ export async function saveEntriesToDb(entries: BudgetEntryRow[]): Promise<Budget
   const toDelete = existingIds.filter((id) => !keepIds.includes(id));
   // 안전장치: 빈/비정상 입력으로 기존 app source 전체 삭제되는 상황 방지
   if (entries.length === 0 && existingIds.length > 0) {
-    console.warn("[budgetDb] saveEntriesToDb skip destructive delete (empty input)");
+    console.warn("[budgetDb] restoreAllEntriesToDb skip destructive delete (empty input)");
     return entries;
   }
   if (toDelete.length > 0) {
@@ -235,7 +250,63 @@ export async function loadEntryDetailsFromDb(): Promise<BudgetEntryDetailRow[]> 
     .filter((d) => d.parentId !== "");
 }
 
-export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Promise<BudgetEntryDetailRow[]> {
+/**
+ * parentId 하나에 딸린 세부내역만 교체. 삭제 범위를 해당 parent_id로 한정해서
+ * 다른 항목·다른 달의 세부내역은 절대 건드리지 않음.
+ */
+export async function replaceEntryDetailsForParentInDb(
+  parentId: string,
+  details: { id: string; item: string; amount: number }[]
+): Promise<BudgetEntryDetailRow[]> {
+  if (!supabase) return details.map((d) => ({ ...d, parentId }));
+  const { data: existingRows } = await supabase
+    .from("budget_entry_details")
+    .select("id")
+    .eq("parent_id", parentId);
+  const existingIds = (existingRows ?? []).map((r) => String(r.id));
+  const keepIds = details.filter((d) => isUuid(d.id)).map((d) => d.id);
+  const toDelete = existingIds.filter((id) => !keepIds.includes(id));
+  if (toDelete.length > 0) {
+    const { error } = await supabase.from("budget_entry_details").delete().in("id", toDelete);
+    if (error) console.error("[budgetDb] replaceEntryDetailsForParent delete", error);
+  }
+  for (const d of details) {
+    if (isUuid(d.id)) {
+      await supabase
+        .from("budget_entry_details")
+        .upsert(
+          { id: d.id, parent_id: parentId, item: d.item, amount: d.amount },
+          { onConflict: "id" }
+        );
+    } else {
+      await supabase
+        .from("budget_entry_details")
+        .insert({ parent_id: parentId, item: d.item, amount: d.amount });
+    }
+  }
+  const { data, error } = await supabase
+    .from("budget_entry_details")
+    .select("id, parent_id, item, amount")
+    .eq("parent_id", parentId);
+  if (error) {
+    console.error("[budgetDb] replaceEntryDetailsForParent reload", error);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    parentId: String(row.parent_id),
+    item: String(row.item),
+    amount: Number(row.amount),
+  }));
+}
+
+/**
+ * 백업 전체 복원 전용: 전달받은 목록에 없는 세부내역은 부모 구분 없이 전부 삭제.
+ * 일상적인 단건 수정에는 절대 쓰지 말 것 — replaceEntryDetailsForParentInDb를 대신 쓸 것.
+ */
+export async function restoreAllEntryDetailsToDb(
+  details: BudgetEntryDetailRow[]
+): Promise<BudgetEntryDetailRow[]> {
   if (!supabase) return details;
   const keepIds = details.filter((d) => isUuid(d.id)).map((d) => d.id);
   const { data: existingRows } = await supabase.from("budget_entry_details").select("id");
@@ -243,7 +314,7 @@ export async function saveEntryDetailsToDb(details: BudgetEntryDetailRow[]): Pro
   const toDelete = existingIds.filter((id) => !keepIds.includes(id));
   // 안전장치: 빈 입력으로 세부내역 전체 삭제되는 상황 방지
   if (details.length === 0 && existingIds.length > 0) {
-    console.warn("[budgetDb] saveEntryDetailsToDb skip destructive delete (empty input)");
+    console.warn("[budgetDb] restoreAllEntryDetailsToDb skip destructive delete (empty input)");
     return details;
   }
   if (toDelete.length > 0) {

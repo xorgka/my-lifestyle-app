@@ -59,9 +59,9 @@ import {
 } from "@/lib/noteDb";
 import {
   loadEntries as loadBudgetEntries,
-  saveEntries as saveBudgetEntries,
+  restoreAllEntries as saveBudgetEntries,
   loadEntryDetails as loadBudgetEntryDetails,
-  saveEntryDetails as saveBudgetEntryDetails,
+  restoreAllEntryDetails as saveBudgetEntryDetails,
   saveKeywords as saveBudgetKeywords,
   saveMonthExtras as saveBudgetMonthExtras,
   loadSmsGroupRules,
