@@ -100,7 +100,7 @@ export function MemoCard({
           aria-label="메모 페이지로 이동"
         >
           <span className="flex min-w-0 flex-1 items-center">
-            <span className="min-w-0 truncate text-[17px] font-semibold">
+            <span className="min-w-0 truncate text-[14px] font-semibold md:text-[17px]">
               {memo.title || "\u00A0"}
             </span>
           </span>
@@ -158,14 +158,14 @@ export function MemoCard({
                 if (e.key === "Enter") setEditingTitleId?.(null);
               }}
               placeholder="제목"
-              className="min-w-0 flex-1 rounded bg-transparent px-0 py-0 text-[17px] font-semibold outline-none placeholder:opacity-60"
+              className="min-w-0 flex-1 rounded bg-transparent px-0 py-0 text-[14px] font-semibold outline-none placeholder:opacity-60 md:text-[17px]"
               style={{ color: colors.headerFg ?? "inherit" }}
               autoFocus
               onFocus={() => onMemoActivate?.(memo.id)}
             />
           ) : (
             <span
-              className="min-w-0 truncate text-[17px] font-semibold cursor-text"
+              className="min-w-0 truncate text-[14px] font-semibold cursor-text md:text-[17px]"
               onClick={
                 variant === "full" && setEditingTitleId
                   ? (e) => {
@@ -337,10 +337,10 @@ export function MemoCard({
             onFocus={() => onMemoActivate?.(memo.id)}
             onClick={(e) => e.stopPropagation()}
             placeholder="메모를 입력하세요..."
-            className="min-h-[188px] w-full flex-1 resize-none rounded border-0 bg-white p-0 text-[19px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none md:min-h-0"
+            className="min-h-[188px] w-full flex-1 resize-none rounded border-0 bg-white p-0 text-[16px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none md:min-h-0 md:text-[19px]"
           />
         ) : (
-          <div className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[19px] text-neutral-800 whitespace-pre-wrap break-words ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}>
+          <div className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[16px] text-neutral-800 whitespace-pre-wrap break-words md:text-[19px] ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}>
             {memo.content.trim() || "내용 없음"}
           </div>
         )}
