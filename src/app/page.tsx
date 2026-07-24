@@ -5,15 +5,15 @@ import { TodayAlertBar } from "@/components/home/TodayAlertBar";
 export default function HomePage() {
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6 md:space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+      <div className="relative min-w-0">
         <SectionTitle
-          className="mb-0 min-w-0 flex-1"
+          className="min-w-0 pr-[8.5rem] sm:pr-36"
           title="오늘을 정리하기"
           subtitle="일상의 모든 조각을 한 곳에."
         />
         <a
           href="https://waglelab.com/admin"
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white transition hover:bg-neutral-700"
+          className="absolute right-0 top-2 inline-flex shrink-0 items-center gap-2 rounded-2xl bg-neutral-900 px-5 py-2.5 text-base font-medium text-white transition hover:bg-neutral-700 sm:top-4 md:top-6"
         >
           <svg
             className="h-4 w-4 shrink-0"
