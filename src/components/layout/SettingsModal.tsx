@@ -594,6 +594,7 @@ export function SettingsModal({ onClose }: Props) {
             { keys: "1", desc: "영상 재생 / 일시정지 (홈 · 영상 템플릿)" },
             { keys: "2", desc: "영상 이전 (홈 · 영상 템플릿)" },
             { keys: "3", desc: "영상 다음 (홈 · 영상 템플릿)" },
+            { keys: "F", desc: "영상 확대 / 원상복귀 (홈 · 영상 템플릿)" },
             { keys: "4", desc: "플레이리스트 재생 / 일시정지" },
             { keys: "5", desc: "플레이리스트 다음 곡" },
             { keys: "Ctrl + Shift + M", desc: "노트 페이지로 이동", mac: "Mac: Cmd + Shift + M" },

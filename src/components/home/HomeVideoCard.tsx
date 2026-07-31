@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   HOME_VIDEO_CATEGORIES,
   listStorageVideos,
@@ -67,8 +68,11 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
   const [queue, setQueue] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const namesKeyRef = useRef<string | null>(null);
+  /** 확대/축소 시 <video>가 새 DOM 노드로 다시 마운트되므로, 재생 위치를 저장했다 복원 */
+  const resumeStateRef = useRef<{ time: number; wasPlaying: boolean } | null>(null);
 
   const loadList = useCallback(() => {
     loadAllVideos()
@@ -136,11 +140,30 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
     [queue.length]
   );
 
-  /** 전역 단축키: 1 = 재생/정지, 2 = 이전, 3 = 다음. 모바일/데스크톱용 카드가 동시에 마운트되므로
-   * 실제로 화면에 보이는(=display:none이 아닌) 인스턴스만 반응. 입력 필드에 포커스 있을 때는 무시 */
+  const toggleExpanded = useCallback(() => {
+    // 확대/축소는 body로 포탈을 옮기며 <video>가 재마운트되므로 재생 위치를 저장해뒀다가 복원
+    const video = videoRef.current;
+    resumeStateRef.current = video ? { time: video.currentTime, wasPlaying: !video.paused } : null;
+    setExpanded((v) => !v);
+  }, []);
+
+  // 확대 중 Esc로 닫기
+  useEffect(() => {
+    if (!expanded) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expanded]);
+
+  /** 전역 단축키: 1 = 재생/정지, 2 = 이전, 3 = 다음, f = 확대/원상복귀. 모바일/데스크톱용 카드가
+   * 동시에 마운트되므로 실제로 화면에 보이는(=display:none이 아닌) 인스턴스만 반응. position:fixed
+   * (확대 모드)에서는 offsetParent가 신뢰할 수 없어 getClientRects로 판단. 입력 필드에 포커스 있을 때는 무시 */
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "1" && e.key !== "2" && e.key !== "3") return;
+      const key = e.key.toLowerCase();
+      if (key !== "1" && key !== "2" && key !== "3" && key !== "f") return;
       const active = document.activeElement;
       if (
         active &&
@@ -150,23 +173,28 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
       ) {
         return;
       }
-      if (!containerRef.current || containerRef.current.offsetParent === null) return;
-      if (e.key === "1") {
+      if (!containerRef.current || containerRef.current.getClientRects().length === 0) return;
+      if (key === "1") {
         e.preventDefault();
         togglePlay();
         return;
       }
-      if (e.key === "2") {
+      if (key === "2") {
         e.preventDefault();
         goTo(-1);
         return;
       }
+      if (key === "3") {
+        e.preventDefault();
+        goTo(1);
+        return;
+      }
       e.preventDefault();
-      goTo(1);
+      toggleExpanded();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePlay, goTo]);
+  }, [togglePlay, goTo, toggleExpanded]);
 
   const selectCategory = (c: HomeVideoCategoryId) => {
     setCategory(c);
@@ -181,11 +209,12 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
   const controlButton =
     "flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30";
 
-  return (
-    <div
-      ref={containerRef}
-      className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-neutral-200/90 bg-neutral-950 shadow-[0_1px_0_0_rgba(255,255,255,0.08)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] ${className}`}
-    >
+  const containerClassName = expanded
+    ? "fixed inset-0 z-[10000] flex h-screen w-screen flex-col overflow-hidden border-0 bg-neutral-950"
+    : `relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-neutral-200/90 bg-neutral-950 shadow-[0_1px_0_0_rgba(255,255,255,0.08)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] ${className}`;
+
+  const cardBody = (
+    <>
       {src ? (
         <video
           ref={videoRef}
@@ -199,6 +228,15 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
           }}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
+          onLoadedMetadata={() => {
+            // 확대/축소로 <video>가 재마운트된 경우, 저장해둔 재생 위치·상태를 복원
+            const resume = resumeStateRef.current;
+            const video = videoRef.current;
+            resumeStateRef.current = null;
+            if (!resume || !video) return;
+            video.currentTime = resume.time;
+            if (resume.wasPlaying) video.play().catch(() => setPlaying(false));
+          }}
           className="h-full w-full flex-1 cursor-pointer object-contain"
         />
       ) : (
@@ -237,6 +275,24 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
         ))}
       </div>
 
+      {/* 확대(브라우저 화면 꽉 채우기) 토글 */}
+      <button
+        type="button"
+        onClick={toggleExpanded}
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30"
+        aria-label={expanded ? "확대 종료" : "확대"}
+      >
+        {expanded ? (
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M9 3H3v6h2V5h4V3zm6 0v2h4v4h2V3h-6zM5 15H3v6h6v-2H5v-4zm14 4h-4v2h6v-6h-2v4z" />
+          </svg>
+        ) : (
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4v-4h2v6h-6v-2h4z" />
+          </svg>
+        )}
+      </button>
+
       {/* 재생 컨트롤 */}
       {src && (
         <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-5 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-12">
@@ -271,6 +327,23 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
           </span>
         </div>
       )}
+    </>
+  );
+
+  // 확대 모드에서는 body로 포탈해 렌더링 (조상 요소의 backdrop-blur가 fixed 위치 기준을
+  // 뷰포트가 아닌 자기 자신으로 바꿔버려, 포탈 없이는 화면 일부만 채워짐)
+  if (expanded && typeof document !== "undefined") {
+    return createPortal(
+      <div ref={containerRef} className={containerClassName}>
+        {cardBody}
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <div ref={containerRef} className={containerClassName}>
+      {cardBody}
     </div>
   );
 }
