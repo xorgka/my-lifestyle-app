@@ -1,0 +1,235 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  HOME_VIDEO_CATEGORIES,
+  listStorageVideos,
+  type HomeVideoCategoryId,
+} from "@/lib/homeVideos";
+
+const CATEGORY_STORAGE_KEY = "home-video-category";
+
+/** 이전 버전(한글 라벨 저장) 호환 */
+function normalizeStoredCategory(raw: string | null): HomeVideoCategoryId | null {
+  if (!raw) return null;
+  const def = HOME_VIDEO_CATEGORIES.find((c) => c.id === raw || c.label === raw);
+  return def?.id ?? null;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const next = [...arr];
+  for (let i = next.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
+
+type VideoItem = { name: string; url: string };
+type VideosByCategory = Record<HomeVideoCategoryId, VideoItem[]>;
+
+/** 로컬 폴더(public/videos, 로컬 실행 시) + Supabase Storage 목록을 카테고리별로 합침 */
+async function loadAllVideos(): Promise<{ byCategory: VideosByCategory; namesKey: string }> {
+  // 1) 로컬 서버의 public/videos 폴더 (배포 환경에서는 빈 목록)
+  let localByFolder: Record<string, string[]> = {};
+  try {
+    const r = await fetch("/api/videos");
+    if (r.ok) {
+      localByFolder = ((await r.json()) as { categories?: Record<string, string[]> }).categories ?? {};
+    }
+  } catch {
+    // 무시하고 Storage만 사용
+  }
+  const byCategory = {} as VideosByCategory;
+  const names: string[] = [];
+  for (const def of HOME_VIDEO_CATEGORIES) {
+    const items: VideoItem[] = [];
+    for (const url of localByFolder[def.folder] ?? []) {
+      const name = decodeURIComponent(url.split("/").pop() ?? url);
+      items.push({ name, url });
+    }
+    for (const s of await listStorageVideos(def.id)) {
+      // 같은 파일명이 로컬 폴더에도 있으면 로컬 파일 우선 (전송량 절약)
+      if (!items.some((i) => i.name === s.name)) items.push({ name: s.name, url: s.url });
+    }
+    byCategory[def.id] = items;
+    items.forEach((i) => names.push(`${def.id}/${i.name}`));
+  }
+  return { byCategory, namesKey: names.sort().join("|") };
+}
+
+/** 세로(쇼츠) 영상 플레이어 카드. 카테고리 내 랜덤 순서 재생, 끝나면 자동 다음 */
+export function HomeVideoCard({ className = "" }: { className?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videosByCategory, setVideosByCategory] = useState<VideosByCategory | null>(null);
+  const [category, setCategory] = useState<HomeVideoCategoryId>("insight");
+  const [queue, setQueue] = useState<string[]>([]);
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+
+  const namesKeyRef = useRef<string | null>(null);
+
+  const loadList = useCallback(() => {
+    loadAllVideos()
+      .then(({ byCategory, namesKey }) => {
+        // 파일 구성이 그대로면 갱신 생략 → 재생 중 셔플이 다시 일어나지 않음
+        if (namesKey === namesKeyRef.current) return;
+        namesKeyRef.current = namesKey;
+        setVideosByCategory(byCategory);
+      })
+      .catch(() => {
+        setVideosByCategory((prev) => prev ?? ({ insight: [], workout: [], etc: [] } as VideosByCategory));
+      });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = normalizeStoredCategory(window.localStorage.getItem(CATEGORY_STORAGE_KEY));
+      if (stored) setCategory(stored);
+    } catch {
+      // ignore
+    }
+    loadList();
+    // 폴더에 영상을 넣거나 설정에서 업로드하고 돌아오면 자동으로 목록 갱신
+    const onFocus = () => loadList();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 목록 로드 or 카테고리 변경 시 랜덤 순서로 재구성
+  useEffect(() => {
+    if (!videosByCategory) return;
+    setQueue(shuffle((videosByCategory[category] ?? []).map((v) => v.url)));
+    setIndex(0);
+  }, [videosByCategory, category]);
+
+  const src = queue.length > 0 ? queue[index % queue.length] : null;
+
+  // 재생 중에 이전/다음으로 넘기면 새 영상도 이어서 재생
+  useEffect(() => {
+    if (!src || !playing) return;
+    videoRef.current?.play().catch(() => setPlaying(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+
+  const togglePlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play().catch(() => setPlaying(false));
+    } else {
+      video.pause();
+    }
+  }, []);
+
+  const goTo = useCallback(
+    (delta: number) => {
+      if (queue.length === 0) return;
+      setIndex((i) => (i + delta + queue.length) % queue.length);
+    },
+    [queue.length]
+  );
+
+  const selectCategory = (c: HomeVideoCategoryId) => {
+    setCategory(c);
+    try {
+      window.localStorage.setItem(CATEGORY_STORAGE_KEY, c);
+    } catch {
+      // ignore
+    }
+  };
+
+  const categoryLabel = HOME_VIDEO_CATEGORIES.find((c) => c.id === category)?.label ?? category;
+  const controlButton =
+    "flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30";
+
+  return (
+    <div
+      className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-neutral-200/90 bg-neutral-950 shadow-[0_1px_0_0_rgba(255,255,255,0.08)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] ${className}`}
+    >
+      {src ? (
+        <video
+          key={src}
+          ref={videoRef}
+          src={src}
+          playsInline
+          onClick={togglePlay}
+          onEnded={() => goTo(1)}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          className="h-full w-full flex-1 cursor-pointer object-contain"
+        />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <span className="text-3xl" aria-hidden>
+            🎬
+          </span>
+          {videosByCategory === null ? (
+            <p className="text-sm text-neutral-400">영상 목록 불러오는 중…</p>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-neutral-300">‘{categoryLabel}’에 영상이 없어요</p>
+              <p className="text-xs leading-relaxed text-neutral-500">
+                설정 → 홈 화면에서 영상을 업로드하면 자동으로 나와요.
+                <br />
+                (로컬 실행 중이면 public/videos/{categoryLabel} 폴더도 돼요)
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 카테고리 버튼 */}
+      <div className="absolute left-4 top-4 z-10 flex gap-1.5">
+        {HOME_VIDEO_CATEGORIES.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => selectCategory(c.id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+              category === c.id ? "bg-white text-neutral-900" : "bg-white/15 text-white hover:bg-white/30"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 재생 컨트롤 */}
+      {src && (
+        <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-5 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-12">
+          <button type="button" onClick={() => goTo(-1)} className={controlButton} aria-label="이전 영상">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M6 6h2v12H6zM18 6l-8.5 6L18 18V6z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-neutral-900 shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition hover:scale-105"
+            aria-label={playing ? "일시정지" : "재생"}
+          >
+            {playing ? (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
+              </svg>
+            ) : (
+              <svg className="ml-0.5 h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M8 5l11 7-11 7V5z" />
+              </svg>
+            )}
+          </button>
+          <button type="button" onClick={() => goTo(1)} className={controlButton} aria-label="다음 영상">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M16 6h2v12h-2zM6 6l8.5 6L6 18V6z" />
+            </svg>
+          </button>
+          <span className="absolute bottom-4 right-4 text-xs font-medium tabular-nums text-white/70">
+            {(index % queue.length) + 1} / {queue.length}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

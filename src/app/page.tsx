@@ -1,5 +1,5 @@
 import { SectionTitle } from "@/components/ui/SectionTitle";
-import { HomeLayout } from "@/components/home/HomeLayout";
+import { HomeTemplateLayout } from "@/components/home/HomeTemplateLayout";
 import { TodayAlertBar } from "@/components/home/TodayAlertBar";
 
 export default function HomePage() {
@@ -31,7 +31,7 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-4">
         <TodayAlertBar />
-        <HomeLayout template="B" />
+        <HomeTemplateLayout />
       </div>
     </div>
   );

@@ -99,6 +99,13 @@ import {
   type InsightBgSettings,
 } from "@/lib/insightBg";
 import { getWeatherBgSettings, setWeatherBgSettings, type WeatherBgSettings } from "@/lib/weatherBg";
+import {
+  getHomeTemplate,
+  setHomeTemplate,
+  HOME_TEMPLATE_OPTIONS,
+  type HomeTemplateId,
+} from "@/lib/homeTemplate";
+import { HomeVideoStorageManager } from "@/components/home/HomeVideoStorageManager";
 import type { WeatherThemeId } from "@/lib/weather";
 
 function formatDateLabel(dateStr: string): string {
@@ -227,7 +234,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 type Props = { onClose: () => void };
 
-type SettingsTab = "export" | "alertbar" | "popup" | "background" | "shortcuts" | "account";
+type SettingsTab = "export" | "alertbar" | "popup" | "hometemplate" | "background" | "shortcuts" | "account";
 
 type AppBackupPayload = {
   version: 1;
@@ -276,6 +283,9 @@ export function SettingsModal({ onClose }: Props) {
   const [addingNewPopup, setAddingNewPopup] = useState(false);
   const [popupDraft, setPopupDraft] = useState<Partial<PopupConfig> | null>(null);
 
+  // 홈 화면 탭: 템플릿 선택
+  const [homeTemplateId, setHomeTemplateId] = useState<HomeTemplateId>("basic");
+
   // 배경 탭: 투데이 인사이트 + 날씨 박스
   const [bgSettingSubTab, setBgSettingSubTab] = useState<"insight" | "weather">("insight");
   const [insightBgMode, setInsightBgMode] = useState<InsightBgMode>("auto");
@@ -298,6 +308,12 @@ export function SettingsModal({ onClose }: Props) {
     return () => {
       cancelled = true;
     };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "hometemplate") {
+      setHomeTemplateId(getHomeTemplate());
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -357,6 +373,7 @@ export function SettingsModal({ onClose }: Props) {
     { id: "export", label: "내보내기" },
     { id: "alertbar", label: "알림바" },
     { id: "popup", label: "팝업" },
+    { id: "hometemplate", label: "홈 화면" },
     { id: "background", label: "배경" },
     { id: "shortcuts", label: "단축키" },
     { id: "account", label: "계정" },
@@ -617,6 +634,42 @@ export function SettingsModal({ onClose }: Props) {
               </ul>
             </div>
           ))}
+        </section>
+      );
+    }
+    if (activeTab === "hometemplate") {
+      return (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">홈 화면 템플릿</h3>
+          <p className="text-sm text-neutral-500">홈 화면 구성을 선택해요. 선택 즉시 홈에 반영돼요.</p>
+          <div className="space-y-2">
+            {HOME_TEMPLATE_OPTIONS.map((opt) => (
+              <label
+                key={opt.id}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                  homeTemplateId === opt.id
+                    ? "border-neutral-800 bg-neutral-50"
+                    : "border-neutral-200 bg-white hover:bg-neutral-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="homeTemplateSettings"
+                  checked={homeTemplateId === opt.id}
+                  onChange={() => {
+                    setHomeTemplateId(opt.id);
+                    setHomeTemplate(opt.id);
+                  }}
+                  className="mt-0.5 h-4 w-4 border-neutral-300 text-neutral-700"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-neutral-800">{opt.label}</p>
+                  <p className="mt-0.5 text-xs text-neutral-500">{opt.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          {homeTemplateId === "video" && <HomeVideoStorageManager />}
         </section>
       );
     }

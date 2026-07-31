@@ -39,3 +39,8 @@ Thumbs.db
 커서AI/
 *.exe
 *.msi
+
+# 홈 영상 템플릿 로컬 영상 (용량 커서 커밋 제외, 폴더 구조만 유지)
+/public/videos/**
+!/public/videos/**/
+!/public/videos/**/.gitkeep
