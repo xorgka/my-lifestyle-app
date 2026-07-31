@@ -60,6 +60,7 @@ async function loadAllVideos(): Promise<{ byCategory: VideosByCategory; namesKey
 
 /** 세로(쇼츠) 영상 플레이어 카드. 카테고리 내 랜덤 순서 재생, 끝나면 자동 다음 */
 export function HomeVideoCard({ className = "" }: { className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videosByCategory, setVideosByCategory] = useState<VideosByCategory | null>(null);
   const [category, setCategory] = useState<HomeVideoCategoryId>("insight");
@@ -135,6 +136,38 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
     [queue.length]
   );
 
+  /** 전역 단축키: 1 = 재생/정지, 2 = 이전, 3 = 다음. 모바일/데스크톱용 카드가 동시에 마운트되므로
+   * 실제로 화면에 보이는(=display:none이 아닌) 인스턴스만 반응. 입력 필드에 포커스 있을 때는 무시 */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "1" && e.key !== "2" && e.key !== "3") return;
+      const active = document.activeElement;
+      if (
+        active &&
+        (active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement ||
+          (active instanceof HTMLElement && active.isContentEditable))
+      ) {
+        return;
+      }
+      if (!containerRef.current || containerRef.current.offsetParent === null) return;
+      if (e.key === "1") {
+        e.preventDefault();
+        togglePlay();
+        return;
+      }
+      if (e.key === "2") {
+        e.preventDefault();
+        goTo(-1);
+        return;
+      }
+      e.preventDefault();
+      goTo(1);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [togglePlay, goTo]);
+
   const selectCategory = (c: HomeVideoCategoryId) => {
     setCategory(c);
     try {
@@ -150,6 +183,7 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
 
   return (
     <div
+      ref={containerRef}
       className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-neutral-200/90 bg-neutral-950 shadow-[0_1px_0_0_rgba(255,255,255,0.08)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] ${className}`}
     >
       {src ? (

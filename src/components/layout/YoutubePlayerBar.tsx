@@ -239,12 +239,12 @@ export function YoutubePlayerBar() {
 
   const router = useRouter();
 
-  /** 전역 단축키: 0 = 타임테이블, . = 수면관리, 1 = 재생/정지, 2 = 다음. 입력 필드에 포커스 있을 때는 무시 */
+  /** 전역 단축키: 0 = 타임테이블, . = 수면관리, 4 = 재생/정지, 5 = 다음. 입력 필드에 포커스 있을 때는 무시 */
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "0" && e.key !== "." && e.key !== "1" && e.key !== "2") return;
+      if (e.key !== "0" && e.key !== "." && e.key !== "4" && e.key !== "5") return;
       const active = document.activeElement;
       if (
         active &&
@@ -265,7 +265,7 @@ export function YoutubePlayerBar() {
         return;
       }
       if (isEmpty || !current) return;
-      if (e.key === "2") {
+      if (e.key === "5") {
         e.preventDefault();
         goNextRef.current();
         return;
