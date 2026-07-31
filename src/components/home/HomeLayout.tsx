@@ -40,7 +40,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
             <HomeMemoCard />
           </div>
           {sleepRoutineRow}
-          <HomeVideoCard className="min-h-[560px]" />
+          <HomeVideoCard className="h-[560px]" />
         </div>
         <div className="hidden md:grid md:min-h-[820px] md:grid-cols-2 md:gap-6 md:items-stretch">
           <div className="flex min-h-0 min-w-0 flex-col gap-4">
@@ -52,8 +52,8 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
             </div>
             {sleepRoutineRow}
           </div>
-          <div className="flex min-h-0 min-w-0 flex-col">
-            <HomeVideoCard className="flex-1" />
+          <div className="flex min-h-0 min-w-0 flex-col self-start">
+            <HomeVideoCard className="h-[820px]" />
           </div>
         </div>
       </>

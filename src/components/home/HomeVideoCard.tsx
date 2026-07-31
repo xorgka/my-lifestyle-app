@@ -106,10 +106,14 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
 
   const src = queue.length > 0 ? queue[index % queue.length] : null;
 
-  // 재생 중에 이전/다음으로 넘기면 새 영상도 이어서 재생
+  // 영상이 바뀔 때 <video> 엘리먼트는 그대로 두고 소스만 다시 불러옴 (리마운트로 인한 박스 크기 깜빡임 방지)
   useEffect(() => {
-    if (!src || !playing) return;
-    videoRef.current?.play().catch(() => setPlaying(false));
+    const video = videoRef.current;
+    if (!video || !src) return;
+    video.load();
+    if (playing) {
+      video.play().catch(() => setPlaying(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
@@ -150,12 +154,15 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
     >
       {src ? (
         <video
-          key={src}
           ref={videoRef}
           src={src}
           playsInline
           onClick={togglePlay}
-          onEnded={() => goTo(1)}
+          onEnded={() => {
+            // pause 이벤트가 ended보다 먼저 발생해 playing이 false로 바뀌므로, 다음 영상 재생 의도를 다시 표시
+            setPlaying(true);
+            goTo(1);
+          }}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           className="h-full w-full flex-1 cursor-pointer object-contain"
