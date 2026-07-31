@@ -129,10 +129,10 @@ export function WeatherCard() {
               <span className="h-9 w-9 shrink-0 animate-pulse rounded bg-neutral-300/60" aria-hidden />
               <div className="h-12 w-24 animate-pulse rounded bg-neutral-300/60" aria-hidden />
             </div>
-            <div className="mt-3 h-5 w-full max-w-[200px] animate-pulse rounded bg-neutral-300/60" aria-hidden />
+            <div className="mt-3 hidden h-5 w-full max-w-[200px] animate-pulse rounded bg-neutral-300/60 sm:block" aria-hidden />
           </div>
         </div>
-        <div className="relative z-10 mt-7 flex flex-wrap gap-3">
+        <div className="relative z-10 mt-7 hidden flex-wrap gap-3 sm:flex">
           {[1, 2, 3].map((i) => (
             <span key={i} className="h-8 w-20 animate-pulse rounded-full bg-neutral-300/60" aria-hidden />
           ))}
@@ -208,13 +208,13 @@ export function WeatherCard() {
               </div>
             </div>
           </div>
-          <div className={`mt-3 text-[15px] md:text-base ${useCustomBg ? "text-white/95" : "text-slate-700"}`} lang="ko">
+          <div className={`mt-3 hidden text-[15px] sm:block md:text-base ${useCustomBg ? "text-white/95" : "text-slate-700"}`} lang="ko">
             {descriptionBySentences(weather.theme.description)}
           </div>
         </div>
       </div>
 
-      <div className={`relative z-10 mt-7 flex flex-wrap gap-3 text-sm font-medium ${useCustomBg ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.7),0_0_1px_rgba(0,0,0,0.8)]" : "text-neutral-700"}`}>
+      <div className={`relative z-10 mt-7 hidden flex-wrap gap-3 text-sm font-medium sm:flex ${useCustomBg ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.7),0_0_1px_rgba(0,0,0,0.8)]" : "text-neutral-700"}`}>
         <span className={`rounded-full px-3 py-1 ${useCustomBg ? "bg-white/30 ring-1 ring-white/50" : "bg-white/80 ring-1 ring-soft-border/90"}`}>
           🍃<span className="hidden md:inline"> 바람</span> {Number(weather.windSpeed.toFixed(1))} m/s
         </span>

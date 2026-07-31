@@ -33,7 +33,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
     return (
       <>
         <div className="grid grid-cols-1 gap-4 md:hidden">
-          <div className="flex min-h-[240px] min-w-0 flex-col overflow-hidden">
+          <div className="flex min-h-[140px] min-w-0 flex-col overflow-hidden">
             <WeatherCardWrapper />
           </div>
           <div className="flex min-h-0 min-w-0 flex-col">
@@ -62,7 +62,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
 
   return (
     <>
-      <div className="grid min-h-[600px] grid-cols-1 grid-rows-[minmax(240px,auto)_1fr_1fr] gap-4 md:hidden">
+      <div className="grid min-h-[500px] grid-cols-1 grid-rows-[minmax(140px,auto)_1fr_1fr] gap-4 md:hidden">
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <WeatherCardWrapper />
         </div>
