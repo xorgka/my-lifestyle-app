@@ -614,17 +614,15 @@ function ProjectFormModal({
                 className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
               />
             </label>
-            <div className="block">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-500">유입</span>
-                <button
-                  type="button"
-                  onClick={onEditSources}
-                  className="text-xs font-medium text-neutral-400 transition hover:text-neutral-700"
-                >
-                  편집
-                </button>
-              </div>
+            <div className="relative block">
+              <span className="text-xs font-medium text-neutral-500">유입</span>
+              <button
+                type="button"
+                onClick={onEditSources}
+                className="absolute right-0 top-0 text-xs font-medium text-neutral-400 transition hover:text-neutral-700"
+              >
+                편집
+              </button>
               <select
                 {...field("source")}
                 className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
