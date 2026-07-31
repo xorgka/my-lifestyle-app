@@ -22,7 +22,7 @@ export type ProductionRequest = {
   yearMonth: string; // "2026-07"
   requestDate: string; // "2026-07-02"
   clientName: string;
-  source: string; // 유입: 크몽/기존
+  source: string; // 유입: 크몽/기존고객/스레드 등 (옵션 목록은 productionRequestSourcesDb.ts)
   inquiryChannel: string; // 문의 ID
   category: string; // 업종
   amount: number;
@@ -39,8 +39,6 @@ export type ProductionRequest = {
   statusComplete: ProgressStatus;
   sheetRow: number | null;
 };
-
-export const SOURCE_OPTIONS = ["크몽", "기존"] as const;
 
 /** 클릭 시 순환: 해당없음 → 진행중 → 완료 → 해당없음 */
 export function nextProgressStatus(current: ProgressStatus): ProgressStatus {

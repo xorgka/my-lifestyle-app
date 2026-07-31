@@ -11,7 +11,6 @@ import {
   type ProductionRequest,
   type ProgressStatus,
   PROGRESS_STEPS,
-  SOURCE_OPTIONS,
   emptyProductionRequest,
   formatAmount,
   formatKoreanMonthDay,
@@ -32,6 +31,12 @@ import {
   syncProductionRequestToSheet,
   updateProductionRequest,
 } from "@/lib/productionRequestsDb";
+import {
+  type SourceOption,
+  generateSourceOptionId,
+  loadSourceOptions,
+  saveSourceOptions,
+} from "@/lib/productionRequestSourcesDb";
 
 type FormState = {
   requestDate: string;
@@ -140,6 +145,9 @@ export default function ProjectsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ProductionRequest | null>(null);
 
+  const [sourceOptions, setSourceOptions] = useState<SourceOption[]>([]);
+  const [showSourceManager, setShowSourceManager] = useState(false);
+
   const [syncErrorIds, setSyncErrorIds] = useState<Set<string>>(new Set());
 
   const loadMonth = useCallback(async (yearMonth: string) => {
@@ -162,8 +170,15 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     loadDistinctYearMonths().then(setAvailableMonths);
+    loadSourceOptions().then(setSourceOptions);
     loadStats();
   }, [loadStats]);
+
+  const handleSaveSourceOptions = async (list: SourceOption[]) => {
+    setSourceOptions(list);
+    setShowSourceManager(false);
+    await saveSourceOptions(list);
+  };
 
   const monthStats = useMemo(() => groupStatsByMonth(allRequests), [allRequests]);
   const totalAmount = sumAmount(allRequests);
@@ -514,6 +529,8 @@ export default function ProjectsPage() {
           setForm={setForm}
           saving={saving}
           isEdit={editingId != null}
+          sourceOptions={sourceOptions}
+          onEditSources={() => setShowSourceManager(true)}
           onClose={closeModal}
           onSave={handleSave}
           onDelete={
@@ -524,6 +541,14 @@ export default function ProjectsPage() {
                 }
               : undefined
           }
+        />
+      )}
+
+      {showSourceManager && (
+        <SourceManagerModal
+          options={sourceOptions}
+          onClose={() => setShowSourceManager(false)}
+          onSave={handleSaveSourceOptions}
         />
       )}
 
@@ -545,6 +570,8 @@ function ProjectFormModal({
   setForm,
   saving,
   isEdit,
+  sourceOptions,
+  onEditSources,
   onClose,
   onSave,
   onDelete,
@@ -553,6 +580,8 @@ function ProjectFormModal({
   setForm: (updater: (prev: FormState) => FormState) => void;
   saving: boolean;
   isEdit: boolean;
+  sourceOptions: SourceOption[];
+  onEditSources: () => void;
   onClose: () => void;
   onSave: () => void;
   onDelete?: () => void;
@@ -585,34 +614,31 @@ function ProjectFormModal({
                 className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
               />
             </label>
-            <label className="block">
-              <span className="text-xs font-medium text-neutral-500">유입</span>
-              <div className="relative mt-1">
-                <input
-                  type="text"
-                  placeholder="직접 입력"
-                  {...field("source")}
-                  className="block h-[42px] w-full rounded-lg border border-neutral-200 bg-white py-2 pl-3 pr-[108px] text-sm text-neutral-800"
-                />
-                <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 gap-1">
-                  {SOURCE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, source: opt }))}
-                      className={clsx(
-                        "rounded-full px-2.5 py-1 text-xs font-medium transition",
-                        form.source === opt
-                          ? "bg-neutral-900 text-white"
-                          : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
+            <div className="block">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-500">유입</span>
+                <button
+                  type="button"
+                  onClick={onEditSources}
+                  className="text-xs font-medium text-neutral-400 transition hover:text-neutral-700"
+                >
+                  편집
+                </button>
               </div>
-            </label>
+              <select
+                {...field("source")}
+                className="mt-1 block h-[42px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800"
+              >
+                {!sourceOptions.some((o) => o.name === form.source) && (
+                  <option value={form.source}>{form.source || "선택"}</option>
+                )}
+                {sourceOptions.map((o) => (
+                  <option key={o.id} value={o.name}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <label className="block">
             <span className="text-xs font-medium text-neutral-500">클라이언트</span>
@@ -707,6 +733,162 @@ function ProjectFormModal({
             {saving ? "저장 중…" : "저장"}
           </button>
           </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/** 유입 옵션 관리: 추가·삭제·이름 수정·순서 변경 후 저장 시 한 번에 반영 */
+function SourceManagerModal({
+  options,
+  onClose,
+  onSave,
+}: {
+  options: SourceOption[];
+  onClose: () => void;
+  onSave: (list: SourceOption[]) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<SourceOption[]>(() => options.map((o) => ({ ...o })));
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= draft.length) return;
+    const next = [...draft];
+    [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
+    setDraft(next);
+  };
+
+  const rename = (idx: number, name: string) => {
+    setDraft((prev) => prev.map((o, i) => (i === idx ? { ...o, name } : o)));
+  };
+
+  const remove = (idx: number) => {
+    setDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const add = () => {
+    const name = newName.trim();
+    if (!name) return;
+    setDraft((prev) => [...prev, { id: generateSourceOptionId(), name, sortOrder: prev.length }]);
+    setNewName("");
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const list = draft
+        .map((o) => ({ ...o, name: o.name.trim() }))
+        .filter((o) => o.name)
+        .map((o, i) => ({ ...o, sortOrder: i }));
+      await onSave(list);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10000] flex min-h-[100dvh] items-center justify-center bg-black/65 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="my-auto flex max-h-[80dvh] w-full max-w-sm shrink-0 flex-col rounded-2xl bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="mb-4 text-lg font-bold text-neutral-900">유입 항목 편집</h2>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+          {draft.length === 0 ? (
+            <div className="py-6 text-center text-sm text-neutral-400">항목이 없습니다. 아래에서 추가하세요.</div>
+          ) : (
+            draft.map((o, idx) => (
+              <div key={o.id} className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={o.name}
+                  onChange={(e) => rename(idx, e.target.value)}
+                  className="block h-9 w-full min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-800"
+                />
+                <button
+                  type="button"
+                  onClick={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  aria-label="위로"
+                  className="flex h-9 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(idx, 1)}
+                  disabled={idx === draft.length - 1}
+                  aria-label="아래로"
+                  className="flex h-9 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  aria-label="삭제"
+                  className="flex h-9 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-300 transition hover:bg-red-50 hover:text-red-500"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="mt-3 flex items-center gap-1.5">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                add();
+              }
+            }}
+            placeholder="새 항목 이름"
+            className="block h-9 w-full min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-800"
+          />
+          <button
+            type="button"
+            onClick={add}
+            disabled={!newName.trim()}
+            className="h-9 shrink-0 rounded-lg bg-neutral-100 px-3 text-sm font-medium text-neutral-600 transition hover:bg-neutral-200 disabled:opacity-40"
+          >
+            추가
+          </button>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSave}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+          >
+            {saving ? "저장 중…" : "저장"}
+          </button>
         </div>
       </div>
     </div>,
