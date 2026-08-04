@@ -1859,13 +1859,17 @@ placeholder="항목"
                 (s, m) => s + (viewYearByMonthGlance.byMonth[m] ?? 0),
                 0
               );
+              const now = new Date();
+              // 올해면 아직 안 지난 달은 데이터가 없으니 지금까지 지난 달 수로 나눔. 지난 해는 12
+              const monthsElapsed = glanceYear === now.getFullYear() ? now.getMonth() + 1 : 12;
               return (
                 <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-neutral-200 pt-4 text-sm">
                   <span className="text-neutral-600">
                     한해 총 지출: <AmountToggle amount={yearTotal} className="font-semibold" />
                   </span>
                   <span className="text-neutral-600">
-                    월 평균 지출: <AmountToggle amount={Math.round(yearTotal / 12)} className="font-semibold" />
+                    월 평균 지출{monthsElapsed < 12 && ` (${monthsElapsed}개월 기준)`}:{" "}
+                    <AmountToggle amount={Math.round(yearTotal / monthsElapsed)} className="font-semibold" />
                   </span>
                 </div>
               );
