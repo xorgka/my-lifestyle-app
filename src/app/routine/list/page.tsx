@@ -9,28 +9,11 @@ import {
   loadRoutineItems,
   saveRoutineItems,
   loadRoutineCompletions,
-  saveRoutineCompletions,
+  toggleRoutineCompletion,
   type RoutineItem,
 } from "@/lib/routineDb";
 import { loadTimetableRoutineLinks, loadTimetableTemplateLinks, getTimetableItemIdsForRoutineInDay } from "@/lib/timetableRoutineLinks";
 import { loadTimetableForDate, saveTimetableForDate } from "@/lib/timetableDb";
-
-const KEEP_DAILY_MONTHS = 12; // 이 기간만 보관, 그 이전 데이터는 자동 삭제
-
-function getCutoffDateKey(): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - KEEP_DAILY_MONTHS);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function pruneOldCompletions(data: Record<string, number[]>): Record<string, number[]> {
-  const cutoff = getCutoffDateKey();
-  const next: Record<string, number[]> = {};
-  Object.entries(data).forEach(([key, ids]) => {
-    if (key >= cutoff) next[key] = ids;
-  });
-  return next;
-}
 
 const defaultItems: RoutineItem[] = [
   { id: 1, title: "아침 물 한 잔", isImportant: false },
@@ -190,15 +173,6 @@ export default function RoutinePage() {
   }, [routineLoaded, items]);
 
   useEffect(() => {
-    if (!routineLoaded) return;
-    const toSave = pruneOldCompletions(dailyCompletions);
-    saveRoutineCompletions(toSave).catch(console.error);
-    if (Object.keys(toSave).length < Object.keys(dailyCompletions).length) {
-      setDailyCompletions(toSave);
-    }
-  }, [routineLoaded, dailyCompletions]);
-
-  useEffect(() => {
     if (addOpen) {
       const t = setTimeout(() => addInputRef.current?.focus(), 0);
       return () => clearTimeout(t);
@@ -227,6 +201,7 @@ export default function RoutinePage() {
         const next = isCompleted ? list.filter((x) => x !== id) : [...list, id];
         return { ...prev, [dateKey]: next };
       });
+      toggleRoutineCompletion(dateKey, id, newCompleted).catch(console.error);
       if (!isCompleted && dateKey === todayKey) fireConfetti();
       const routineTitle = items.find((i) => i.id === id)?.title;
       loadTimetableForDate(dateKey).then((result) => {
