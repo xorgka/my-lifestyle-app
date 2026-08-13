@@ -13,7 +13,7 @@ import { loadScheduleEntries, getTodayCount } from "@/lib/scheduleDb";
 const menuItems = [
   { href: "/", label: "홈" },
   { href: "/schedule", label: "스케줄", badge: true },
-  { href: "/routine", label: "루틴" },
+  { href: "/routine/list", label: "루틴", activePrefixes: ["/routine"] },
   { href: "/memo", label: "노트", activePrefixes: ["/memo", "/journal"] },
   { href: "/projects", label: "프로젝트" },
   { href: "/youtube", label: "유튜브", exact: true },

@@ -278,8 +278,8 @@ export default function SleepPage() {
       <SectionTitle
         title="수면"
         siblings={[
-          { label: "일과", href: "/routine", active: false },
           { label: "루틴", href: "/routine/list", active: false },
+          { label: "일과", href: "/routine", active: false },
           { label: "수면", href: "/routine/sleep", active: true },
         ]}
       />

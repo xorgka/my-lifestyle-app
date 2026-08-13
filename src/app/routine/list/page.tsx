@@ -534,8 +534,8 @@ export default function RoutinePage() {
         title="루틴"
         subtitle="체크할수록 폭죽처럼 터지는, 오늘의 작은 승리들."
         siblings={[
-          { label: "일과", href: "/routine", active: false },
           { label: "루틴", href: "/routine/list", active: true },
+          { label: "일과", href: "/routine", active: false },
           { label: "수면", href: "/routine/sleep", active: false },
         ]}
       />

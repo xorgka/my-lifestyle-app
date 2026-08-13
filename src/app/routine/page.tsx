@@ -541,8 +541,8 @@ export default function TimetablePage() {
       <SectionTitle
         title="일과"
         siblings={[
-          { label: "일과", href: "/routine", active: true },
           { label: "루틴", href: "/routine/list", active: false },
+          { label: "일과", href: "/routine", active: true },
           { label: "수면", href: "/routine/sleep", active: false },
         ]}
       />
