@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { loadSetting, saveSetting, USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
 const STORAGE_KEY = "my-lifestyle-snippets";
 
@@ -13,20 +14,12 @@ const DEFAULT_SNIPPETS: Snippet[] = [
 ];
 
 function loadSnippets(): Snippet[] {
-  if (typeof window === "undefined") return DEFAULT_SNIPPETS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SNIPPETS;
-    const parsed = JSON.parse(raw) as Snippet[];
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SNIPPETS;
-  } catch {
-    return DEFAULT_SNIPPETS;
-  }
+  const parsed = loadSetting<Snippet[]>(STORAGE_KEY, DEFAULT_SNIPPETS);
+  return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SNIPPETS;
 }
 
 function saveSnippets(items: Snippet[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  saveSetting(STORAGE_KEY, items);
 }
 
 interface SnippetsModalProps {
@@ -43,13 +36,25 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
   const [newText, setNewText] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  /** 첫 로드 전에는 저장하지 않는다 (빈 목록이 서버로 올라가는 것 방지) */
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
     setSnippets(loadSnippets());
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
+    if (!loaded) return;
     saveSnippets(snippets);
-  }, [snippets]);
+  }, [snippets, loaded]);
+
+  // 다른 기기에서 바꾼 내용이 동기화되면 목록을 다시 읽는다
+  useEffect(() => {
+    const onSync = () => setSnippets(loadSnippets());
+    window.addEventListener(USER_SETTINGS_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(USER_SETTINGS_SYNC_EVENT, onSync);
+  }, []);
 
   const handleCopy = async (item: Snippet) => {
     try {

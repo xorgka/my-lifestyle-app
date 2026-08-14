@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "./supabase";
+import { loadSetting, saveSetting } from "./userSettings";
 
 export type MemoCategory = {
   id: string;
@@ -132,14 +133,9 @@ export function generateMemoCategoryId(): string {
 }
 
 export function getSelectedMemoCategoryId(): string {
-  if (typeof window === "undefined") return getDefaultMemoCategoryId();
-  try {
-    const id = window.localStorage.getItem(SELECTED_CATEGORY_KEY);
-    if (!id || id === MEMO_CATEGORY_ALL_ID) return getDefaultMemoCategoryId();
-    return id;
-  } catch {
-    return getDefaultMemoCategoryId();
-  }
+  const id = loadSetting<string>(SELECTED_CATEGORY_KEY, "");
+  if (!id || id === MEMO_CATEGORY_ALL_ID) return getDefaultMemoCategoryId();
+  return id;
 }
 
 /** 저장된 선택 id가 유효한지 보정 (없는 카테고리·옛 「전체」) */
@@ -155,10 +151,5 @@ export function resolveSelectedMemoCategoryId(
 }
 
 export function setSelectedMemoCategoryId(id: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(SELECTED_CATEGORY_KEY, id);
-  } catch {
-    /* ignore */
-  }
+  saveSetting(SELECTED_CATEGORY_KEY, id);
 }

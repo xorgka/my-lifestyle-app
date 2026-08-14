@@ -5,6 +5,7 @@ import Link from "next/link";
 import { loadSystemInsights } from "@/lib/insights";
 import { loadInsightEntries } from "@/lib/insightDb";
 import { resolveInsightTag } from "@/lib/insightTags";
+import { loadSetting, saveSetting } from "@/lib/userSettings";
 
 /** 명언 한 편: 줄바꿈(\n) = 의미·문장 단위, author = 인물명 */
 export type QuoteEntry = { quote: string; author: string };
@@ -56,21 +57,11 @@ function getQuoteSegments(text: string): QuoteSegment[] {
 const FAVORITES_KEY = "my-lifestyle-insights-favorites";
 
 function loadFavorites(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = window.localStorage.getItem(FAVORITES_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw) as string[];
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
-  }
+  const arr = loadSetting<string[]>(FAVORITES_KEY, []);
+  return new Set(Array.isArray(arr) ? arr : []);
 }
 function saveFavorites(set: Set<string>) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify([...set]));
-  } catch {}
+  saveSetting(FAVORITES_KEY, [...set]);
 }
 
 /** 추천 명언 – 의미·문장 단위 줄바꿈(\n), author 필드 유지. 설정 화면에서 수정·삭제 가능 */

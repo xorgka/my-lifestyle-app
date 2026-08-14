@@ -1,8 +1,10 @@
 /**
- * 홈 화면 템플릿 설정 (localStorage)
+ * 홈 화면 템플릿 설정 (기기 간 동기화)
  * - basic: 현재 디자인 (날씨/메모/투데이 인사이트 + 수면/루틴/현재 할일)
  * - video: 투데이 인사이트·현재 할일 대신 세로 영상 플레이어
  */
+
+import { loadSetting, saveSetting } from "./userSettings";
 
 const HOME_TEMPLATE_KEY = "home-template";
 
@@ -24,22 +26,11 @@ export const HOME_TEMPLATE_OPTIONS: { id: HomeTemplateId; label: string; descrip
 ];
 
 export function getHomeTemplate(): HomeTemplateId {
-  if (typeof window === "undefined") return "basic";
-  try {
-    const raw = window.localStorage.getItem(HOME_TEMPLATE_KEY);
-    if (raw === "video") return "video";
-  } catch {
-    // ignore
-  }
-  return "basic";
+  return loadSetting<string>(HOME_TEMPLATE_KEY, "basic") === "video" ? "video" : "basic";
 }
 
 export function setHomeTemplate(id: HomeTemplateId): void {
   if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(HOME_TEMPLATE_KEY, id);
-    window.dispatchEvent(new CustomEvent(HOME_TEMPLATE_CHANGED_EVENT));
-  } catch {
-    // ignore
-  }
+  saveSetting(HOME_TEMPLATE_KEY, id);
+  window.dispatchEvent(new CustomEvent(HOME_TEMPLATE_CHANGED_EVENT));
 }

@@ -2,6 +2,7 @@
 
 import { useId, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { loadSetting, saveSetting, USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -223,12 +224,10 @@ export function RoutineCard({
   const canToggle = hasCount && routineTotal > 0;
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("home-routine-display-percent");
-      if (stored === "true") setShowPercent(true);
-    } catch {
-      // ignore
-    }
+    const read = () => setShowPercent(loadSetting<boolean>("home-routine-display-percent", false) === true);
+    read();
+    window.addEventListener(USER_SETTINGS_SYNC_EVENT, read);
+    return () => window.removeEventListener(USER_SETTINGS_SYNC_EVENT, read);
   }, []);
 
   const handleNumberClick = (e: React.MouseEvent) => {
@@ -237,11 +236,7 @@ export function RoutineCard({
     e.stopPropagation();
     setShowPercent((p) => {
       const next = !p;
-      try {
-        localStorage.setItem("home-routine-display-percent", next ? "true" : "false");
-      } catch {
-        // ignore
-      }
+      saveSetting("home-routine-display-percent", next);
       return next;
     });
   };

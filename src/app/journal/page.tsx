@@ -8,6 +8,7 @@ import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { SiblingTitle } from "@/components/ui/SiblingTitle";
 import { localDateStr } from "@/lib/dateUtil";
+import { loadSetting, saveSetting } from "@/lib/userSettings";
 import {
   type JournalEntry,
   loadJournalEntries,
@@ -33,13 +34,11 @@ async function hashPin(pin: string): Promise<string> {
 }
 
 function getStoredPinHash(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(JOURNAL_SECRET_PIN_HASH);
+  return loadSetting<string | null>(JOURNAL_SECRET_PIN_HASH, null) || null;
 }
 
 function setStoredPinHash(hash: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(JOURNAL_SECRET_PIN_HASH, hash);
+  saveSetting(JOURNAL_SECRET_PIN_HASH, hash);
 }
 
 function isSecretUnlocked(): boolean {

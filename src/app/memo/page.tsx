@@ -35,6 +35,7 @@ import {
   setSelectedMemoCategoryId,
   MEMO_CATEGORY_TRASH_ID,
   getDefaultMemoCategoryId,
+  getSelectedMemoCategoryId,
   resolveSelectedMemoCategoryId,
   sortMemoCategories,
   moveMemoCategoryOrder,
@@ -123,14 +124,7 @@ export default function MemoPage() {
     load();
     loadMemoCategories().then((cats) => {
       let list = sortMemoCategories(cats);
-      let stored = getDefaultMemoCategoryId();
-      if (typeof window !== "undefined") {
-        try {
-          stored = window.localStorage.getItem("memo-selected-category-id") ?? stored;
-        } catch {
-          /* ignore */
-        }
-      }
+      const stored = getSelectedMemoCategoryId();
       const resolved = resolveSelectedMemoCategoryId(
         stored,
         list.map((c) => c.id)

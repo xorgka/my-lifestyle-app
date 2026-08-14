@@ -23,6 +23,7 @@ import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPo
 import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
 import { syncAlertBarSettingsFromSupabase } from "@/lib/alertBarSettings";
+import { syncUserSettingsFromSupabase } from "@/lib/userSettings";
 import { syncInsightBgFromSupabase } from "@/lib/insightBg";
 import { syncWeatherBgFromSupabase } from "@/lib/weatherBg";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -63,6 +64,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       syncAlertBarSettingsFromSupabase(),
       syncWeatherBgFromSupabase(),
       syncInsightBgFromSupabase(),
+      syncUserSettingsFromSupabase(),
     ]).then(() => setPopupConfigVersion((v) => v + 1));
   }, []);
 
