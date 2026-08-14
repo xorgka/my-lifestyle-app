@@ -17,6 +17,7 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { RECOMMENDED_INSIGHTS } from "@/components/home/TodayInsightHero";
 import { loadSystemInsights, saveSystemInsights, type QuoteEntry } from "@/lib/insights";
+import { resolveInsightTag, withExplicitTag, INSIGHT_TAGS, type InsightTag } from "@/lib/insightTags";
 type InsightTab = "mine" | "system";
 
 /** 문장 입력용: 내용에 따라 높이 자동 확장 */
@@ -54,9 +55,10 @@ function AutoResizeQuoteTextarea({
 }
 
 /** 기본 문장 탭 통합 목록: 내가 저장한 문장(user) + 시스템 기본(system) */
+/** text/quote는 편집용 원문, body는 #태그를 뗀 표시용 본문 */
 type UnifiedItem =
-  | { type: "user"; id: string; text: string; author?: string; createdAt: string }
-  | { type: "system"; index: number; quote: string; author: string };
+  | { type: "user"; id: string; text: string; author?: string; createdAt: string; tag: InsightTag; body: string }
+  | { type: "system"; index: number; quote: string; author: string; tag: InsightTag; body: string };
 
 function InsightPageContent() {
   const searchParams = useSearchParams();
@@ -73,22 +75,13 @@ function InsightPageContent() {
   /** 기본 문장 탭 */
   const [systemList, setSystemList] = useState<QuoteEntry[]>([]);
   const [systemSearchQuery, setSystemSearchQuery] = useState("");
-  const [systemFilterYear, setSystemFilterYear] = useState<number | "all">("all");
-  const [systemFilterMonth, setSystemFilterMonth] = useState<number | "all">("all");
+  /** 태그 칩 필터 ("all" = 전체) */
+  const [systemFilterTag, setSystemFilterTag] = useState<InsightTag | "all">("all");
   const [systemPage, setSystemPage] = useState(1);
   const [systemViewer, setSystemViewer] = useState<{ list: UnifiedItem[]; index: number } | null>(null);
   const [systemIsAdding, setSystemIsAdding] = useState(false);
   const [systemEditQuote, setSystemEditQuote] = useState("");
   const [systemEditAuthor, setSystemEditAuthor] = useState("");
-  const [isNarrowView, setIsNarrowView] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsNarrowView(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   const refetchInsights = () => {
     setInsightLoading(true);
@@ -125,45 +118,62 @@ function InsightPageContent() {
     [insights]
   );
 
-  /** 등록 연도 목록 (내가 저장한 문장 기준) */
-  const systemFilterYears = useMemo(() => {
-    const years = new Set(insights.map((e) => new Date(e.createdAt).getFullYear()));
-    return Array.from(years).sort((a, b) => b - a);
-  }, [insights]);
+  /** 기본 문장 탭 전체 목록: 내가 저장한 문장(최신순) + 시스템 기본 문장. 각 항목에 태그를 계산해 붙인다 */
+  const systemAllItems = useMemo<UnifiedItem[]>(() => {
+    const userItems: UnifiedItem[] = sortedInsights.map((e) => {
+      const resolved = resolveInsightTag(e.text, e.author);
+      return {
+        type: "user" as const,
+        id: e.id,
+        text: e.text,
+        author: e.author,
+        createdAt: e.createdAt,
+        tag: resolved.tag,
+        body: resolved.body,
+      };
+    });
+    const systemItems: UnifiedItem[] = systemList.map((item, i) => {
+      const resolved = resolveInsightTag(item.quote, item.author);
+      return {
+        type: "system" as const,
+        index: i,
+        quote: item.quote,
+        author: item.author,
+        tag: resolved.tag,
+        body: resolved.body,
+      };
+    });
+    return [...userItems, ...systemItems];
+  }, [sortedInsights, systemList]);
 
-  /** 기본 문장 탭: 내가 저장한 문장(최신순) + 시스템 기본 문장. 연/월 필터 시 해당 월 등록분만 */
+  /** 태그 칩에 띄울 개수 (검색어가 있으면 검색 결과 기준) */
+  const systemTagCounts = useMemo(() => {
+    const q = systemSearchQuery.trim().toLowerCase();
+    const base = q
+      ? systemAllItems.filter(
+          (item) =>
+            item.body.toLowerCase().includes(q) || (item.author ?? "").toLowerCase().includes(q)
+        )
+      : systemAllItems;
+    const counts = new Map<InsightTag, number>();
+    for (const item of base) counts.set(item.tag, (counts.get(item.tag) ?? 0) + 1);
+    return { counts, total: base.length };
+  }, [systemAllItems, systemSearchQuery]);
+
+  /** 태그 + 검색어를 적용한 최종 목록 */
   const systemFilteredWithIndex = useMemo(() => {
     const q = systemSearchQuery.trim().toLowerCase();
-    const userItems: UnifiedItem[] = sortedInsights.map((e) => ({
-      type: "user" as const,
-      id: e.id,
-      text: e.text,
-      author: e.author,
-      createdAt: e.createdAt,
-    }));
-    const systemItems: UnifiedItem[] = systemList.map((item, i) => ({
-      type: "system" as const,
-      index: i,
-      quote: item.quote,
-      author: item.author,
-    }));
-    let combined: UnifiedItem[] = [...userItems, ...systemItems];
-    if (systemFilterYear !== "all" && systemFilterMonth !== "all") {
-      combined = combined.filter((item) => {
-        if (item.type !== "user") return false;
-        const d = new Date(item.createdAt);
-        return d.getFullYear() === systemFilterYear && d.getMonth() + 1 === systemFilterMonth;
-      });
+    let combined = systemAllItems;
+    if (systemFilterTag !== "all") {
+      combined = combined.filter((item) => item.tag === systemFilterTag);
     }
     if (q) {
-      combined = combined.filter((item) => {
-        if (item.type === "user")
-          return item.text.toLowerCase().includes(q) || (item.author ?? "").toLowerCase().includes(q);
-        return item.quote.toLowerCase().includes(q) || item.author.toLowerCase().includes(q);
-      });
+      combined = combined.filter(
+        (item) => item.body.toLowerCase().includes(q) || (item.author ?? "").toLowerCase().includes(q)
+      );
     }
     return combined;
-  }, [systemList, systemSearchQuery, sortedInsights, systemFilterYear, systemFilterMonth]);
+  }, [systemAllItems, systemSearchQuery, systemFilterTag]);
 
   const SYSTEM_PER_PAGE = 10;
   const systemTotalPages = Math.max(1, Math.ceil(systemFilteredWithIndex.length / SYSTEM_PER_PAGE));
@@ -178,11 +188,17 @@ function InsightPageContent() {
 
   useEffect(() => {
     setSystemPage(1);
-  }, [systemSearchQuery, systemFilterYear, systemFilterMonth]);
+  }, [systemSearchQuery, systemFilterTag]);
 
   useEffect(() => {
     if (systemPage > systemTotalPages) setSystemPage(Math.max(1, systemTotalPages));
   }, [systemPage, systemTotalPages]);
+
+  /** 모달에서 문장을 넘기다 페이지 경계를 지나면 뒤에 있는 목록도 같은 위치로 따라간다 */
+  useEffect(() => {
+    if (!systemViewer) return;
+    setSystemPage(Math.floor(systemViewer.index / SYSTEM_PER_PAGE) + 1);
+  }, [systemViewer]);
 
   /** 편집 중인 항목: 시스템 인덱스 또는 user id */
   const [editingUnified, setEditingUnified] = useState<{ type: "system"; index: number } | { type: "user"; id: string } | null>(null);
@@ -211,6 +227,36 @@ function InsightPageContent() {
       }
       setEditingUnified(null);
     }
+  };
+
+  /** 편집·추가 폼용 태그 선택 줄. 고르면 문장 끝에 #태그가 붙고, 다시 누르면 떨어진다 */
+  const renderTagPicker = () => {
+    const resolved = resolveInsightTag(systemEditQuote);
+    const picked = resolved.explicit ? resolved.tag : null;
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {INSIGHT_TAGS.map((tag) => {
+          const active = picked === tag;
+          return (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setSystemEditQuote((prev) => withExplicitTag(prev, active ? null : tag))}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                active
+                  ? "bg-neutral-900 text-white"
+                  : "border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-50"
+              }`}
+            >
+              #{tag}
+            </button>
+          );
+        })}
+        <span className="text-xs text-neutral-400">
+          {picked ? "문장 끝에 #태그로 저장돼요" : `안 고르면 자동 분류 (#${resolved.tag})`}
+        </span>
+      </div>
+    );
   };
 
   const systemCancelAddOrEdit = () => {
@@ -274,8 +320,8 @@ function InsightPageContent() {
           </span>
         </div>
         {insightTab === "system" && (
-          <div className="flex w-full items-center gap-2">
-            <div className="relative flex min-w-0 flex-[2.2] md:max-w-[12rem] md:flex-initial md:w-44">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative flex min-w-0 flex-1 sm:w-64 sm:flex-initial md:w-72">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" aria-hidden>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -301,26 +347,6 @@ function InsightPageContent() {
                 </button>
               )}
             </div>
-            <select
-              value={systemFilterYear === "all" ? "all" : systemFilterYear}
-              onChange={(e) => setSystemFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="min-w-0 flex-[0.8] rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:flex-initial md:px-2.5"
-            >
-              <option value="all">{isNarrowView ? "연도" : "연도 전체"}</option>
-              {systemFilterYears.map((y) => (
-                <option key={y} value={y}>{y}년</option>
-              ))}
-            </select>
-            <select
-              value={systemFilterMonth === "all" ? "all" : systemFilterMonth}
-              onChange={(e) => setSystemFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="min-w-0 flex-[0.8] rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-800 md:flex-initial md:px-2.5"
-            >
-              <option value="all">{isNarrowView ? "월" : "월 전체"}</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <option key={m} value={m}>{m}월</option>
-              ))}
-            </select>
           </div>
         )}
       </div>
@@ -330,7 +356,7 @@ function InsightPageContent() {
           <Card className="min-w-0 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-base text-neutral-500">
-                총 {systemFilteredWithIndex.length}개 문장{systemSearchQuery.trim() ? ` (검색)` : ""}{systemFilterYear !== "all" || systemFilterMonth !== "all" ? " (필터 적용)" : ""}.
+                총 {systemFilteredWithIndex.length}개 문장{systemSearchQuery.trim() ? " (검색)" : ""}{systemFilterTag !== "all" ? ` (#${systemFilterTag})` : ""}.
               </p>
               <button
                 type="button"
@@ -346,6 +372,41 @@ function InsightPageContent() {
                 + 문장 추가
               </button>
             </div>
+
+            {/* 태그 칩: 문장 내용으로 자동 분류된 묶음별 보기 */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSystemFilterTag("all")}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  systemFilterTag === "all"
+                    ? "bg-neutral-900 text-white"
+                    : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                }`}
+              >
+                전체 {systemTagCounts.total}
+              </button>
+              {INSIGHT_TAGS.map((tag) => {
+                const count = systemTagCounts.counts.get(tag) ?? 0;
+                if (count === 0) return null;
+                const active = systemFilterTag === tag;
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setSystemFilterTag(active ? "all" : tag)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                      active
+                        ? "bg-neutral-900 text-white"
+                        : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                    }`}
+                  >
+                    #{tag} {count}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="max-h-[70vh] min-w-0 space-y-3 overflow-y-auto">
               {systemIsAdding && (
                 <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 p-4">
@@ -363,6 +424,7 @@ function InsightPageContent() {
                       className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
                       placeholder="출처(인물명)"
                     />
+                    {renderTagPicker()}
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -387,9 +449,12 @@ function InsightPageContent() {
                   !systemIsAdding &&
                   ((item.type === "user" && editingUnified?.type === "user" && editingUnified.id === item.id) ||
                     (item.type === "system" && editingUnified?.type === "system" && editingUnified.index === item.index));
+                /** 편집 폼에 넣을 원문 (#태그 포함) */
                 const text = item.type === "user" ? item.text : item.quote;
                 const author = item.type === "user" ? item.author ?? "" : item.author;
                 const key = item.type === "user" ? `user-${item.id}` : `system-${item.index}`;
+                /** 모달은 페이지가 아니라 필터된 전체 목록을 이어 보므로 전체 기준 위치가 필요하다 */
+                const openIndex = (systemPage - 1) * SYSTEM_PER_PAGE + listIndex;
                 return (
                   <div
                     key={key}
@@ -398,7 +463,7 @@ function InsightPageContent() {
                     onClick={
                       isEditing
                         ? undefined
-                        : () => setSystemViewer({ list: systemPaginatedList, index: listIndex })
+                        : () => setSystemViewer({ list: systemFilteredWithIndex, index: openIndex })
                     }
                     onKeyDown={
                       isEditing
@@ -406,7 +471,7 @@ function InsightPageContent() {
                         : (e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
-                              setSystemViewer({ list: systemPaginatedList, index: listIndex });
+                              setSystemViewer({ list: systemFilteredWithIndex, index: openIndex });
                             }
                           }
                     }
@@ -427,6 +492,7 @@ function InsightPageContent() {
                           className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900"
                           placeholder="출처(인물명)"
                         />
+                        {renderTagPicker()}
                         <div className="flex gap-2">
                           <button
                             type="button"
@@ -478,14 +544,27 @@ function InsightPageContent() {
                         </div>
                         <div className="min-w-0 flex-1 pl-3 sm:order-1">
                           <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-neutral-800 md:text-lg">
-                            {text}
+                            {item.body}
                           </p>
                           {author && (
                             <p className="mt-1 text-sm text-neutral-500">— {author}</p>
                           )}
-                          {item.type === "user" && (
-                            <p className="mt-1 text-xs text-neutral-400">{formatDate(item.createdAt)}</p>
-                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSystemFilterTag((prev) => (prev === item.tag ? "all" : item.tag));
+                              }}
+                              className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700"
+                              title={`#${item.tag} 문장만 보기`}
+                            >
+                              #{item.tag}
+                            </button>
+                            {item.type === "user" && (
+                              <span className="text-xs text-neutral-400">{formatDate(item.createdAt)}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -561,7 +640,7 @@ function InsightPageContent() {
         createPortal(
           (() => {
             const item = systemViewer.list[systemViewer.index];
-            const modalText = item ? (item.type === "user" ? item.text : item.quote) : "";
+            const modalText = item ? item.body : "";
             const modalAuthor = item ? (item.type === "user" ? item.author : item.author) : "";
             const modalDate = item?.type === "user" ? formatDate(item.createdAt) : null;
             return (
@@ -598,11 +677,19 @@ function InsightPageContent() {
                         <p className="mt-3 text-base text-neutral-500">— {modalAuthor}</p>
                       )}
                     </div>
-                    {modalDate && (
-                      <div className="shrink-0 border-t border-neutral-100 px-8 py-3 sm:px-12">
-                        <span className="text-sm text-neutral-500">{modalDate}</span>
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-neutral-100 px-8 py-3 sm:px-12">
+                      <div className="flex items-center gap-2">
+                        {item && (
+                          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500">
+                            #{item.tag}
+                          </span>
+                        )}
+                        {modalDate && <span className="text-sm text-neutral-500">{modalDate}</span>}
                       </div>
-                    )}
+                      <span className="text-xs text-neutral-400">
+                        {systemViewer.index + 1} / {systemViewer.list.length}
+                      </span>
+                    </div>
                   </div>
 
                   <button

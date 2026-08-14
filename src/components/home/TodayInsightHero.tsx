@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadSystemInsights } from "@/lib/insights";
 import { loadInsightEntries } from "@/lib/insightDb";
+import { resolveInsightTag } from "@/lib/insightTags";
 
 /** 명언 한 편: 줄바꿈(\n) = 의미·문장 단위, author = 인물명 */
 export type QuoteEntry = { quote: string; author: string };
@@ -414,9 +415,12 @@ function loadManagedQuotes(): Promise<QuoteEntry[]> {
     loadInsightEntries().then((r) =>
       r.entries
         .filter((e) => e.text?.trim())
-        .map((e) => ({ quote: e.text.trim(), author: e.author ?? "" }))
+        // 분류용으로 적어둔 #태그는 화면에 그대로 내보내지 않는다
+        .map((e) => ({ quote: resolveInsightTag(e.text, e.author).body, author: e.author ?? "" }))
     ),
-    loadSystemInsights(RECOMMENDED_INSIGHTS),
+    loadSystemInsights(RECOMMENDED_INSIGHTS).then((list) =>
+      list.map((item) => ({ ...item, quote: resolveInsightTag(item.quote, item.author).body }))
+    ),
   ]).then(([user, system]) => [...user, ...system]);
 }
 
