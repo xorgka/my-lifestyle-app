@@ -1763,7 +1763,10 @@ export default function JournalPage() {
                           <button
                             key={d}
                             type="button"
-                            onClick={() => setSelectedDate(d)}
+                            onClick={() => {
+                              setSelectedDate(d);
+                              setDrawerOpen(false);
+                            }}
                             className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
                           >
                             {d}

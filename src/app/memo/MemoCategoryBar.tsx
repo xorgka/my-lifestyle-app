@@ -69,7 +69,7 @@ export function MemoCategoryBar({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3 pt-1 pl-3 pr-3 sm:pl-4 sm:pr-4 md:pl-6 md:pr-6">
-      <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-2" aria-label="메모 카테고리">
+      <nav className="scrollbar-hide flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto" aria-label="메모 카테고리">
         {categories.map((c) => (
           <button
             key={c.id}
@@ -77,7 +77,7 @@ export function MemoCategoryBar({
             onClick={() => onSelect(c.id)}
             onContextMenu={(e) => openContextMenu(e, c.id)}
             title="우클릭: 이름·순서·삭제"
-            className={`min-h-[40px] max-w-[10rem] truncate rounded-lg px-3 py-2 text-sm font-medium transition sm:min-h-0 ${
+            className={`min-h-[40px] max-w-[10rem] shrink-0 truncate rounded-lg px-3 py-2 text-sm font-medium transition sm:min-h-0 ${
               selectedId === c.id
                 ? "bg-neutral-800 text-white"
                 : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
