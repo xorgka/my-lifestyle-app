@@ -16,6 +16,7 @@ import {
   deleteJournalEntry,
   loadJournalDraftsFromSupabase,
   saveJournalDraftToSupabase,
+  draftKey,
 } from "@/lib/journal";
 import { addInsightEntry } from "@/lib/insightDb";
 
@@ -72,12 +73,13 @@ function loadDrafts(): Record<string, DraftSnapshot> {
     return {};
   }
 }
-function saveDraft(date: string, snapshot: DraftSnapshot | null): void {
+/** key는 draftKey(date, seq) — 날짜별 여러 편을 구분 */
+function saveDraft(key: string, snapshot: DraftSnapshot | null): void {
   if (typeof window === "undefined") return;
   try {
     const all = loadDrafts();
-    if (snapshot) all[date] = snapshot;
-    else delete all[date];
+    if (snapshot) all[key] = snapshot;
+    else delete all[key];
     window.localStorage.setItem(DRAFT_KEY, JSON.stringify(all));
   } catch {}
 }
@@ -177,6 +179,8 @@ export default function JournalPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr());
+  /** 같은 날짜 안에서 보고 있는 글 번호 (1부터). 날짜를 옮기면 항상 1로 초기화 */
+  const [selectedSeq, setSelectedSeq] = useState(1);
   const [draft, setDraft] = useState("");
   const [draftImportant, setDraftImportant] = useState(false);
   const [draftSecret, setDraftSecret] = useState(false);
@@ -252,7 +256,7 @@ export default function JournalPage() {
       const list = await loadJournalEntries();
       setEntries(list);
       const drafts = await loadJournalDraftsFromSupabase();
-      Object.entries(drafts).forEach(([date, snap]) => saveDraft(date, snap));
+      Object.entries(drafts).forEach(([key, snap]) => saveDraft(key, snap));
       setDraftsSyncedFromSupabase(true);
     } finally {
       setJournalLoading(false);
@@ -282,13 +286,31 @@ export default function JournalPage() {
     return () => document.removeEventListener("mousedown", close, true);
   }, [yearDropdownOpen]);
 
-  const entryForDate = entries.find((e) => e.date === selectedDate);
+  /** 선택한 날짜에 저장된 모든 글 (seq 오름차순) */
+  const entriesForSelectedDate = entries
+    .filter((e) => e.date === selectedDate)
+    .sort((a, b) => a.seq - b.seq);
+  const entryForDate = entriesForSelectedDate.find((e) => e.seq === selectedSeq);
   const currentContent = entryForDate?.content ?? "";
   const isToday = selectedDate === todayStr();
+  /** 아직 저장 안 된 새 글 슬롯(“+”로 열어 쓰는 중)인지 */
+  const isNewEntrySlot = !entryForDate;
+  const draftHasContent = draft.trim().length > 0 || draftImportant || draftSecret;
+  /** 우측 상단 번호 탭: 저장된 글 + (작성 중인 새 글이 있으면 그것도 끝에) */
+  const entryTabs = isNewEntrySlot && draftHasContent
+    ? [...entriesForSelectedDate.map((e) => e.seq), selectedSeq]
+    : entriesForSelectedDate.map((e) => e.seq);
+
+  const startNewEntry = () => {
+    const maxSeq = entriesForSelectedDate.length > 0 ? entriesForSelectedDate[entriesForSelectedDate.length - 1].seq : 0;
+    setSelectedSeq(maxSeq + 1);
+    setViewMode("write");
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
 
   useEffect(() => {
     const drafts = loadDrafts();
-    const savedDraft = drafts[selectedDate];
+    const savedDraft = drafts[draftKey(selectedDate, selectedSeq)];
     if (savedDraft) {
       setDraft(savedDraft.content);
       setDraftImportant(savedDraft.important);
@@ -298,7 +320,7 @@ export default function JournalPage() {
       setDraftImportant(entryForDate?.important ?? false);
       setDraftSecret(entryForDate?.secret ?? false);
     }
-  }, [selectedDate, currentContent, entryForDate?.important, entryForDate?.secret, draftsSyncedFromSupabase]);
+  }, [selectedDate, selectedSeq, currentContent, entryForDate?.important, entryForDate?.secret, draftsSyncedFromSupabase]);
 
   useEffect(() => {
     if (currentContent === draft && (entryForDate?.important ?? false) === draftImportant && (entryForDate?.secret ?? false) === draftSecret) {
@@ -307,41 +329,44 @@ export default function JournalPage() {
     }
     setDraftSaveStatus("pending");
     const t = setTimeout(() => {
+      const key = draftKey(selectedDate, selectedSeq);
       if (draft.trim() || draftImportant || draftSecret) {
         const snap = { content: draft, important: draftImportant, secret: draftSecret };
-        saveDraft(selectedDate, snap);
-        saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
+        saveDraft(key, snap);
+        saveJournalDraftToSupabase(selectedDate, selectedSeq, snap).catch(() => {});
       } else {
-        saveDraft(selectedDate, null);
-        saveJournalDraftToSupabase(selectedDate, null).catch(() => {});
+        saveDraft(key, null);
+        saveJournalDraftToSupabase(selectedDate, selectedSeq, null).catch(() => {});
       }
       setDraftSaveStatus("saved");
       setTimeout(() => setDraftSaveStatus("idle"), 1500);
     }, 2000);
     return () => clearTimeout(t);
-  }, [draft, draftImportant, draftSecret, selectedDate]);
+  }, [draft, draftImportant, draftSecret, selectedDate, selectedSeq]);
 
   const save = async () => {
-    const next: JournalEntry[] = entries.filter((e) => e.date !== selectedDate);
+    const next: JournalEntry[] = entries.filter((e) => !(e.date === selectedDate && e.seq === selectedSeq));
     const trimmed = draft.trim();
     if (trimmed.length > 0) {
       const now = new Date().toISOString();
       next.push({
         date: selectedDate,
+        seq: selectedSeq,
         content: trimmed,
         createdAt: entryForDate?.createdAt ?? now,
         updatedAt: now,
         important: draftImportant,
         secret: draftSecret,
       });
-      next.sort((a, b) => b.date.localeCompare(a.date));
+      next.sort((a, b) => b.date.localeCompare(a.date) || a.seq - b.seq);
     } else {
-      // 해당 날짜를 비웠을 때 DB/스토리지에서도 삭제 (Supabase는 upsert만 하므로 삭제 호출 필요)
-      await deleteJournalEntry(selectedDate).catch(console.error);
+      // 해당 글을 비웠을 때 DB/스토리지에서도 삭제 (Supabase는 upsert만 하므로 삭제 호출 필요)
+      await deleteJournalEntry(selectedDate, selectedSeq).catch(console.error);
     }
     setEntries(next);
-    saveDraft(selectedDate, null);
-    saveJournalDraftToSupabase(selectedDate, null).catch(() => {});
+    const key = draftKey(selectedDate, selectedSeq);
+    saveDraft(key, null);
+    saveJournalDraftToSupabase(selectedDate, selectedSeq, null).catch(() => {});
     await saveJournalEntries(next).catch(console.error);
     setLastSaved(trimmed.length > 0 ? new Date().toISOString() : null);
     setSaveToast(trimmed.length > 0);
@@ -352,13 +377,13 @@ export default function JournalPage() {
 
   const remove = () => {
     if (!entryForDate) return;
-    if (!confirm("이 날짜의 일기를 삭제할까요?")) return;
-    const next = entries.filter((e) => e.date !== selectedDate);
+    if (!confirm("이 글을 삭제할까요?")) return;
+    const next = entries.filter((e) => !(e.date === selectedDate && e.seq === selectedSeq));
     setEntries(next);
-    setDraft("");
-    setDraftImportant(false);
-    setDraftSecret(false);
-    deleteJournalEntry(selectedDate).catch(console.error);
+    deleteJournalEntry(selectedDate, selectedSeq).catch(console.error);
+    // 같은 날짜에 남은 글이 있으면 첫 번째로, 없으면 새 글쓰기 화면(seq 1)으로
+    const remaining = next.filter((e) => e.date === selectedDate).sort((a, b) => a.seq - b.seq);
+    setSelectedSeq(remaining.length > 0 ? remaining[0].seq : 1);
   };
 
   const copyAndGo = async () => {
@@ -415,9 +440,11 @@ export default function JournalPage() {
   };
 
   const [year, month] = selectedDate.split("-").map(Number);
-  const entriesByDate = Object.fromEntries(
-    entries.map((e) => [e.date, e])
-  ) as Record<string, JournalEntry>;
+  /** 달력·모아보기 등 "날짜 하나" 단위 표시용: 그날의 첫 번째(seq 최소) 글 */
+  const entriesByDate = entries.reduce<Record<string, JournalEntry>>((acc, e) => {
+    if (!acc[e.date] || e.seq < acc[e.date].seq) acc[e.date] = e;
+    return acc;
+  }, {});
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from(
     { length: currentYear - 2018 + 1 },
@@ -427,10 +454,7 @@ export default function JournalPage() {
   /** 모아보기: 선택 연도에 글 있는 날짜만 (비밀글 포함, 날짜 오름차순. 비밀글은 목록에 포함되고 선택 시 '비밀글' 표시) */
   const entryDatesInYear =
     journalViewMode === "collect" && collectYear != null
-      ? entries
-          .filter((e) => e.date.startsWith(String(collectYear)))
-          .map((e) => e.date)
-          .sort()
+      ? [...new Set(entries.filter((e) => e.date.startsWith(String(collectYear))).map((e) => e.date))].sort()
       : [];
   function formatShortDateLabel(dateStr: string): string {
     const d = new Date(dateStr + "T12:00:00");
@@ -479,18 +503,18 @@ export default function JournalPage() {
   const canGoNextCollect = collectIndex >= 0 && collectIndex < entryDatesInYear.length - 1;
   const goPrevInCollect = () => {
     if (!canGoPrevCollect) return;
-    setSelectedDate(entryDatesInYear[collectIndex - 1]);
+    goToDate(entryDatesInYear[collectIndex - 1]);
   };
   const goNextInCollect = () => {
     if (!canGoNextCollect) return;
-    setSelectedDate(entryDatesInYear[collectIndex + 1]);
+    goToDate(entryDatesInYear[collectIndex + 1]);
   };
 
   /** 연도 선택 시 URL 변경 → useEffect에서 모아보기로 전환 (모바일에서 확실히 보이게) */
   const goToCollectYear = (y: number) => {
     setYearDropdownOpen(false);
     const dates = entries.filter((e) => e.date.startsWith(String(y))).map((e) => e.date).sort();
-    if (dates.length > 0) setSelectedDate(dates[0]);
+    if (dates.length > 0) goToDate(dates[0]);
     router.replace(`/journal?view=collect&year=${y}`, { scroll: true });
   };
 
@@ -512,22 +536,28 @@ export default function JournalPage() {
   /** 모아보기 연도 진입 시 선택 날짜가 해당 연도 목록에 없으면 첫 기록으로 */
   useEffect(() => {
     if (journalViewMode === "collect" && collectYear != null && entryDatesInYear.length > 0 && !entryDatesInYear.includes(selectedDate)) {
-      setSelectedDate(entryDatesInYear[0]);
+      goToDate(entryDatesInYear[0]);
     }
   }, [journalViewMode, collectYear, selectedDate, entryDatesInYear.length, entryDatesInYear[0]]);
 
+  /** 다른 날짜로 이동. 항상 그날의 첫 번째 글(seq 1)부터 보여줌 */
+  const goToDate = (d: string) => {
+    setSelectedDate(d);
+    setSelectedSeq(1);
+  };
+
   const setCalendarYear = (y: number) => {
-    setSelectedDate(`${y}-${String(month).padStart(2, "0")}-01`);
+    goToDate(`${y}-${String(month).padStart(2, "0")}-01`);
   };
 
   const setCalendarMonth = (m: number) => {
-    setSelectedDate(`${year}-${String(m).padStart(2, "0")}-01`);
+    goToDate(`${year}-${String(m).padStart(2, "0")}-01`);
   };
 
   const goPrevDay = () => {
     const d = new Date(selectedDate + "T12:00:00");
     d.setDate(d.getDate() - 1);
-    setSelectedDate(localDateStr(d));
+    goToDate(localDateStr(d));
   };
 
   const goNextDay = () => {
@@ -535,7 +565,7 @@ export default function JournalPage() {
     d.setDate(d.getDate() + 1);
     const next = localDateStr(d);
     if (next > todayStr()) return;
-    setSelectedDate(next);
+    goToDate(next);
   };
 
   /** 볼드: 선택 영역을 ** 로 감싸기 (또는 커서 위치에 ** 삽입) */
@@ -643,9 +673,7 @@ export default function JournalPage() {
   const [exportFormat, setExportFormat] = useState<"md" | "txt">("md");
   const searchQueryNorm = searchQuery.trim().toLowerCase();
   const searchResults = searchQueryNorm
-    ? entries
-        .filter((e) => e.content.toLowerCase().includes(searchQueryNorm))
-        .map((e) => e.date)
+    ? [...new Set(entries.filter((e) => e.content.toLowerCase().includes(searchQueryNorm)).map((e) => e.date))]
         .sort()
         .reverse()
     : [];
@@ -673,14 +701,17 @@ export default function JournalPage() {
 
   const runExport = () => {
     const [from, to] = getExportFromTo();
-    const list = entries.filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
+    const list = entries
+      .filter((e) => e.date >= from && e.date <= to)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.seq - b.seq);
     const isTxt = exportFormat === "txt";
+    const seqLabel = (e: JournalEntry) => (e.seq > 1 ? ` #${e.seq}` : "");
     const text = isTxt
       ? list
-          .map((e) => `날짜: ${formatDateLabel(e.date)}${e.important ? " ★" : ""}${e.secret ? " 🔒" : ""}\n\n${e.content}\n\n`)
+          .map((e) => `날짜: ${formatDateLabel(e.date)}${seqLabel(e)}${e.important ? " ★" : ""}${e.secret ? " 🔒" : ""}\n\n${e.content}\n\n`)
           .join("---\n\n")
       : list
-          .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}${e.secret ? " 🔒" : ""}\n\n${e.content}\n\n`)
+          .map((e) => `## ${formatDateLabel(e.date)}${seqLabel(e)}${e.important ? " ★" : ""}${e.secret ? " 🔒" : ""}\n\n${e.content}\n\n`)
           .join("---\n\n");
     const blob = new Blob([text], { type: isTxt ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -896,7 +927,7 @@ export default function JournalPage() {
                               onClick={() => {
                                 setCollectMonth(m);
                                 const firstInMonth = entryDatesInYear.find((d) => Number(d.split("-")[1]) === m);
-                                if (firstInMonth) setSelectedDate(firstInMonth);
+                                if (firstInMonth) goToDate(firstInMonth);
                               }}
                               className={`rounded-full px-3 py-1.5 text-sm font-medium ${
                                 isActive
@@ -1226,7 +1257,7 @@ export default function JournalPage() {
                             onClick={() => {
                               setCollectMonth(m);
                               const firstInMonth = entryDatesInYear.find((d) => Number(d.split("-")[1]) === m);
-                              if (firstInMonth) setSelectedDate(firstInMonth);
+                              if (firstInMonth) goToDate(firstInMonth);
                             }}
                             className={`rounded-full px-3 py-1.5 text-sm font-medium ${
                               isActive
@@ -1250,7 +1281,7 @@ export default function JournalPage() {
                             <button
                               key={d}
                               type="button"
-                              onClick={() => setSelectedDate(d)}
+                              onClick={() => goToDate(d)}
                               className={`flex flex-col rounded-lg border px-2 py-2 text-left text-xs ${
                                 isActive
                                   ? "border-neutral-900 bg-neutral-900 text-white"
@@ -1340,7 +1371,7 @@ export default function JournalPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setSelectedDate(todayStr())}
+                  onClick={() => goToDate(todayStr())}
                   className="shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800"
                 >
                   오늘로 이동
@@ -1455,11 +1486,11 @@ export default function JournalPage() {
                     clearSecretUnlockedSession();
                     setSecretUnlocked(false);
                     const snap = { content: draft, important: draftImportant, secret: true };
-                    saveDraft(selectedDate, snap);
-                    saveJournalDraftToSupabase(selectedDate, snap).catch(() => {});
+                    saveDraft(draftKey(selectedDate, selectedSeq), snap);
+                    saveJournalDraftToSupabase(selectedDate, selectedSeq, snap).catch(() => {});
                     setEntries((prev) =>
-                      prev.some((e) => e.date === selectedDate)
-                        ? prev.map((e) => (e.date === selectedDate ? { ...e, secret: true } : e))
+                      prev.some((e) => e.date === selectedDate && e.seq === selectedSeq)
+                        ? prev.map((e) => (e.date === selectedDate && e.seq === selectedSeq ? { ...e, secret: true } : e))
                         : prev
                     );
                   }}
@@ -1503,6 +1534,38 @@ export default function JournalPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
                     )}
+                  </button>
+                </div>
+                {/* 우측 상단: 이 날짜에 쓴 여러 편 전환 + 새 글 쓰기 */}
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
+                  {entryTabs.length > 1 &&
+                    entryTabs.map((seq, i) => (
+                      <button
+                        key={seq}
+                        type="button"
+                        onClick={() => setSelectedSeq(seq)}
+                        className={clsx(
+                          "flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-1.5 text-xs font-semibold transition",
+                          seq === selectedSeq
+                            ? "bg-neutral-800 text-white"
+                            : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                        )}
+                        title={`${i + 1}번째 글`}
+                        aria-label={`${i + 1}번째 글 보기`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  <button
+                    type="button"
+                    onClick={startNewEntry}
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+                    title="이 날짜에 새 글 쓰기"
+                    aria-label="이 날짜에 새 글 쓰기"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                    </svg>
                   </button>
                 </div>
                 {(draftSecret || entryForDate?.secret) && !secretUnlocked ? (
@@ -1764,7 +1827,7 @@ export default function JournalPage() {
                             key={d}
                             type="button"
                             onClick={() => {
-                              setSelectedDate(d);
+                              goToDate(d);
                               setDrawerOpen(false);
                             }}
                             className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
@@ -1828,7 +1891,7 @@ export default function JournalPage() {
                           <button
                             key={i}
                             type="button"
-                            onClick={() => setSelectedDate(dateStr)}
+                            onClick={() => goToDate(dateStr)}
                             onMouseEnter={(e) => {
                               if (!showTooltip || !tooltipText.trim()) return;
                               const rect = e.currentTarget.getBoundingClientRect();

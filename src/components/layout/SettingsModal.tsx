@@ -124,9 +124,9 @@ function formatted(n: number): string {
 async function exportJournal(from: string, to: string): Promise<{ blob: Blob; filename: string }> {
   const entries = await loadJournalEntries();
   const filtered = entries.filter((e) => e.date >= from && e.date <= to);
-  const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date) || a.seq - b.seq);
   const text = sorted
-    .map((e) => `## ${formatDateLabel(e.date)}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
+    .map((e) => `## ${formatDateLabel(e.date)}${e.seq > 1 ? ` #${e.seq}` : ""}${e.important ? " ★" : ""}\n\n${e.content}\n\n`)
     .join("---\n\n");
   const suffix = from === to ? from : `${from}_${to}`;
   return { blob: new Blob([text], { type: "text/markdown;charset=utf-8" }), filename: `일기장_${suffix}.md` };
