@@ -238,7 +238,26 @@ export function HomeVideoCard({ className = "", compact = false }: { className?:
           ref={videoRef}
           src={src}
           playsInline
-          onClick={togglePlay}
+          onClick={(e) => {
+            // 확대 화면에서 영상 밖(좌우·상하 검은 여백)을 누르면 닫기, 영상 위를 누르면 재생/정지
+            if (expanded) {
+              const v = e.currentTarget;
+              const { videoWidth: vw, videoHeight: vh } = v;
+              if (vw && vh) {
+                const r = v.getBoundingClientRect();
+                const scale = Math.min(r.width / vw, r.height / vh);
+                const cw = vw * scale;
+                const ch = vh * scale;
+                const left = r.left + (r.width - cw) / 2;
+                const top = r.top + (r.height - ch) / 2;
+                if (e.clientX < left || e.clientX > left + cw || e.clientY < top || e.clientY > top + ch) {
+                  toggleExpanded();
+                  return;
+                }
+              }
+            }
+            togglePlay();
+          }}
           onEnded={() => {
             // pause 이벤트가 ended보다 먼저 발생해 playing이 false로 바뀌므로, 다음 영상 재생 의도를 다시 표시
             setPlaying(true);
