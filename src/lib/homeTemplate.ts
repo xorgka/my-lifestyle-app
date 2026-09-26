@@ -62,3 +62,18 @@ export function setMemoCardStyle(style: MemoCardStyle): void {
   saveSetting(MEMO_CARD_STYLE_KEY, style);
   window.dispatchEvent(new CustomEvent(MEMO_CARD_STYLE_CHANGED_EVENT));
 }
+
+/** 홈 상단 알림바 표시 여부 (기본 켜짐) */
+const ALERT_BAR_ENABLED_KEY = "home-alert-bar-enabled";
+
+export const ALERT_BAR_ENABLED_CHANGED_EVENT = "home-alert-bar-enabled-changed";
+
+export function getAlertBarEnabled(): boolean {
+  return loadSetting<boolean>(ALERT_BAR_ENABLED_KEY, true) !== false;
+}
+
+export function setAlertBarEnabled(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  saveSetting(ALERT_BAR_ENABLED_KEY, enabled);
+  window.dispatchEvent(new CustomEvent(ALERT_BAR_ENABLED_CHANGED_EVENT));
+}

@@ -8,6 +8,8 @@ import {
   type AlertItem,
 } from "@/lib/alertBarData";
 import { ALERT_BAR_SETTINGS_SYNC_EVENT } from "@/lib/alertBarSettings";
+import { ALERT_BAR_ENABLED_CHANGED_EVENT, getAlertBarEnabled } from "@/lib/homeTemplate";
+import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
 const ROTATE_MS = 60_000;
 
@@ -63,6 +65,25 @@ function isMottoAlert(item: AlertItem | null): boolean {
  * 멘트는 일반 알림 사이에 번갈아 나오도록 순서를 짠 뒤 순환.
  */
 export function TodayAlertBar() {
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    const sync = () => setEnabled(getAlertBarEnabled());
+    sync();
+    window.addEventListener(ALERT_BAR_ENABLED_CHANGED_EVENT, sync);
+    window.addEventListener(USER_SETTINGS_SYNC_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(ALERT_BAR_ENABLED_CHANGED_EVENT, sync);
+      window.removeEventListener(USER_SETTINGS_SYNC_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  return enabled ? <TodayAlertBarInner /> : null;
+}
+
+function TodayAlertBarInner() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);

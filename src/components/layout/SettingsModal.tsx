@@ -106,6 +106,8 @@ import {
   getMemoCardStyle,
   setMemoCardStyle,
   MEMO_CARD_STYLE_OPTIONS,
+  getAlertBarEnabled,
+  setAlertBarEnabled,
   type HomeTemplateId,
   type MemoCardStyle,
 } from "@/lib/homeTemplate";
@@ -290,6 +292,11 @@ export function SettingsModal({ onClose }: Props) {
   // 홈 화면 탭: 템플릿 선택
   const [homeTemplateId, setHomeTemplateId] = useState<HomeTemplateId>("basic");
   const [memoCardStyleId, setMemoCardStyleId] = useState<MemoCardStyle>("classic");
+  const [alertBarEnabled, setAlertBarEnabledState] = useState(true);
+
+  useEffect(() => {
+    if (activeTab === "alertbar") setAlertBarEnabledState(getAlertBarEnabled());
+  }, [activeTab]);
 
   // 배경 탭: 투데이 인사이트 + 날씨 박스
   const [bgSettingSubTab, setBgSettingSubTab] = useState<"insight" | "weather">("insight");
@@ -1003,6 +1010,21 @@ export function SettingsModal({ onClose }: Props) {
     if (activeTab === "alertbar") {
       return (
         <div className="space-y-8">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-neutral-800">홈 화면에 알림바 표시</p>
+              <p className="mt-0.5 text-xs text-neutral-500">끄면 홈 맨 위 알림바가 통째로 사라져요. 문구 설정은 그대로 남아요.</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={alertBarEnabled}
+              onChange={(e) => {
+                setAlertBarEnabledState(e.target.checked);
+                setAlertBarEnabled(e.target.checked);
+              }}
+              className="h-5 w-5 shrink-0 rounded border-neutral-300 text-neutral-800"
+            />
+          </label>
           <section>
             <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">시스템 알림</h3>
             <p className="mt-1 text-sm text-neutral-500">표시를 끄거나 문구를 바꿀 수 있어요. 문구를 비우면 기본 문구가 나와요. 일부 문구는 데이터에 따라 일부가 자동으로 채워져요.</p>

@@ -18,6 +18,7 @@ export const SYNCED_SETTING_KEYS = [
   "my-lifestyle-snippets", // 빠른 복사
   "home-template", // 홈 화면 템플릿
   "home-memo-card-style", // 홈 메모 카드 디자인
+  "home-alert-bar-enabled", // 홈 알림바 표시 여부
   "home-routine-display-percent", // 홈 루틴 카드 %표시
   "my-lifestyle-insights-favorites", // 인사이트 즐겨찾기
   "memo-selected-category-id", // 메모에서 마지막으로 보던 카테고리
