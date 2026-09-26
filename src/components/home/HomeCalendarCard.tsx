@@ -185,7 +185,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                     }
                   : undefined
               }
-              className={`flex min-h-0 min-w-0 flex-col overflow-hidden p-1 transition md:p-1.5 ${
+              className={`flex min-h-0 min-w-0 flex-col overflow-hidden p-1 transition md:p-1 ${
                 items.length > 0 ? "cursor-pointer hover:bg-neutral-50" : ""
               } ${
                 cell.isCurrentMonth ? "bg-white" : "bg-neutral-50"
@@ -221,11 +221,11 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                 ))}
               </div>
               {/* 데스크톱: 일정 제목 */}
-              <ul className="mt-1 hidden min-h-0 flex-1 space-y-0.5 overflow-hidden md:block">
+              <ul className="mt-0.5 hidden min-h-0 flex-1 space-y-0.5 overflow-hidden md:block">
                 {visibleItems.map((item, i) => (
                   <li
                     key={i}
-                    className={`truncate rounded px-1 py-px text-[15px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
+                    className={`truncate rounded px-1 py-0 text-[15px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
                     title={item.time ? `${item.time} ${item.title}` : item.title}
                   >
                     {item.title}

@@ -1098,7 +1098,7 @@ export default function SchedulePage() {
                             setWeekItemModal({ ...item, dateStr: cell.dateStr });
                           }
                         }}
-                        className={`cursor-pointer truncate rounded border px-2 py-1 text-sm transition ${getSystemCategoryCardClass(item, { calendar: true })}`}
+                        className={`cursor-pointer truncate rounded border px-2 py-1 text-[13px] transition ${getSystemCategoryCardClass(item, { calendar: true })}`}
                         title={getScheduleItemDisplayTitle(item)}
                       >
                         {item.time && <span className="mr-1 text-neutral-500">{item.time}</span>}
