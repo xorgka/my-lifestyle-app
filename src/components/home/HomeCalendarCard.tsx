@@ -6,6 +6,7 @@ import {
   loadScheduleEntries,
   getScheduleItemsInRange,
   addScheduleEntry,
+  formatScheduleTime,
   type ScheduleEntry,
   type ScheduleItem,
 } from "@/lib/scheduleDb";
@@ -228,6 +229,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                     className={`truncate rounded px-1 py-0 text-[15px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
                     title={item.time ? `${item.time} ${item.title}` : item.title}
                   >
+                    {item.time && <span className="mr-1 font-medium text-neutral-400">{formatScheduleTime(item.time)}</span>}
                     {item.title}
                   </li>
                 ))}
@@ -286,7 +288,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
               <ul className="space-y-2">
                 {(itemsByDate[dayModalDate] ?? []).map((item, i) => (
                   <li key={i} className={`rounded-xl px-3 py-2 text-base font-semibold ${chipClass(item)}`}>
-                    {item.time && <span className="mr-2 font-medium opacity-70">{item.time}</span>}
+                    {item.time && <span className="mr-2 font-medium opacity-70">{formatScheduleTime(item.time)}</span>}
                     {item.title}
                   </li>
                 ))}

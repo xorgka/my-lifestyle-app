@@ -17,6 +17,7 @@ import {
   loadScheduleOrder,
   saveScheduleOrder,
   getScheduleItemOrderKey,
+  formatScheduleTime,
   type ScheduleEntry,
   type ScheduleItem,
   type ScheduleType,
@@ -435,7 +436,7 @@ export default function SchedulePage() {
                         className="flex items-center gap-2 rounded-xl border border-neutral-200/70 bg-neutral-50 px-4 py-3"
                       >
                         <div className="min-w-0 flex-1 text-base md:text-lg">
-                          {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
+                          {item.time && <span className="mr-1.5 text-neutral-500">{formatScheduleTime(item.time)}</span>}
                           <span className="font-medium text-neutral-800">{item.title}</span>
                           {getSystemCategoryLabel(item) && (
                             <span className={`ml-2 ${getSystemCategoryClass(item)}`}>
@@ -566,7 +567,7 @@ export default function SchedulePage() {
                           <span className="w-5 shrink-0 md:mr-2" aria-hidden />
                         )}
                         <div className="min-w-0 flex-1 text-base md:text-lg">
-                          {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
+                          {item.time && <span className="mr-1.5 text-neutral-500">{formatScheduleTime(item.time)}</span>}
                           <span className={`font-medium text-neutral-800 ${isCompleted ? "line-through opacity-60" : ""}`}>
                             {item.title}
                           </span>
@@ -776,7 +777,7 @@ export default function SchedulePage() {
                         className={`group flex flex-row items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-[14px] cursor-pointer transition ${getSystemCategoryCardClass(item)}`}
                       >
                         <span className="min-w-0 flex-1 truncate font-medium [color:inherit]">
-                          {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
+                          {item.time && <span className="mr-1.5 text-neutral-500">{formatScheduleTime(item.time)}</span>}
                           {item.title}
                         </span>
                         <span className="flex-shrink-0 md:hidden">
@@ -917,7 +918,7 @@ export default function SchedulePage() {
                     }}
                     className={`cursor-pointer rounded-xl border px-4 py-3 text-sm transition ${getSystemCategoryCardClass(item)}`}
                   >
-                    {item.time && <span className="mr-1.5 text-neutral-500">{item.time}</span>}
+                    {item.time && <span className="mr-1.5 text-neutral-500">{formatScheduleTime(item.time)}</span>}
                     {item.title}
                     {getSystemCategoryLabel(item) && (
                       <span className={`ml-2 ${getSystemCategoryClass(item, { dayModal: true })}`}>
@@ -1101,7 +1102,7 @@ export default function SchedulePage() {
                         className={`cursor-pointer truncate rounded border px-2 py-1 text-[13px] transition ${getSystemCategoryCardClass(item, { calendar: true })}`}
                         title={getScheduleItemDisplayTitle(item)}
                       >
-                        {item.time && <span className="mr-1 text-neutral-500">{item.time}</span>}
+                        {item.time && <span className="mr-1 font-medium text-neutral-400">{formatScheduleTime(item.time)}</span>}
                         {item.title}
                       </li>
                     ))}

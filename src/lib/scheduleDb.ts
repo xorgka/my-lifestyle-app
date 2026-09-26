@@ -471,6 +471,17 @@ export async function deleteScheduleEntry(id: string): Promise<void> {
   else notifyScheduleChanged();
 }
 
+/** "08:00" -> "8시", "13:30" -> "1:30". 오전/오후 구분 없이 12시간제 숫자만 */
+export function formatScheduleTime(time: string | null | undefined): string {
+  if (!time) return "";
+  const [hs, ms] = time.split(":");
+  const h = Number(hs);
+  if (Number.isNaN(h)) return time;
+  const h12 = h % 12 || 12;
+  const m = Number(ms ?? 0);
+  return m === 0 ? `${h12}시` : `${h12}:${String(m).padStart(2, "0")}`;
+}
+
 /** 스케줄 목록이 바뀌었을 때 사이드바 배지 갱신용 (dispatchEvent) */
 export function notifyScheduleChanged(): void {
   if (typeof window !== "undefined") {
