@@ -422,7 +422,7 @@ export function HomeVideoCard({ className = "", compact = false }: { className?:
         }}
         aria-label="영상 크게 보기"
         title="클릭하면 크게 재생"
-        className={`group relative cursor-pointer overflow-hidden rounded-3xl border border-neutral-300 bg-neutral-950 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)] ${className}`}
+        className={`relative cursor-pointer overflow-hidden rounded-3xl border border-neutral-300 bg-neutral-950 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)] ${className}`}
       >
         {src ? (
           <video
@@ -436,15 +436,6 @@ export function HomeVideoCard({ className = "", compact = false }: { className?:
           <div className="flex h-full items-center justify-center px-2 text-center text-xs text-neutral-400">
             {videosByCategory === null ? "불러오는 중…" : "영상 없음"}
           </div>
-        )}
-        {src && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-hover:bg-black/25">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-              <svg className="ml-0.5 h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M8 5l11 7-11 7V5z" />
-              </svg>
-            </span>
-          </span>
         )}
       </div>
     );

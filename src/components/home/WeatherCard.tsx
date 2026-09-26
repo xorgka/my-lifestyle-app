@@ -85,7 +85,7 @@ function WeatherLineIcon({ code, size, light = false }: { code: number; size: nu
   const Icon = WEATHER_LINE_ICONS[id] ?? Cloud;
   const sunny = id === "clear" || id === "partlyCloudy";
   const color = light ? "text-white" : sunny ? "text-amber-500" : "text-slate-500";
-  return <Icon size={size} strokeWidth={1.5} className={color} aria-hidden />;
+  return <Icon size={size} strokeWidth={1.5} className={`shrink-0 ${color}`} aria-hidden />;
 }
 
 function rainMessage(hoursAhead: number | null | undefined): string | null {
@@ -343,15 +343,15 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
 
       {compact && (
         <div className="relative z-10 hidden items-center justify-between gap-3 md:flex">
-          <div className="flex min-w-0 items-center gap-3">
-            <WeatherLineIcon code={weather.weatherCode} size={56} light />
+          <div className="flex shrink-0 items-center gap-3">
+            <WeatherLineIcon code={weather.weatherCode} size={68} light />
             <span className="text-5xl font-semibold leading-none tracking-tight text-white">
               {weather.temp}
               <span className="text-3xl font-medium text-white/80">°C</span>
             </span>
           </div>
           {rainMessage(rainHoursAhead) && (
-            <div className="shrink-0 rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-center text-[13px] font-semibold leading-snug text-neutral-700 shadow-sm">
+            <div className="min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-center text-[13px] font-semibold leading-snug text-neutral-700 shadow-sm">
               {rainMessage(rainHoursAhead)}
             </div>
           )}
