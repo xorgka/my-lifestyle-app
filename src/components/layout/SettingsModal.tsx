@@ -103,7 +103,11 @@ import {
   getHomeTemplate,
   setHomeTemplate,
   HOME_TEMPLATE_OPTIONS,
+  getMemoCardStyle,
+  setMemoCardStyle,
+  MEMO_CARD_STYLE_OPTIONS,
   type HomeTemplateId,
+  type MemoCardStyle,
 } from "@/lib/homeTemplate";
 import { HomeVideoStorageManager } from "@/components/home/HomeVideoStorageManager";
 import type { WeatherThemeId } from "@/lib/weather";
@@ -285,6 +289,7 @@ export function SettingsModal({ onClose }: Props) {
 
   // 홈 화면 탭: 템플릿 선택
   const [homeTemplateId, setHomeTemplateId] = useState<HomeTemplateId>("basic");
+  const [memoCardStyleId, setMemoCardStyleId] = useState<MemoCardStyle>("classic");
 
   // 배경 탭: 투데이 인사이트 + 날씨 박스
   const [bgSettingSubTab, setBgSettingSubTab] = useState<"insight" | "weather">("insight");
@@ -313,6 +318,7 @@ export function SettingsModal({ onClose }: Props) {
   useEffect(() => {
     if (activeTab === "hometemplate") {
       setHomeTemplateId(getHomeTemplate());
+      setMemoCardStyleId(getMemoCardStyle());
     }
   }, [activeTab]);
 
@@ -674,6 +680,34 @@ export function SettingsModal({ onClose }: Props) {
             ))}
           </div>
           {homeTemplateId === "video" && <HomeVideoStorageManager />}
+          <div className="space-y-2 pt-2">
+            <h4 className="text-sm font-semibold text-neutral-700">메모 카드 디자인</h4>
+            {MEMO_CARD_STYLE_OPTIONS.map((opt) => (
+              <label
+                key={opt.id}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                  memoCardStyleId === opt.id
+                    ? "border-neutral-800 bg-neutral-50"
+                    : "border-neutral-200 bg-white hover:bg-neutral-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="memoCardStyleSettings"
+                  checked={memoCardStyleId === opt.id}
+                  onChange={() => {
+                    setMemoCardStyleId(opt.id);
+                    setMemoCardStyle(opt.id);
+                  }}
+                  className="mt-0.5 h-4 w-4 border-neutral-300 text-neutral-700"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-neutral-800">{opt.label}</p>
+                  <p className="mt-0.5 text-xs text-neutral-500">{opt.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
         </section>
       );
     }

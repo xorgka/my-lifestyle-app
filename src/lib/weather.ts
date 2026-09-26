@@ -140,4 +140,89 @@ export async function fetchCurrentWeather(
   }
 }
 
+export type DailyForecast = {
+  /** YYYY-MM-DD */
+  date: string;
+  weatherCode: number;
+  icon: string;
+  max: number;
+  min: number;
+  /** 강수확률 % (0~100) */
+  rainProb: number;
+};
+
+/** 오늘부터 7일 일별 예보 */
+export async function fetchWeeklyForecast(
+  lat: number = SEOUL.lat,
+  lon: number = SEOUL.lon
+): Promise<DailyForecast[] | null> {
+  const params = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lon),
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+    forecast_days: "7",
+    timezone: "Asia/Seoul",
+  });
+  try {
+    const res = await fetch(`${OPEN_METEO}?${params}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      daily?: {
+        time?: string[];
+        weather_code?: number[];
+        temperature_2m_max?: number[];
+        temperature_2m_min?: number[];
+        precipitation_probability_max?: (number | null)[];
+      };
+    };
+    const d = data.daily;
+    if (!d?.time || !d.weather_code || !d.temperature_2m_max || !d.temperature_2m_min) return null;
+    return d.time.map((date, i) => ({
+      date,
+      weatherCode: d.weather_code![i],
+      icon: getThemeByCode(d.weather_code![i]).icon,
+      max: Math.round(d.temperature_2m_max![i]),
+      min: Math.round(d.temperature_2m_min![i]),
+      rainProb: d.precipitation_probability_max?.[i] ?? 0,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/** 앞으로 몇 시간 뒤부터 비가 오는지 (0 = 지금, null = 24시간 안에 비 소식 없음). 조회 실패 시 undefined */
+export async function fetchRainHoursAhead(
+  lat: number = SEOUL.lat,
+  lon: number = SEOUL.lon
+): Promise<number | null | undefined> {
+  const params = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lon),
+    hourly: "precipitation_probability,precipitation",
+    forecast_days: "2",
+    timezone: "Asia/Seoul",
+  });
+  try {
+    const res = await fetch(`${OPEN_METEO}?${params}`);
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as {
+      hourly?: { time?: string[]; precipitation_probability?: (number | null)[]; precipitation?: (number | null)[] };
+    };
+    const h = data.hourly;
+    if (!h?.time || !h.precipitation_probability || !h.precipitation) return undefined;
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const nowKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
+    const start = Math.max(0, h.time.findIndex((t) => t >= nowKey));
+    for (let i = 0; i < 24 && start + i < h.time.length; i++) {
+      const prob = h.precipitation_probability[start + i] ?? 0;
+      const mm = h.precipitation[start + i] ?? 0;
+      if (prob >= 50 || mm >= 0.2) return i;
+    }
+    return null;
+  } catch {
+    return undefined;
+  }
+}
+
 export { getThemeByCode };

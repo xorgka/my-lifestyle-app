@@ -23,5 +23,5 @@ export function HomeTemplateLayout() {
     };
   }, []);
 
-  return <HomeLayout template={templateId === "video" ? "video" : "B"} />;
+  return <HomeLayout template={templateId === "video" ? "video" : templateId === "calendar" ? "calendar" : "B"} />;
 }

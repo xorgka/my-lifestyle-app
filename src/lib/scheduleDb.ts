@@ -19,6 +19,8 @@ export type ScheduleEntry = {
   weeklyDay: number | null; // 0=일..6=토
   /** 선택: 시간 (HH:mm). 없으면 null */
   time: string | null;
+  /** 중요 일정(별표). 달력·목록에서 다른 색으로 표시 */
+  important: boolean;
   createdAt: string;
 };
 
@@ -35,6 +37,8 @@ export type ScheduleItem = {
   builtinKind?: "birthday" | "other";
   /** 선택: 시간 (HH:mm) */
   time?: string | null;
+  /** user일 때만: 중요 일정 여부 */
+  important?: boolean;
   /** user일 때만: 추가 순서 정렬용 */
   createdAt?: string;
 };
@@ -65,6 +69,17 @@ const BUILTIN_ONCE: { date: string; title: string }[] = [
 ];
 
 const STORAGE_KEY = "my-lifestyle-schedule-entries";
+const ENTRY_COLS_BASE = "id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at";
+const ENTRY_COLS = ENTRY_COLS_BASE.replace(", created_at", ", important, created_at");
+
+/** important 컬럼 마이그레이션 전이어도 목록이 비지 않도록, 실패하면 컬럼 없이 다시 조회 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function selectEntryRows(): Promise<{ data: Record<string, any>[] | null; error: unknown }> {
+  const first = await supabase!.from("schedule_entries").select(ENTRY_COLS).order("created_at", { ascending: false });
+  if (!first.error) return { data: first.data as Record<string, any>[] | null, error: null };
+  const fallback = await supabase!.from("schedule_entries").select(ENTRY_COLS_BASE).order("created_at", { ascending: false });
+  return { data: fallback.data as Record<string, any>[] | null, error: fallback.error };
+}
 const BUILTIN_DELETED_KEY = "my-lifestyle-schedule-builtin-deleted";
 
 function loadBuiltinDeleted(): Set<string> {
@@ -132,6 +147,7 @@ function loadFromStorage(): ScheduleEntry[] {
       yearlyDay: r.yearlyDay != null ? Number(r.yearlyDay) : null,
       weeklyDay: r.weeklyDay != null ? Number(r.weeklyDay) : null,
       time: r.time != null && r.time !== "" ? String(r.time) : null,
+      important: r.important === true,
       createdAt: String(r.createdAt ?? ""),
     }));
   } catch {
@@ -150,10 +166,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
   if (!supabase) return loadFromStorage();
   try {
     await syncBuiltinDeletedFromSupabase();
-    const { data, error } = await supabase
-      .from("schedule_entries")
-      .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at")
-      .order("created_at", { ascending: false });
+    const { data, error } = await selectEntryRows();
     if (error) throw error;
     let list = (data ?? []).map((row) => ({
       id: row.id,
@@ -165,6 +178,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
       yearlyDay: row.yearly_day ?? null,
       weeklyDay: row.weekly_day ?? null,
       time: row.time != null && row.time !== "" ? String(row.time) : null,
+      important: row.important === true,
       createdAt: row.created_at ?? new Date().toISOString(),
     }));
     // DB가 비어있고 로컬에 데이터가 있으면 로컬 → Supabase 마이그레이션 (기기 간 동기화)
@@ -181,13 +195,11 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
             yearly_day: e.yearlyDay ?? null,
             weekly_day: e.weeklyDay ?? null,
             time: e.time ?? null,
+            important: e.important,
           });
           if (insertErr) console.error("[schedule] migrate local→Supabase", e.id, insertErr);
         }
-        const { data: refetch, error: refetchErr } = await supabase
-          .from("schedule_entries")
-          .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at")
-          .order("created_at", { ascending: false });
+        const { data: refetch, error: refetchErr } = await selectEntryRows();
         if (!refetchErr && refetch) {
           list = refetch.map((row) => ({
             id: row.id,
@@ -199,6 +211,7 @@ export async function loadScheduleEntries(): Promise<ScheduleEntry[]> {
             yearlyDay: row.yearly_day ?? null,
             weeklyDay: row.weekly_day ?? null,
             time: row.time != null && row.time !== "" ? String(row.time) : null,
+            important: row.important === true,
             createdAt: row.created_at ?? new Date().toISOString(),
           }));
         }
@@ -247,6 +260,7 @@ function expandEntriesInRange(entries: ScheduleEntry[], start: string, end: stri
           entryId: e.id,
           scheduleType: e.scheduleType,
           time: e.time ?? undefined,
+          important: e.important,
           createdAt: e.createdAt,
         });
       }
@@ -363,21 +377,29 @@ export async function addScheduleEntry(entry: Omit<ScheduleEntry, "id" | "create
     notifyScheduleChanged();
     return newEntry;
   }
-  const { data, error } = await supabase
+  const baseRow = {
+    title: entry.title,
+    schedule_type: entry.scheduleType,
+    once_date: entry.onceDate ?? null,
+    monthly_day: entry.monthlyDay ?? null,
+    yearly_month: entry.yearlyMonth ?? null,
+    yearly_day: entry.yearlyDay ?? null,
+    weekly_day: entry.weeklyDay ?? null,
+    time: entry.time ?? null,
+  };
+  // important 컬럼 마이그레이션 전이면 첫 시도가 실패하므로, 컬럼 없이 다시 저장
+  let res = await supabase
     .from("schedule_entries")
-    .insert({
-      title: entry.title,
-      schedule_type: entry.scheduleType,
-      once_date: entry.onceDate ?? null,
-      monthly_day: entry.monthlyDay ?? null,
-      yearly_month: entry.yearlyMonth ?? null,
-      yearly_day: entry.yearlyDay ?? null,
-      weekly_day: entry.weeklyDay ?? null,
-      time: entry.time ?? null,
-    })
-    .select("id, title, schedule_type, once_date, monthly_day, yearly_month, yearly_day, weekly_day, time, created_at")
+    .insert({ ...baseRow, important: entry.important })
+    .select(ENTRY_COLS)
     .single();
-  if (error) {
+  if (res.error) {
+    res = await supabase.from("schedule_entries").insert(baseRow).select(ENTRY_COLS_BASE).single();
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = res.data as Record<string, any> | null;
+  const error = res.error ?? (data ? null : new Error("no data"));
+  if (error || !data) {
     console.error("[schedule] addScheduleEntry", error);
     const fallback: ScheduleEntry = { ...entry, id: `local-${Date.now()}`, createdAt, time: entry.time ?? null };
     const list = loadFromStorage();
@@ -397,6 +419,7 @@ export async function addScheduleEntry(entry: Omit<ScheduleEntry, "id" | "create
     yearlyDay: data.yearly_day ?? null,
     weeklyDay: data.weekly_day ?? null,
     time: data.time != null && data.time !== "" ? String(data.time) : null,
+    important: data.important === true,
     createdAt: data.created_at ?? createdAt,
   };
 }
@@ -424,7 +447,14 @@ export async function updateScheduleEntry(
   if (patch.yearlyDay != null) row.yearly_day = patch.yearlyDay;
   if (patch.weeklyDay != null) row.weekly_day = patch.weeklyDay;
   if (patch.time !== undefined) row.time = patch.time;
-  const { error } = await supabase.from("schedule_entries").update(row).eq("id", id);
+  if (patch.important !== undefined) row.important = patch.important;
+  let { error } = await supabase.from("schedule_entries").update(row).eq("id", id);
+  if (error && "important" in row) {
+    // important 컬럼 마이그레이션 전이면 컬럼 없이 다시 저장
+    const { important: _omit, ...withoutImportant } = row;
+    void _omit;
+    ({ error } = await supabase.from("schedule_entries").update(withoutImportant).eq("id", id));
+  }
   if (error) console.error("[schedule] updateScheduleEntry", error);
   else notifyScheduleChanged();
 }

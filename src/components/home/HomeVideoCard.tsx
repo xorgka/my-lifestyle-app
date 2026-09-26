@@ -60,7 +60,7 @@ async function loadAllVideos(): Promise<{ byCategory: VideosByCategory; namesKey
 }
 
 /** 세로(쇼츠) 영상 플레이어 카드. 카테고리 내 랜덤 순서 재생, 끝나면 자동 다음 */
-export function HomeVideoCard({ className = "" }: { className?: string }) {
+export function HomeVideoCard({ className = "", compact = false }: { className?: string; compact?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videosByCategory, setVideosByCategory] = useState<VideosByCategory | null>(null);
@@ -147,6 +147,17 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
     setExpanded((v) => !v);
   }, []);
 
+  /** 작은 카드(compact)에서 누르면 처음부터 재생하며 확대 */
+  const openExpandedAndPlay = useCallback(() => {
+    resumeStateRef.current = { time: 0, wasPlaying: true };
+    setExpanded(true);
+  }, []);
+
+  // 작은 카드로 돌아오면 재생 상태 초기화 (작은 카드는 멈춘 썸네일)
+  useEffect(() => {
+    if (compact && !expanded) setPlaying(false);
+  }, [compact, expanded]);
+
   // 확대 중 Esc로 닫기
   useEffect(() => {
     if (!expanded) return;
@@ -174,6 +185,13 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
         return;
       }
       if (!containerRef.current || containerRef.current.getClientRects().length === 0) return;
+      // 작은 카드 상태에서는 F(확대)만 반응, 재생·이동 키는 무시
+      if (compact && !expanded && key !== "f") return;
+      if (compact && !expanded) {
+        e.preventDefault();
+        openExpandedAndPlay();
+        return;
+      }
       if (key === "1") {
         e.preventDefault();
         togglePlay();
@@ -194,7 +212,7 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePlay, goTo, toggleExpanded]);
+  }, [togglePlay, goTo, toggleExpanded, compact, expanded, openExpandedAndPlay]);
 
   const selectCategory = (c: HomeVideoCategoryId) => {
     setCategory(c);
@@ -293,8 +311,37 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
         )}
       </button>
 
-      {/* 재생 컨트롤 */}
-      {src && (
+      {/* 확대 화면: 화면 좌우 검은 영역에 이전/다음 버튼 (재생·정지는 영상 클릭) */}
+      {src && expanded && (
+        <>
+          <button
+            type="button"
+            onClick={() => goTo(-1)}
+            className="absolute left-4 top-1/2 z-10 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30 md:left-10"
+            aria-label="이전 영상"
+          >
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M6 6h2v12H6zM18 6l-8.5 6L18 18V6z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => goTo(1)}
+            className="absolute right-4 top-1/2 z-10 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30 md:right-10"
+            aria-label="다음 영상"
+          >
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M16 6h2v12h-2zM6 6l8.5 6L6 18V6z" />
+            </svg>
+          </button>
+          <span className="absolute bottom-4 right-4 z-10 text-xs font-medium tabular-nums text-white/70">
+            {(index % queue.length) + 1} / {queue.length}
+          </span>
+        </>
+      )}
+
+      {/* 재생 컨트롤 (확대 화면에서는 위의 좌우 버튼으로 대체) */}
+      {src && !expanded && (
         <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-5 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-12">
           <button type="button" onClick={() => goTo(-1)} className={controlButton} aria-label="이전 영상">
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -338,6 +385,49 @@ export function HomeVideoCard({ className = "" }: { className?: string }) {
         {cardBody}
       </div>,
       document.body
+    );
+  }
+
+  if (compact) {
+    return (
+      <div
+        ref={containerRef}
+        role="button"
+        tabIndex={0}
+        onClick={openExpandedAndPlay}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openExpandedAndPlay();
+          }
+        }}
+        aria-label="영상 크게 보기"
+        title="클릭하면 크게 재생"
+        className={`group relative cursor-pointer overflow-hidden rounded-3xl border border-neutral-300 bg-neutral-950 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)] ${className}`}
+      >
+        {src ? (
+          <video
+            src={`${src}#t=0.1`}
+            muted
+            playsInline
+            preload="metadata"
+            className="pointer-events-none h-full w-full object-contain"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-2 text-center text-xs text-neutral-400">
+            {videosByCategory === null ? "불러오는 중…" : "영상 없음"}
+          </div>
+        )}
+        {src && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-hover:bg-black/25">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
+              <svg className="ml-0.5 h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M8 5l11 7-11 7V5z" />
+              </svg>
+            </span>
+          </span>
+        )}
+      </div>
     );
   }
 

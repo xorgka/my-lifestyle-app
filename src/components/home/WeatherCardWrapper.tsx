@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { WeatherCard } from "./WeatherCard";
 
 /** 저장 후 홈 진입 시 날씨 배경을 다시 읽기 위해 key 사용 */
-export function WeatherCardWrapper() {
+export function WeatherCardWrapper({ compact = false }: { compact?: boolean }) {
   const [mountKey, setMountKey] = useState(0);
 
   useEffect(() => {
@@ -12,5 +12,5 @@ export function WeatherCardWrapper() {
     if (v) setMountKey(v);
   }, []);
 
-  return <WeatherCard key={mountKey} />;
+  return <WeatherCard key={mountKey} compact={compact} />;
 }
