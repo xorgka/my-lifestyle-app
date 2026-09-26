@@ -31,6 +31,7 @@ import {
   type MemoCategory,
   loadMemoCategories,
   saveMemoCategories,
+  deleteMemoCategory,
   generateMemoCategoryId,
   setSelectedMemoCategoryId,
   MEMO_CATEGORY_TRASH_ID,
@@ -315,6 +316,7 @@ export default function MemoPage() {
       setCategories(nextCats);
       await saveMemoCategories(nextCats);
       await persist(nextMemos);
+      await deleteMemoCategory(id);
       if (selectedCategoryId === id) {
         handleSelectCategory(categories.find((c) => c.id !== id)?.id ?? getDefaultMemoCategoryId());
       }

@@ -128,6 +128,17 @@ export async function saveMemoCategories(categories: MemoCategory[]): Promise<vo
   }
 }
 
+/** 카테고리 한 개를 DB에서 삭제. saveMemoCategories는 upsert만 해서 지운 행이 남아 되살아나므로 명시적으로 지운다 */
+export async function deleteMemoCategory(id: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.from("memo_categories").delete().eq("id", id);
+    if (error) console.error("[memoCategoryDb] deleteMemoCategory", error);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function generateMemoCategoryId(): string {
   return `memo-cat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
