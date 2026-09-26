@@ -1020,6 +1020,10 @@ export default function SchedulePage() {
             {getCalendarCells(calendarYear, calendarMonth).map((cell, idx) => {
               const isHoliday = getHolidaysOn(cell.dateStr).length > 0;
               const isToday = cell.isCurrentMonth && cell.dateStr === todayStr();
+              const cellItems = itemsByDate[cell.dateStr] ?? [];
+              /** 시스템 일정(공휴일·생일·기타)은 날짜 숫자 오른쪽에 작게, 내 일정만 아래 목록에 */
+              const systemItems = cellItems.filter((it) => it.type !== "user");
+              const userItems = cellItems.filter((it) => it.type === "user");
               return (
                 <div
                   key={idx}
@@ -1027,19 +1031,42 @@ export default function SchedulePage() {
                     cell.isCurrentMonth ? "bg-white" : "bg-neutral-50"
                   } ${isToday ? "ring-2 ring-neutral-800 ring-inset" : ""}`}
                 >
-                  <span
-                    className={`text-xs font-medium md:text-sm ${
-                      cell.isCurrentMonth
-                        ? isHoliday
-                          ? "text-red-600"
-                          : "text-neutral-800"
-                        : "text-neutral-400"
-                    }`}
-                  >
-                    {cell.dayNum}
-                  </span>
+                  <div className="flex min-w-0 items-baseline justify-between gap-1">
+                    <span
+                      className={`shrink-0 text-xs font-medium md:text-sm ${
+                        cell.isCurrentMonth
+                          ? isHoliday
+                            ? "text-red-600"
+                            : "text-neutral-800"
+                          : "text-neutral-400"
+                      }`}
+                    >
+                      {cell.dayNum}
+                    </span>
+                    {systemItems.length > 0 && (
+                      <span className={`hidden min-w-0 items-baseline justify-end gap-1 truncate md:flex ${cell.isCurrentMonth ? "" : "opacity-50"}`}>
+                        {systemItems.map((item, i) => (
+                          <button
+                            key={`${cell.dateStr}-sys-${i}`}
+                            type="button"
+                            onClick={() => setWeekItemModal({ ...item, dateStr: cell.dateStr })}
+                            className={`truncate text-[11px] font-semibold leading-tight hover:underline ${
+                              item.type === "holiday"
+                                ? "text-red-500"
+                                : item.builtinKind === "birthday"
+                                  ? "text-violet-500"
+                                  : "text-slate-400"
+                            }`}
+                            title={item.title}
+                          >
+                            {item.title}
+                          </button>
+                        ))}
+                      </span>
+                    )}
+                  </div>
                   {/* 모바일: 개수만 표시, 클릭 시 해당 날짜 스케줄 모달 */}
-                  {(itemsByDate[cell.dateStr] ?? []).length > 0 ? (
+                  {cellItems.length > 0 ? (
                     <div className="mt-1.5 flex flex-1 items-center justify-center md:hidden">
                       <div
                         role="button"
@@ -1053,13 +1080,13 @@ export default function SchedulePage() {
                         }}
                         className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700"
                       >
-                        {(itemsByDate[cell.dateStr] ?? []).length}
+                        {cellItems.length}
                       </div>
                     </div>
                   ) : null}
                   {/* 데스크톱: 스케줄 목록 */}
                   <ul className="mt-1.5 hidden space-y-1 md:block">
-                    {(itemsByDate[cell.dateStr] ?? []).map((item, i) => (
+                    {userItems.map((item, i) => (
                       <li
                         key={item.type === "user" ? item.entryId! : `${cell.dateStr}-${item.title}-${i}`}
                         role="button"
