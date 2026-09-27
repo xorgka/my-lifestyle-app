@@ -42,7 +42,7 @@ export function setHomeTemplate(id: HomeTemplateId): void {
 }
 
 /** 홈 메모 카드 디자인 */
-export type MemoCardStyle = "classic" | "card";
+export type MemoCardStyle = "classic" | "card" | "tasks";
 
 const MEMO_CARD_STYLE_KEY = "home-memo-card-style";
 
@@ -51,10 +51,12 @@ export const MEMO_CARD_STYLE_CHANGED_EVENT = "home-memo-card-style-changed";
 export const MEMO_CARD_STYLE_OPTIONS: { id: MemoCardStyle; label: string; description: string }[] = [
   { id: "classic", label: "기본 (노란 상단)", description: "노란 상단에 날짜, 흰 본문. 이전/다음 화살표" },
   { id: "card", label: "카드형", description: "흰 카드에 굵은 제목, 아래로 흐려지는 본문. ··· 메뉴에서 이전/다음 메모" },
+  { id: "tasks", label: "노란 카드형", description: "노란 카드 안 흰 패널에 제목과 메모 본문. 아래 노란 띠에서 전체 보기·이전/다음" },
 ];
 
 export function getMemoCardStyle(): MemoCardStyle {
-  return loadSetting<string>(MEMO_CARD_STYLE_KEY, "classic") === "card" ? "card" : "classic";
+  const v = loadSetting<string>(MEMO_CARD_STYLE_KEY, "classic");
+  return v === "card" || v === "tasks" ? v : "classic";
 }
 
 export function setMemoCardStyle(style: MemoCardStyle): void {

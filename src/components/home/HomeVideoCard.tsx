@@ -430,7 +430,7 @@ export function HomeVideoCard({ className = "", compact = false }: { className?:
             muted
             playsInline
             preload="metadata"
-            className="pointer-events-none h-full w-full object-contain"
+            className="pointer-events-none h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full items-center justify-center px-2 text-center text-xs text-neutral-400">

@@ -19,7 +19,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
     return (
       <>
         {/* 모바일: 날씨 | 영상 → 달력 → 메모. 데스크톱: 위 줄 = 날씨 | 메모 | 영상, 아래 줄 = 달력 */}
-        <div className="grid grid-cols-[minmax(0,1fr)_124px] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_158px] md:items-stretch">
+        <div className="grid grid-cols-[minmax(0,1fr)_124px] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_210px] md:items-stretch">
           <div className="order-1 flex h-[220px] min-w-0 flex-col md:col-start-1 md:row-start-1 md:h-[280px]">
             <WeatherCardWrapper compact />
           </div>

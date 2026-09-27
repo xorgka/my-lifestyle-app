@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import { House, CalendarDays, CircleCheck, NotebookText, Folder, SquarePlay, ChartNoAxesColumn, Coins } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { SnippetsModal } from "./SnippetsModal";
 import { YoutubePlayerBar } from "./YoutubePlayerBar";
@@ -11,14 +12,14 @@ import { ClockWidget } from "./ClockWidget";
 import { loadScheduleEntries, getTodayCount } from "@/lib/scheduleDb";
 
 const menuItems = [
-  { href: "/", label: "홈" },
-  { href: "/schedule", label: "스케줄", badge: true },
-  { href: "/routine/list", label: "루틴", activePrefixes: ["/routine"] },
-  { href: "/memo", label: "노트", activePrefixes: ["/memo", "/journal"] },
-  { href: "/projects", label: "프로젝트" },
-  { href: "/youtube", label: "유튜브", exact: true },
-  { href: "/finance", label: "가계부" },
-  { href: "/income", label: "수입" },
+  { href: "/", label: "홈", Icon: House },
+  { href: "/schedule", label: "스케줄", Icon: CalendarDays, badge: true },
+  { href: "/routine/list", label: "루틴", Icon: CircleCheck, activePrefixes: ["/routine"] },
+  { href: "/memo", label: "노트", Icon: NotebookText, activePrefixes: ["/memo", "/journal"] },
+  { href: "/projects", label: "프로젝트", Icon: Folder },
+  { href: "/youtube", label: "유튜브", Icon: SquarePlay, exact: true },
+  { href: "/finance", label: "가계부", Icon: ChartNoAxesColumn },
+  { href: "/income", label: "수입", Icon: Coins },
 ];
 
 interface SidebarProps {
@@ -65,27 +66,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={clsx(
-                "group flex min-h-[44px] items-center justify-between gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6 md:max-xl:rounded-xl md:max-xl:pl-3 md:max-xl:pr-1 md:max-xl:py-2 md:max-xl:text-[15px]",
+                "group flex min-h-[44px] items-center gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6 md:max-xl:rounded-xl md:max-xl:pl-3 md:max-xl:pr-1 md:max-xl:py-2 md:max-xl:text-[15px]",
                 active
                   ? "bg-neutral-900 text-white shadow-[0_14px_34px_rgba(0,0,0,0.35)]"
                   : "text-neutral-600 hover:bg-neutral-100 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]"
               )}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-3 md:max-xl:gap-2">
+                <item.Icon className="h-5 w-5 shrink-0 md:max-xl:hidden" strokeWidth={1.8} aria-hidden />
                 {item.label}
                 {showBadge && (
                   <span className="grid h-5 min-w-[1.25rem] flex-shrink-0 place-items-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold tabular-nums leading-none text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.25)]">
                     {scheduleBadge > 99 ? "99+" : scheduleBadge}
                   </span>
                 )}
-              </span>
-              <span
-                className={clsx(
-                  "text-xs transition-transform md:max-xl:hidden",
-                  active ? "translate-x-0.5" : "translate-x-0"
-                )}
-              >
-                ⌘
               </span>
             </Link>
           );

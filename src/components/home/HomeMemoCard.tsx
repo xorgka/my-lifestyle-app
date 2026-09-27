@@ -63,6 +63,67 @@ export function HomeMemoCard() {
   const canPrev = pinnedMemos.length > 1 && safeIndex > 0;
   const canNext = pinnedMemos.length > 1 && safeIndex < pinnedMemos.length - 1;
 
+  if (cardStyle === "tasks") {
+    return (
+      <div
+        className="relative flex h-[280px] w-full flex-shrink-0 flex-col overflow-hidden rounded-3xl shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
+        style={{ backgroundColor: "#FCDA55" }}
+      >
+        <div className="relative z-10 mx-3 mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white px-5 pt-4 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
+          {currentMemo ? (
+            <>
+              <h3 className="mb-2 truncate text-xl font-extrabold text-neutral-900">{currentMemo.title?.trim() || "제목 없음"}</h3>
+              <div
+                className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words pb-4 text-[15px] font-normal leading-relaxed text-neutral-700 scrollbar-hide md:text-[17px]"
+                style={{ lineHeight: "1.5" }}
+              >
+                {currentMemo.content.trim() || "내용 없음"}
+              </div>
+            </>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+              <p className="text-sm font-medium text-neutral-600">고정한 메모가 없어요</p>
+              <Link href="/memo" className="text-sm font-medium text-neutral-700 underline underline-offset-2 hover:text-black">
+                메모에서 별표로 고정하기
+              </Link>
+            </div>
+          )}
+        </div>
+        <div className="flex h-12 shrink-0 items-center justify-between px-6" style={{ color: "#3D3306" }}>
+          <Link href="/memo" className="text-xs font-bold hover:opacity-80" style={{ color: "#A38A3C" }}>
+            MEMO
+          </Link>
+          {pinnedMemos.length > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                disabled={!canPrev}
+                className="flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-black/5 disabled:opacity-30"
+                aria-label="이전 메모"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1))}
+                disabled={!canNext}
+                className="flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-black/5 disabled:opacity-30"
+                aria-label="다음 메모"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (cardStyle === "card") {
     return (
       <div className="relative flex h-[280px] w-full flex-shrink-0 flex-col overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]">

@@ -317,15 +317,15 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
           <div className={`${compact ? "hidden" : ""} text-[11px] font-semibold uppercase tracking-[0.18em] ${whiteText ? "text-white/90" : "text-neutral-500"}`}>
             CURRENT WEATHER
           </div>
-          <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-4xl shrink-0" aria-hidden="true">
+          <div className={`mt-3 flex items-baseline ${compact ? "gap-2" : "gap-3"}`}>
+            <span className={`shrink-0 ${compact ? "text-3xl" : "text-4xl"}`} aria-hidden="true">
               {weather.theme.icon}
             </span>
-            <div className="flex min-w-0 flex-wrap items-baseline gap-2">
-              <div className={whiteText ? "text-5xl font-semibold tracking-tight text-white sm:text-6xl" : "text-5xl font-semibold tracking-tight text-neutral-900 sm:text-6xl"}>
+            <div className={`flex min-w-0 items-baseline ${compact ? "flex-nowrap gap-1.5" : "flex-wrap gap-2"}`}>
+              <div className={whiteText ? (compact ? "text-3xl font-semibold tracking-tight text-white" : "text-5xl font-semibold tracking-tight text-white sm:text-6xl") : "text-5xl font-semibold tracking-tight text-neutral-900 sm:text-6xl"}>
                 {weather.temp}°
               </div>
-              <div className={whiteText ? "text-xl text-white/95 sm:text-2xl" : "text-xl text-slate-600 sm:text-2xl"}>
+              <div className={whiteText ? (compact ? "whitespace-nowrap text-[15px] text-white/95" : "text-xl text-white/95 sm:text-2xl") : "text-xl text-slate-600 sm:text-2xl"}>
                 C · {weatherCodeToLabel(weather.weatherCode)}
               </div>
             </div>
@@ -371,7 +371,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
 
       {/* 좁은 화면(모바일·폴드): 말풍선 대신 작은 한 줄 */}
       {compact && rainMessage(rainHoursAhead) && (
-        <p className="relative z-10 truncate text-[13px] font-medium text-white/85 md:hidden md:max-xl:block md:max-xl:text-[15px]">
+        <p className="relative z-10 truncate text-[13px] font-medium text-white/85 hidden md:max-xl:block md:max-xl:text-[15px]">
           {rainMessage(rainHoursAhead)}
         </p>
       )}
