@@ -88,11 +88,16 @@ function WeatherLineIcon({ code, size, light = false }: { code: number; size: nu
   return <Icon size={size} strokeWidth={1.5} className={`shrink-0 ${color}`} aria-hidden />;
 }
 
-function rainMessage(hoursAhead: number | null | undefined): string | null {
+/** 의미 단위 두 줄 (말풍선용). 한 줄로 쓸 땐 rainMessage가 공백으로 이어 붙임 */
+function rainMessageLines(hoursAhead: number | null | undefined): [string, string] | null {
   if (hoursAhead === undefined) return null;
-  if (hoursAhead === null) return "24시간 안에 비 소식이 없어요";
-  if (hoursAhead === 0) return "지금 비가 오고 있어요";
-  return `${hoursAhead}시간 후에 비가 와요`;
+  if (hoursAhead === null) return ["24시간 안에", "비 소식이 없어요"];
+  if (hoursAhead === 0) return ["지금", "비가 오고 있어요"];
+  return [`${hoursAhead}시간 후에`, "비가 와요"];
+}
+
+function rainMessage(hoursAhead: number | null | undefined): string | null {
+  return rainMessageLines(hoursAhead)?.join(" ") ?? null;
 }
 
 export function WeatherCard({ compact = false }: { compact?: boolean }) {
@@ -105,6 +110,8 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [forecast, setForecast] = useState<DailyForecast[] | null>(null);
+  /** 카드 안 미니 예보: 오늘을 빼고 내일부터 7일 */
+  const [stripForecast, setStripForecast] = useState<DailyForecast[] | null>(null);
   const [forecastFailed, setForecastFailed] = useState(false);
   const [rainHoursAhead, setRainHoursAhead] = useState<number | null | undefined>(undefined);
 
@@ -131,8 +138,8 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     if (!compact) return;
     let cancelled = false;
-    fetchWeeklyForecast().then((list) => {
-      if (!cancelled && list) setForecast(list);
+    fetchWeeklyForecast(8).then((list) => {
+      if (!cancelled && list) setStripForecast(list.slice(1));
     });
     fetchRainHoursAhead().then((v) => {
       if (!cancelled) setRainHoursAhead(v);
@@ -205,7 +212,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
     };
   }, [themeId]);
 
-  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:p-7 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
+  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:p-7 fold:gap-3 fold:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
   const blueLayer = (
     <div
       className="absolute inset-0 rounded-3xl"
@@ -307,7 +314,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
       )}
       <div className={`relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${compact ? "md:hidden" : ""}`}>
         <div className={`min-w-0 ${whiteText ? "text-white" : ""} ${useCustomBg ? "[text-shadow:0_1px_4px_rgba(0,0,0,0.7),0_0_1px_rgba(0,0,0,0.8)]" : ""}`}>
-          <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${whiteText ? "text-white/90" : "text-neutral-500"}`}>
+          <div className={`${compact ? "hidden" : ""} text-[11px] font-semibold uppercase tracking-[0.18em] ${whiteText ? "text-white/90" : "text-neutral-500"}`}>
             CURRENT WEATHER
           </div>
           <div className="mt-3 flex items-baseline gap-3">
@@ -344,28 +351,39 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
       {compact && (
         <div className="relative z-10 hidden items-center justify-between gap-3 md:flex">
           <div className="flex shrink-0 items-center gap-3">
-            <WeatherLineIcon code={weather.weatherCode} size={68} light />
-            <span className="text-5xl font-semibold leading-none tracking-tight text-white">
+            <span className="shrink-0 text-6xl leading-none fold:text-5xl" aria-hidden>{weather.theme.icon}</span>
+            <span className="text-5xl font-semibold leading-none tracking-tight text-white fold:text-4xl">
               {weather.temp}
               <span className="text-3xl font-medium text-white/80">°C</span>
             </span>
           </div>
           {rainMessage(rainHoursAhead) && (
-            <div className="min-w-0 rounded-full border border-neutral-200 bg-white px-4 py-2 text-center text-[13px] font-semibold leading-snug text-neutral-700 shadow-sm">
-              {rainMessage(rainHoursAhead)}
+            <div className="min-w-0 border-l-2 border-white/60 py-0.5 pl-3 text-left fold:hidden text-[15px] font-semibold leading-[1.4] text-white">
+              {rainMessageLines(rainHoursAhead)?.map((line) => (
+                <span key={line} className="block whitespace-nowrap">
+                  {line}
+                </span>
+              ))}
             </div>
           )}
         </div>
       )}
 
-      {compact && forecast && (
-        <div className="relative z-10 hidden grid-cols-7 gap-1 text-center md:grid">
-          {forecast.map((day, i) => {
+      {/* 좁은 화면(모바일·폴드): 말풍선 대신 작은 한 줄 */}
+      {compact && rainMessage(rainHoursAhead) && (
+        <p className="relative z-10 truncate text-[13px] font-medium text-white/85 md:hidden fold:block fold:text-[15px]">
+          {rainMessage(rainHoursAhead)}
+        </p>
+      )}
+
+      {compact && stripForecast && (
+        <div className="relative z-10 grid grid-cols-7 gap-1 text-center">
+          {stripForecast.map((day) => {
             const d = new Date(day.date + "T12:00:00");
             return (
               <div key={day.date} className="flex min-w-0 flex-col items-center gap-1 rounded-xl py-1">
                 <span className="text-[12px] font-semibold text-white/80">
-                  {i === 0 ? "오늘" : ["일", "월", "화", "수", "목", "금", "토"][d.getDay()]}
+                  {["일", "월", "화", "수", "목", "금", "토"][d.getDay()]}
                 </span>
                 <WeatherLineIcon code={day.weatherCode} size={22} light />
                 <span className="text-[13px] font-bold leading-tight text-white">{day.max}°</span>

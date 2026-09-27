@@ -59,6 +59,8 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   /** 스케줄 추가 폼 모달 */
   const [addOpen, setAddOpen] = useState(false);
+  /** 모바일: 누른 날짜의 일정을 달력 아래에 펼쳐 보여줌 */
+  const [selectedDate, setSelectedDate] = useState(() => todayStr());
 
   useEffect(() => {
     if (!dayModalDate) return;
@@ -91,6 +93,20 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
     return map;
   }, [cells, entries]);
 
+  const selectedItems = useMemo(() => {
+    const list = getScheduleItemsInRange(selectedDate, selectedDate, entries, 0);
+    return list.sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99"));
+  }, [selectedDate, entries]);
+
+  /** 데스크톱은 일정 있는 날짜에 모달, 모바일은 아래 목록 선택 */
+  const handleCellClick = (dateStr: string, hasItems: boolean) => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
+      if (hasItems) setDayModalDate(dateStr);
+      return;
+    }
+    setSelectedDate(dateStr);
+  };
+
   const today = todayStr();
   const shiftMonth = (delta: number) => {
     const d = new Date(year, month - 1 + delta, 1);
@@ -101,6 +117,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
     const d = new Date();
     setYear(d.getFullYear());
     setMonth(d.getMonth() + 1);
+    setSelectedDate(todayStr());
   };
 
   const navButton =
@@ -158,7 +175,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
       </div>
 
       <div
-        className="grid min-h-0 flex-1 grid-cols-7 gap-px overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-200/80"
+        className="grid h-[340px] flex-none grid-cols-7 gap-px overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-200/80 md:h-auto md:min-h-0 md:flex-1"
         style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}
       >
         {cells.map((cell) => {
@@ -173,24 +190,20 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
           return (
             <div
               key={cell.dateStr}
-              role={items.length > 0 ? "button" : undefined}
-              tabIndex={items.length > 0 ? 0 : undefined}
-              onClick={items.length > 0 ? () => setDayModalDate(cell.dateStr) : undefined}
-              onKeyDown={
-                items.length > 0
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setDayModalDate(cell.dateStr);
-                      }
-                    }
-                  : undefined
-              }
-              className={`flex min-h-0 min-w-0 flex-col overflow-hidden p-1 transition md:p-1 ${
-                items.length > 0 ? "cursor-pointer hover:bg-neutral-50" : ""
+              role="button"
+              tabIndex={0}
+              onClick={() => handleCellClick(cell.dateStr, items.length > 0)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleCellClick(cell.dateStr, items.length > 0);
+                }
+              }}
+              className={`flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition md:p-1 ${
+                items.length > 0 ? "md:hover:bg-neutral-50" : "md:cursor-default"
               } ${
                 cell.isCurrentMonth ? "bg-white" : "bg-neutral-50"
-              } ${isToday ? "ring-2 ring-inset ring-neutral-800" : ""}`}
+              } ${cell.dateStr === selectedDate ? "max-md:bg-neutral-200/70" : ""} ${isToday ? "ring-2 ring-inset ring-neutral-800" : ""}`}
             >
               <div className="flex min-w-0 items-baseline justify-between gap-1">
               <span
@@ -215,10 +228,10 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                 </span>
               )}
               </div>
-              {/* 모바일: 색 점만 */}
-              <div className="mt-1 flex flex-wrap gap-0.5 md:hidden">
-                {items.slice(0, 4).map((item, i) => (
-                  <span key={i} className={`h-1.5 w-1.5 rounded-full ${dotClass(item)}`} />
+              {/* 모바일: 일정별 색 막대 (최대 3개) */}
+              <div className="mt-1 flex flex-col gap-0.5 md:hidden">
+                {items.slice(0, 3).map((item, i) => (
+                  <span key={i} className={`h-1 w-full rounded-full ${dotClass(item)}`} />
                 ))}
               </div>
               {/* 데스크톱: 일정 제목 */}
@@ -238,6 +251,28 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
             </div>
           );
         })}
+      </div>
+
+      {/* 모바일: 선택한 날짜의 일정 목록 */}
+      <div className="mt-3 md:hidden">
+        <div className="mb-1.5 text-sm font-semibold text-neutral-800">
+          {(() => {
+            const d = new Date(selectedDate + "T12:00:00");
+            return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY_NAMES[d.getDay()]})`;
+          })()}
+        </div>
+        {selectedItems.length === 0 ? (
+          <p className="py-2 text-sm text-neutral-400">일정이 없어요</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {selectedItems.map((item, i) => (
+              <li key={i} className={`rounded-xl px-3 py-2 text-[15px] font-semibold ${chipClass(item)}`}>
+                {item.time && <span className="mr-2 font-medium opacity-60">{formatScheduleTime(item.time)}</span>}
+                {item.title}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {addOpen &&

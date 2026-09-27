@@ -69,7 +69,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-5 md:px-10 md:pt-10 md:pb-4">
+    <div lang="ko" className="min-h-screen bg-gradient-to-br from-soft-bg via-[#F8F8FA] to-soft-bg px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-5 md:px-10 md:pt-10 md:pb-4 fold:px-4 fold:pt-4">
       <MorningFaceReminderPopup />
       <EveningFaceReminderPopup />
       <GymReminderPopup />
@@ -134,7 +134,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div className="mx-auto flex w-full max-w-7xl gap-7">
         {/* 데스크톱에만 사이드바 컬럼 (모바일은 드로어에 Sidebar 있음 → 플레이어 1개만) */}
         {!isMobile && (
-          <div className="sticky top-6 h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] w-64 self-start">
+          <div className="sticky top-6 h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] w-64 self-start fold:top-4 fold:h-[calc(100vh-2rem)] fold:max-h-[calc(100vh-2rem)] fold:w-[104px]">
             <Sidebar />
           </div>
         )}

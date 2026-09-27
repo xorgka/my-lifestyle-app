@@ -18,16 +18,20 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
   if (template === "calendar") {
     return (
       <>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_158px] md:gap-4 md:items-stretch">
-          <div className="flex min-h-[140px] min-w-0 flex-col md:h-[280px]">
+        {/* 모바일: 날씨 | 영상 → 달력 → 메모. 데스크톱: 위 줄 = 날씨 | 메모 | 영상, 아래 줄 = 달력 */}
+        <div className="grid grid-cols-[minmax(0,1fr)_124px] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_158px] md:items-stretch">
+          <div className="order-1 flex h-[220px] min-w-0 flex-col md:col-start-1 md:row-start-1 md:h-[280px]">
             <WeatherCardWrapper compact />
           </div>
-          <div className="flex min-w-0 flex-col">
+          <HomeVideoCard
+            compact
+            className="order-2 h-[220px] w-full md:order-none md:col-start-3 md:row-start-1 md:h-[280px]"
+          />
+          <HomeCalendarCard className="order-3 col-span-2 md:order-none md:col-span-3 md:row-start-2 md:h-[520px]" />
+          <div className="order-4 col-span-2 flex min-w-0 flex-col md:order-none md:col-span-1 md:col-start-2 md:row-start-1">
             <HomeMemoCard />
           </div>
-          <HomeVideoCard compact className="h-[200px] w-[112px] md:h-[280px] md:w-[158px]" />
         </div>
-        <HomeCalendarCard className="h-[480px] md:h-[520px]" />
       </>
     );
   }

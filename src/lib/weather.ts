@@ -151,8 +151,9 @@ export type DailyForecast = {
   rainProb: number;
 };
 
-/** 오늘부터 7일 일별 예보 */
+/** 오늘부터 days일(기본 7) 일별 예보 */
 export async function fetchWeeklyForecast(
+  days: number = 7,
   lat: number = SEOUL.lat,
   lon: number = SEOUL.lon
 ): Promise<DailyForecast[] | null> {
@@ -160,7 +161,7 @@ export async function fetchWeeklyForecast(
     latitude: String(lat),
     longitude: String(lon),
     daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-    forecast_days: "7",
+    forecast_days: String(days),
     timezone: "Asia/Seoul",
   });
   try {

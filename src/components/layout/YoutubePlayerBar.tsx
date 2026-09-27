@@ -292,9 +292,9 @@ export function YoutubePlayerBar() {
 
   return (
     <>
-      <div className="mt-auto pt-1">
-        <div className="rounded-xl border border-neutral-200 border-b-0 bg-gradient-to-br from-white to-neutral-200 px-3 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(0,0,0,0.2)]">
-          <div className="flex items-center justify-between gap-2">
+      <div className="mt-auto pt-1 fold:hidden">
+        <div className="rounded-xl border border-neutral-200 border-b-0 bg-gradient-to-br from-white to-neutral-200 px-3 py-1 fold:px-1 shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(0,0,0,0.2)]">
+          <div className="flex items-center justify-between gap-2 fold:hidden">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               <svg className="h-4 w-4 shrink-0 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
@@ -336,7 +336,7 @@ export function YoutubePlayerBar() {
                 <button
                   type="button"
                   onClick={goPrev}
-                  className="rounded-xl p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                  className="rounded-xl p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 fold:hidden"
                   aria-label="이전"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -373,7 +373,7 @@ export function YoutubePlayerBar() {
                   ref={listButtonRef}
                   type="button"
                   onClick={() => setDrawerOpen((v) => !v)}
-                  className="rounded-xl p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                  className="rounded-xl p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 fold:hidden"
                   aria-label="Playlist"
                   title="Playlist"
                   aria-expanded={drawerOpen}
@@ -385,7 +385,7 @@ export function YoutubePlayerBar() {
               </div>
               {/* PC: 작은 임베드 (모바일에서는 숨김) */}
               {!isMobile && videoId && (
-                <div className="mt-2 mb-1 hidden md:block">
+                <div className="mt-2 mb-1 hidden md:block fold:!hidden">
                   <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
                     <div
                       ref={iframeContainerRef}
@@ -487,7 +487,7 @@ function TitleDisplay({ title }: { title: string }) {
   }, [title]);
 
   return (
-    <div ref={wrapRef} className="mt-2 min-h-[2rem] overflow-hidden rounded-full bg-white/80 px-3 py-1.5 text-left shadow-md">
+    <div ref={wrapRef} className="mt-2 min-h-[2rem] overflow-hidden rounded-full bg-white/80 px-3 py-1.5 text-left shadow-md fold:hidden">
       <div className={`text-sm font-medium text-neutral-500 whitespace-nowrap ${needsMarquee ? "youtube-title-marquee" : ""}`}>
         <span ref={spanRef} className="inline-block whitespace-nowrap">{title}</span>
       </div>
