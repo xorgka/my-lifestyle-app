@@ -20,6 +20,7 @@ export const SYNCED_SETTING_KEYS = [
   "home-memo-card-style", // 홈 메모 카드 디자인
   "home-alert-bar-enabled", // 홈 알림바 표시 여부
   "home-routine-display-percent", // 홈 루틴 카드 %표시
+  "sidebar-hidden-menus", // 사이드바에서 숨긴 메뉴
   "my-lifestyle-insights-favorites", // 인사이트 즐겨찾기
   "memo-selected-category-id", // 메모에서 마지막으로 보던 카테고리
   "my-lifestyle-journal-secret-pin-hash", // 일기 비밀글 PIN

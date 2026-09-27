@@ -4,23 +4,25 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { House, CalendarDays, CircleCheck, NotebookText, Folder, SquarePlay, ChartNoAxesColumn, Coins } from "lucide-react";
+import { House, CalendarDays, CircleCheck, NotebookText, Folder, SquarePlay, ChartNoAxesColumn, Coins, type LucideIcon } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { SnippetsModal } from "./SnippetsModal";
 import { YoutubePlayerBar } from "./YoutubePlayerBar";
 import { ClockWidget } from "./ClockWidget";
 import { loadScheduleEntries, getTodayCount } from "@/lib/scheduleDb";
+import { SIDEBAR_MENU_ITEMS, SIDEBAR_MENU_CHANGED_EVENT, getHiddenSidebarMenus } from "@/lib/sidebarMenu";
+import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
-const menuItems = [
-  { href: "/", label: "홈", Icon: House },
-  { href: "/schedule", label: "스케줄", Icon: CalendarDays, badge: true },
-  { href: "/routine/list", label: "루틴", Icon: CircleCheck, activePrefixes: ["/routine"] },
-  { href: "/memo", label: "노트", Icon: NotebookText, activePrefixes: ["/memo", "/journal"] },
-  { href: "/projects", label: "프로젝트", Icon: Folder },
-  { href: "/youtube", label: "유튜브", Icon: SquarePlay, exact: true },
-  { href: "/finance", label: "가계부", Icon: ChartNoAxesColumn },
-  { href: "/income", label: "수입", Icon: Coins },
-];
+const MENU_ICONS: Record<string, LucideIcon> = {
+  "/": House,
+  "/schedule": CalendarDays,
+  "/routine/list": CircleCheck,
+  "/memo": NotebookText,
+  "/projects": Folder,
+  "/youtube": SquarePlay,
+  "/finance": ChartNoAxesColumn,
+  "/income": Coins,
+};
 
 interface SidebarProps {
   /** 모바일에서 메뉴 클릭 후 드로어 닫기용 */
@@ -32,6 +34,21 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [snippetsOpen, setSnippetsOpen] = useState(false);
   const [scheduleBadge, setScheduleBadge] = useState(0);
+  const [hiddenMenus, setHiddenMenus] = useState<string[]>([]);
+
+  // 설정에서 끈 메뉴는 목록에서 뺌
+  useEffect(() => {
+    const sync = () => setHiddenMenus(getHiddenSidebarMenus());
+    sync();
+    window.addEventListener(SIDEBAR_MENU_CHANGED_EVENT, sync);
+    window.addEventListener(USER_SETTINGS_SYNC_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(SIDEBAR_MENU_CHANGED_EVENT, sync);
+      window.removeEventListener(USER_SETTINGS_SYNC_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   const refreshScheduleBadge = () => {
     loadScheduleEntries().then((entries) => setScheduleBadge(getTodayCount(entries)));
@@ -49,16 +66,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       <nav className="space-y-2 md:max-xl:space-y-1">
-        {menuItems.map((item) => {
+        {SIDEBAR_MENU_ITEMS.filter((item) => !hiddenMenus.includes(item.href)).map((item) => {
           const active =
             item.href === "/"
               ? pathname === "/"
-              : "exact" in item && item.exact
+              : item.exact
                 ? pathname === item.href
-                : "activePrefixes" in item && item.activePrefixes
+                : item.activePrefixes
                   ? item.activePrefixes.some((p) => pathname.startsWith(p))
                   : pathname.startsWith(item.href);
-          const showBadge = "badge" in item && item.badge && scheduleBadge > 0;
+          const showBadge = item.badge && scheduleBadge > 0;
+          const Icon = MENU_ICONS[item.href] ?? House;
 
           return (
             <Link
@@ -73,7 +91,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               )}
             >
               <span className="flex items-center gap-3 md:max-xl:gap-2">
-                <item.Icon className="h-5 w-5 shrink-0 md:max-xl:hidden" strokeWidth={1.8} aria-hidden />
+                <Icon className="h-5 w-5 shrink-0 md:max-xl:hidden" strokeWidth={1.8} aria-hidden />
                 {item.label}
                 {showBadge && (
                   <span className="grid h-5 min-w-[1.25rem] flex-shrink-0 place-items-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold tabular-nums leading-none text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.25)]">

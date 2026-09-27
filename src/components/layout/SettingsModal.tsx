@@ -112,6 +112,12 @@ import {
   type MemoCardStyle,
 } from "@/lib/homeTemplate";
 import { HomeVideoStorageManager } from "@/components/home/HomeVideoStorageManager";
+import {
+  SIDEBAR_MENU_ITEMS,
+  ALWAYS_VISIBLE_MENU_HREF,
+  getHiddenSidebarMenus,
+  setSidebarMenuVisible,
+} from "@/lib/sidebarMenu";
 import type { WeatherThemeId } from "@/lib/weather";
 
 function formatDateLabel(dateStr: string): string {
@@ -240,7 +246,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 type Props = { onClose: () => void };
 
-type SettingsTab = "export" | "alertbar" | "popup" | "hometemplate" | "background" | "shortcuts" | "account";
+type SettingsTab = "export" | "alertbar" | "popup" | "hometemplate" | "sidebar" | "background" | "shortcuts" | "account";
 
 type AppBackupPayload = {
   version: 1;
@@ -293,6 +299,13 @@ export function SettingsModal({ onClose }: Props) {
   const [homeTemplateId, setHomeTemplateId] = useState<HomeTemplateId>("basic");
   const [memoCardStyleId, setMemoCardStyleId] = useState<MemoCardStyle>("classic");
   const [alertBarEnabled, setAlertBarEnabledState] = useState(true);
+
+  // 사이드바 탭: 메뉴별 표시 여부
+  const [hiddenSidebarMenus, setHiddenSidebarMenus] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (activeTab === "sidebar") setHiddenSidebarMenus(getHiddenSidebarMenus());
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === "alertbar") setAlertBarEnabledState(getAlertBarEnabled());
@@ -387,6 +400,7 @@ export function SettingsModal({ onClose }: Props) {
     { id: "alertbar", label: "알림바" },
     { id: "popup", label: "팝업" },
     { id: "hometemplate", label: "홈 화면" },
+    { id: "sidebar", label: "사이드바" },
     { id: "background", label: "배경" },
     { id: "shortcuts", label: "단축키" },
     { id: "account", label: "계정" },
@@ -714,6 +728,40 @@ export function SettingsModal({ onClose }: Props) {
                 </div>
               </label>
             ))}
+          </div>
+        </section>
+      );
+    }
+    if (activeTab === "sidebar") {
+      return (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">사이드바 메뉴</h3>
+          <p className="text-sm text-neutral-500">끈 메뉴는 사이드바에서 빠져요. 주소로 들어가면 페이지는 그대로 열려요. 홈은 끌 수 없어요.</p>
+          <div className="space-y-2">
+            {SIDEBAR_MENU_ITEMS.map((item) => {
+              const locked = item.href === ALWAYS_VISIBLE_MENU_HREF;
+              const visible = !hiddenSidebarMenus.includes(item.href);
+              return (
+                <label
+                  key={item.href}
+                  className={`flex items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-white p-4 transition ${
+                    locked ? "cursor-default opacity-60" : "cursor-pointer hover:bg-neutral-50"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-neutral-800">{item.label}</p>
+                  <input
+                    type="checkbox"
+                    checked={visible}
+                    disabled={locked}
+                    onChange={(e) => {
+                      setSidebarMenuVisible(item.href, e.target.checked);
+                      setHiddenSidebarMenus(getHiddenSidebarMenus());
+                    }}
+                    className="h-5 w-5 shrink-0 rounded border-neutral-300 text-neutral-800"
+                  />
+                </label>
+              );
+            })}
           </div>
         </section>
       );

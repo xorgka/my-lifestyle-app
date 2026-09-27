@@ -257,16 +257,18 @@ export function HomeMemoCard() {
                 className="relative flex w-full max-w-sm flex-shrink-0 flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                 style={{ backgroundColor: "#FCDA55" }}
               >
-                <button
-                  type="button"
+                <Link
+                  href="/memo"
                   onClick={() => setExpanded(false)}
-                  className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full text-neutral-800 transition hover:bg-black/10"
-                  aria-label="닫기"
+                  className="absolute right-4 top-4 z-10 flex h-9 w-10 items-center justify-center rounded-lg text-neutral-700 transition hover:bg-black/10 hover:text-neutral-900"
+                  aria-label="메모 페이지로 이동"
                 >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <circle cx="5" cy="12" r="2.4" />
+                    <circle cx="12" cy="12" r="2.4" />
+                    <circle cx="19" cy="12" r="2.4" />
                   </svg>
-                </button>
+                </Link>
                 <div className="px-7 pb-7 pt-9">
                   <h3 className="mb-4 border-b border-dashed border-black/15 pb-4 pr-10 text-2xl font-extrabold leading-tight tracking-tight text-neutral-900/80">
                     {currentMemo.title?.trim() || "제목 없음"}
