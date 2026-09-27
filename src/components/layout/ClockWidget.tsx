@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ClockModal } from "./ClockModal";
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 function useDateString(): string {
   const [str, setStr] = useState("");
@@ -11,7 +11,7 @@ function useDateString(): string {
     const update = () => {
       const d = new Date();
       const w = WEEKDAY[d.getDay()];
-      setStr(`${d.getMonth() + 1}.${d.getDate()} ${w}`);
+      setStr(`${d.getMonth() + 1}.${d.getDate()} (${w})`);
     };
     update();
     const id = setInterval(update, 60000);
