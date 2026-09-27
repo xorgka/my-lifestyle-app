@@ -25,6 +25,7 @@ import {
   MEMO_MIN_HEIGHT,
 } from "@/lib/memoDb";
 import { MemoCard } from "@/components/memo/MemoCard";
+import { memoContentToPlainText } from "@/lib/memoContent";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { MemoCategoryBar } from "./MemoCategoryBar";
 import {
@@ -382,7 +383,7 @@ export default function MemoPage() {
       list = list.filter(
         (m) =>
           (m.title && m.title.toLowerCase().includes(searchQ)) ||
-          (m.content && m.content.toLowerCase().includes(searchQ))
+          (m.content && memoContentToPlainText(m.content).toLowerCase().includes(searchQ))
       );
     }
     return [...list].sort((a, b) => {

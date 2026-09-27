@@ -5,8 +5,59 @@ import Link from "next/link";
 import type { Memo, MemoColorId } from "@/lib/memoDb";
 import { MEMO_COLORS } from "@/lib/memoDb";
 import type { MemoCategory } from "@/lib/memoCategoryDb";
+import { editorToMemoContent, isMemoContentEmpty, memoContentToHtml } from "@/lib/memoContent";
 
 const EDIT_TITLE_DELAY_MS = 250;
+
+/** 메모 본문 편집: contentEditable이라 Ctrl+B로 선택 글자를 바로 굵게. 본문은 HTML로 저장 */
+function MemoBodyEditor({
+  initialContent,
+  onChange,
+  onFocus,
+}: {
+  initialContent: string;
+  onChange: (html: string) => void;
+  onFocus: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // 처음 한 번만 채움. 입력할 때마다 다시 넣으면 커서가 맨 앞으로 튐
+  useEffect(() => {
+    if (ref.current) ref.current.innerHTML = memoContentToHtml(initialContent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const emit = () => {
+    const el = ref.current;
+    if (el) onChange(editorToMemoContent(el.innerHTML, el.textContent ?? ""));
+  };
+
+  return (
+    <div
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      data-placeholder="메모를 입력하세요..."
+      onInput={emit}
+      onFocus={onFocus}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
+          e.preventDefault();
+          document.execCommand("bold");
+          emit();
+        }
+      }}
+      onPaste={(e) => {
+        // 웹에서 복사한 글꼴·색이 섞이지 않게 글자만 붙여넣기
+        e.preventDefault();
+        document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+        emit();
+      }}
+      className="min-h-[188px] w-full flex-1 cursor-text overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded border-0 bg-white p-0 text-[16px] text-neutral-800 outline-none empty:before:pointer-events-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)] md:min-h-0 md:text-[19px]"
+    />
+  );
+}
 
 type MemoCardProps = {
   memo: Memo;
@@ -331,18 +382,18 @@ export function MemoCard({
       {!isCollapsed && (
       <div className={`flex min-h-0 flex-1 flex-col overflow-hidden py-3 bg-white rounded-b-[10px] ${variant === "preview" ? "px-12 md:px-4" : "px-4"}`}>
         {variant === "full" && updateMemo ? (
-          <textarea
-            value={memo.content}
-            onChange={(e) => updateMemo(memo.id, { content: e.target.value })}
+          <MemoBodyEditor
+            initialContent={memo.content}
+            onChange={(html) => updateMemo(memo.id, { content: html })}
             onFocus={() => onMemoActivate?.(memo.id)}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="메모를 입력하세요..."
-            className="min-h-[188px] w-full flex-1 resize-none rounded border-0 bg-white p-0 text-[16px] text-neutral-800 placeholder:text-neutral-400 focus:ring-0 focus:outline-none md:min-h-0 md:text-[19px]"
           />
+        ) : isMemoContentEmpty(memo.content) ? (
+          <div className="h-full min-h-0 text-[16px] text-neutral-800 md:text-[19px]">내용 없음</div>
         ) : (
-          <div className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[16px] text-neutral-800 whitespace-pre-wrap break-words md:text-[19px] ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}>
-            {memo.content.trim() || "내용 없음"}
-          </div>
+          <div
+            className={`h-full min-h-0 overflow-y-auto overflow-x-hidden text-[16px] text-neutral-800 whitespace-pre-wrap break-words md:text-[19px] ${variant === "preview" ? "max-md:scrollbar-hide" : ""}`}
+            dangerouslySetInnerHTML={{ __html: memoContentToHtml(memo.content) }}
+          />
         )}
       </div>
       )}
