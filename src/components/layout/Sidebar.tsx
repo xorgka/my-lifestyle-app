@@ -42,12 +42,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   }, []);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-4 fold:overflow-x-hidden fold:px-2 fold:py-3 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
-      <div className="mb-8 ml-1 px-1 fold:mb-4 fold:ml-0 fold:px-0">
+    <aside className="flex h-full min-h-0 flex-col overflow-y-auto rounded-3xl bg-white/80 px-5 py-4 md:max-xl:overflow-x-hidden md:max-xl:px-2 md:max-xl:py-3 shadow-[0_18px_50px_rgba(0,0,0,0.08)] ring-1 ring-white/60 backdrop-blur-2xl">
+      <div className="mb-8 ml-1 px-1 md:max-xl:mb-4 md:max-xl:ml-0 md:max-xl:px-0">
         <ClockWidget />
       </div>
 
-      <nav className="space-y-2 fold:space-y-1">
+      <nav className="space-y-2 md:max-xl:space-y-1">
         {menuItems.map((item) => {
           const active =
             item.href === "/"
@@ -65,7 +65,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={clsx(
-                "group flex min-h-[44px] items-center justify-between gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6 fold:rounded-xl fold:pl-3 fold:pr-1 fold:py-2 fold:text-[15px]",
+                "group flex min-h-[44px] items-center justify-between gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6 md:max-xl:rounded-xl md:max-xl:pl-3 md:max-xl:pr-1 md:max-xl:py-2 md:max-xl:text-[15px]",
                 active
                   ? "bg-neutral-900 text-white shadow-[0_14px_34px_rgba(0,0,0,0.35)]"
                   : "text-neutral-600 hover:bg-neutral-100 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]"
@@ -81,7 +81,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               </span>
               <span
                 className={clsx(
-                  "text-xs transition-transform fold:hidden",
+                  "text-xs transition-transform md:max-xl:hidden",
                   active ? "translate-x-0.5" : "translate-x-0"
                 )}
               >
@@ -97,7 +97,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="flex items-center justify-center rounded-2xl px-4 py-3 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700 fold:px-2"
+          className="flex items-center justify-center rounded-2xl px-4 py-3 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700 md:max-xl:px-2"
           aria-label="설정"
           title="설정"
         >
@@ -109,7 +109,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={() => setSnippetsOpen(true)}
-          className="flex items-center justify-center rounded-2xl px-4 py-3 text-neutral-500 transition hover:bg-sky-50 hover:text-sky-600 fold:px-2"
+          className="flex items-center justify-center rounded-2xl px-4 py-3 text-neutral-500 transition hover:bg-sky-50 hover:text-sky-600 md:max-xl:px-2"
           aria-label="빠른 복사"
           title="빠른 복사"
         >

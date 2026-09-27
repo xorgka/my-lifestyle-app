@@ -212,7 +212,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
     };
   }, [themeId]);
 
-  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:p-7 fold:gap-3 fold:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
+  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:p-7 md:max-xl:gap-3 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
   const blueLayer = (
     <div
       className="absolute inset-0 rounded-3xl"
@@ -351,14 +351,14 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
       {compact && (
         <div className="relative z-10 hidden items-center justify-between gap-3 md:flex">
           <div className="flex shrink-0 items-center gap-3">
-            <span className="shrink-0 text-6xl leading-none fold:text-5xl" aria-hidden>{weather.theme.icon}</span>
-            <span className="text-5xl font-semibold leading-none tracking-tight text-white fold:text-4xl">
+            <span className="shrink-0 text-6xl leading-none md:max-xl:text-5xl" aria-hidden>{weather.theme.icon}</span>
+            <span className="text-5xl font-semibold leading-none tracking-tight text-white md:max-xl:text-4xl">
               {weather.temp}
               <span className="text-3xl font-medium text-white/80">°C</span>
             </span>
           </div>
           {rainMessage(rainHoursAhead) && (
-            <div className="min-w-0 border-l-2 border-white/60 py-0.5 pl-3 text-left fold:hidden text-[15px] font-semibold leading-[1.4] text-white">
+            <div className="min-w-0 border-l-2 border-white/60 py-0.5 pl-3 text-left md:max-xl:hidden text-[15px] font-semibold leading-[1.4] text-white">
               {rainMessageLines(rainHoursAhead)?.map((line) => (
                 <span key={line} className="block whitespace-nowrap">
                   {line}
@@ -371,7 +371,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
 
       {/* 좁은 화면(모바일·폴드): 말풍선 대신 작은 한 줄 */}
       {compact && rainMessage(rainHoursAhead) && (
-        <p className="relative z-10 truncate text-[13px] font-medium text-white/85 md:hidden fold:block fold:text-[15px]">
+        <p className="relative z-10 truncate text-[13px] font-medium text-white/85 md:hidden md:max-xl:block md:max-xl:text-[15px]">
           {rainMessage(rainHoursAhead)}
         </p>
       )}

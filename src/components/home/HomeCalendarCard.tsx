@@ -202,8 +202,14 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
               className={`flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition md:p-1 ${
                 items.length > 0 ? "md:hover:bg-neutral-50" : "md:cursor-default"
               } ${
-                cell.isCurrentMonth ? "bg-white" : "bg-neutral-50"
-              } ${cell.dateStr === selectedDate ? "max-md:bg-neutral-200/70" : ""} ${isToday ? "ring-2 ring-inset ring-neutral-800" : ""}`}
+                cell.dateStr === selectedDate
+                  ? cell.isCurrentMonth
+                    ? "bg-neutral-200/70 md:bg-white"
+                    : "bg-neutral-200/70 md:bg-neutral-50"
+                  : cell.isCurrentMonth
+                    ? "bg-white"
+                    : "bg-neutral-50"
+              } ${isToday ? "ring-2 ring-inset ring-neutral-800" : ""}`}
             >
               <div className="flex min-w-0 items-baseline justify-between gap-1">
               <span
@@ -239,14 +245,14 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                 {visibleItems.map((item, i) => (
                   <li
                     key={i}
-                    className={`truncate rounded px-1 py-0 text-[15px] fold:text-[14px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
+                    className={`truncate rounded px-1 py-0 text-[15px] md:max-xl:text-[14px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
                     title={item.time ? `${item.time} ${item.title}` : item.title}
                   >
                     {item.time && <span className="mr-1 font-medium text-neutral-400">{formatScheduleTime(item.time)}</span>}
                     {item.title}
                   </li>
                 ))}
-                {extra > 0 && <li className="px-1 text-[15px] fold:text-[14px] font-semibold text-neutral-400">+{extra}</li>}
+                {extra > 0 && <li className="px-1 text-[15px] md:max-xl:text-[14px] font-semibold text-neutral-400">+{extra}</li>}
               </ul>
             </div>
           );

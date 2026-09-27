@@ -32,10 +32,10 @@ export function ClockWidget() {
         className="flex w-full flex-col items-start rounded-2xl px-2 py-2.5 text-left transition hover:bg-neutral-100/80 active:bg-neutral-100"
         aria-label="오늘 날짜. 클릭하면 시계·스톱워치·타이머 열기"
       >
-        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500 md:text-[11px] fold:hidden">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500 md:text-[11px] md:max-xl:hidden">
           MY LIFESTYLE
         </div>
-        <div className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight text-neutral-900 md:mt-1 md:text-[1.35rem] fold:text-[15px]">
+        <div className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight text-neutral-900 md:mt-1 md:text-[1.35rem] md:max-xl:text-[15px]">
           {dateStr || "—.— ———"}
         </div>
       </button>
