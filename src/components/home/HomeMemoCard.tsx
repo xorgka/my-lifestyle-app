@@ -79,6 +79,24 @@ export function HomeMemoCard() {
   const canPrev = pinnedMemos.length > 1 && safeIndex > 0;
   const canNext = pinnedMemos.length > 1 && safeIndex < pinnedMemos.length - 1;
 
+  /** 확대 모달의 이전/다음 버튼 */
+  const modalArrow = (dir: "prev" | "next", display: string) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIndex((i) => (dir === "prev" ? Math.max(0, i - 1) : Math.min(pinnedMemos.length - 1, i + 1)));
+      }}
+      disabled={dir === "prev" ? !canPrev : !canNext}
+      className={`${display} z-10 h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30 disabled:opacity-30`}
+      aria-label={dir === "prev" ? "이전 메모" : "다음 메모"}
+    >
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d={dir === "prev" ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+      </svg>
+    </button>
+  );
+
   if (cardStyle === "tasks") {
     return (
       <div
@@ -230,31 +248,17 @@ export function HomeMemoCard() {
           currentMemo &&
           createPortal(
             <div
-              className="fixed inset-0 z-[10000] flex items-center justify-center gap-3 overflow-y-auto bg-black/60 p-6 backdrop-blur-sm md:gap-5"
+              className="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-4 bg-black/60 p-4 backdrop-blur-sm md:flex-row md:gap-5 md:p-6"
               onClick={() => setExpanded(false)}
             >
-              {pinnedMemos.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIndex((i) => Math.max(0, i - 1));
-                  }}
-                  disabled={!canPrev}
-                  className="z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30 disabled:opacity-30"
-                  aria-label="이전 메모"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
+              {pinnedMemos.length > 1 && modalArrow("prev", "hidden md:flex")}
 
+              {/* 높이 고정 + 안에서 스크롤: 긴 메모가 화면 위아래로 잘리지 않게. PC는 가로폭을 내용에 맞춤 */}
               <div
                 role="dialog"
                 aria-modal="true"
                 onClick={(e) => e.stopPropagation()}
-                className="relative flex w-full max-w-sm flex-shrink-0 flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                className="relative flex h-[min(560px,calc(100dvh-9rem))] w-full max-w-sm flex-shrink-0 md:w-auto md:min-w-[24rem] md:max-w-[min(56rem,calc(100vw-360px))] flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] md:h-[min(600px,calc(100dvh-5rem))]"
                 style={{ backgroundColor: "#FCDA55" }}
               >
                 <Link
@@ -269,7 +273,7 @@ export function HomeMemoCard() {
                     <circle cx="19" cy="12" r="2.4" />
                   </svg>
                 </Link>
-                <div className="px-7 pb-7 pt-9">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-7 pb-7 pt-9 scrollbar-hide">
                   <h3 className="mb-4 border-b border-dashed border-black/15 pb-4 pr-10 text-2xl font-extrabold leading-tight tracking-tight text-neutral-900/80">
                     {currentMemo.title?.trim() || "제목 없음"}
                   </h3>
@@ -280,21 +284,14 @@ export function HomeMemoCard() {
                 </div>
               </div>
 
+              {pinnedMemos.length > 1 && modalArrow("next", "hidden md:flex")}
+
+              {/* 모바일: 화면 끝은 누르기 어려워 카드 아래 가운데에 */}
               {pinnedMemos.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIndex((i) => Math.min(pinnedMemos.length - 1, i + 1));
-                  }}
-                  disabled={!canNext}
-                  className="z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/30 disabled:opacity-30"
-                  aria-label="다음 메모"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-8 md:hidden">
+                  {modalArrow("prev", "flex")}
+                  {modalArrow("next", "flex")}
+                </div>
               )}
             </div>,
             document.body
