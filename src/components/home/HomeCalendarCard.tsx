@@ -239,14 +239,14 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                 {visibleItems.map((item, i) => (
                   <li
                     key={i}
-                    className={`truncate rounded px-1 py-0 text-[15px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
+                    className={`truncate rounded px-1 py-0 text-[15px] fold:text-[14px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
                     title={item.time ? `${item.time} ${item.title}` : item.title}
                   >
                     {item.time && <span className="mr-1 font-medium text-neutral-400">{formatScheduleTime(item.time)}</span>}
                     {item.title}
                   </li>
                 ))}
-                {extra > 0 && <li className="px-1 text-[15px] font-semibold text-neutral-400">+{extra}</li>}
+                {extra > 0 && <li className="px-1 text-[15px] fold:text-[14px] font-semibold text-neutral-400">+{extra}</li>}
               </ul>
             </div>
           );
