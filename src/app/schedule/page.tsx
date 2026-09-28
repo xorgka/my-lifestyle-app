@@ -189,6 +189,18 @@ export default function SchedulePage() {
     m.addEventListener("change", update);
     return () => m.removeEventListener("change", update);
   }, []);
+  // 주소에 ?view=month&y=2026&m=9 가 있으면 '이번 달' 보기로 그 달을 열기 (홈 달력 제목에서 들어올 때)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") !== "month") return;
+    setViewMode("month");
+    const y = Number(params.get("y"));
+    const m = Number(params.get("m"));
+    if (Number.isInteger(y) && y >= 2000 && y <= 2100 && Number.isInteger(m) && m >= 1 && m <= 12) {
+      setCalendarYear(y);
+      setCalendarMonth(m);
+    }
+  }, []);
   const [swipedRowKey, setSwipedRowKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [weekTooltip, setWeekTooltip] = useState<{ text: string; x: number; y: number } | null>(null);

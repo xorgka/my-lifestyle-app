@@ -18,14 +18,14 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
   if (template === "calendar" || template === "timeline") {
     return (
       <>
-        {/* 모바일: 날씨 | 영상 → 오늘 타임라인 → 달력 → 메모. 데스크톱: 위 줄 = 날씨 | 메모 | 영상, 가운데 = 오늘 타임라인, 아래 = 달력 */}
+        {/* 모바일: 오늘 타임라인 → 날씨 | 영상 → 달력 → 메모. 데스크톱: 맨 위 = 오늘 타임라인, 가운데 = 날씨 | 메모 | 영상, 아래 = 달력 */}
         <div className="grid grid-cols-[minmax(0,1fr)_124px] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_210px] md:items-stretch">
-          <div className="order-1 flex h-[220px] min-w-0 flex-col md:col-start-1 md:row-start-1 md:h-[280px]">
+          <div className="order-2 flex h-[220px] min-w-0 flex-col md:col-start-1 md:row-start-2 md:h-[280px]">
             <WeatherCardWrapper compact />
           </div>
           <HomeVideoCard
             compact
-            className="order-2 h-[220px] w-full md:order-none md:col-start-3 md:row-start-1 md:h-[280px]"
+            className="order-3 h-[220px] w-full md:order-none md:col-start-3 md:row-start-2 md:h-[280px]"
           />
           {template === "timeline" ? (
             <TodayTimelineAxisPanel
@@ -34,7 +34,7 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
               completedIds={data.completedIds}
               remainingText={data.remainingText}
               onToggle={data.handleTimetableToggle}
-              className="order-3 col-span-2 md:order-none md:col-span-3 md:row-start-2"
+              className="order-1 col-span-2 md:order-none md:col-span-3 md:row-start-1"
             />
           ) : (
             <TodayTimelinePanel
@@ -43,11 +43,11 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
               completedIds={data.completedIds}
               remainingText={data.remainingText}
               onToggle={data.handleTimetableToggle}
-              className="order-3 col-span-2 md:order-none md:col-span-3 md:row-start-2"
+              className="order-1 col-span-2 md:order-none md:col-span-3 md:row-start-1"
             />
           )}
           <HomeCalendarCard className="order-4 col-span-2 md:order-none md:col-span-3 md:row-start-3 md:h-[520px]" />
-          <div className="order-5 col-span-2 flex min-w-0 flex-col md:order-none md:col-span-1 md:col-start-2 md:row-start-1">
+          <div className="order-5 col-span-2 flex min-w-0 flex-col md:order-none md:col-span-1 md:col-start-2 md:row-start-2">
             <HomeMemoCard />
           </div>
         </div>

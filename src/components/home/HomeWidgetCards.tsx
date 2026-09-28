@@ -771,7 +771,7 @@ export function TodayTimelineAxisPanel({
   return (
     <div className={`group relative min-w-0 overflow-hidden ${className}`}>
       {timelineSlots.length === 0 ? (
-        <Link href="/routine" className="block px-6 py-5 text-[15px] font-medium text-neutral-500 hover:text-neutral-700">
+        <Link href="/routine" className="block px-6 py-5 text-[17px] font-medium text-neutral-500 hover:text-neutral-700">
           오늘 타임테이블이 없어요
         </Link>
       ) : (
@@ -784,10 +784,10 @@ export function TodayTimelineAxisPanel({
             {nodes.map((node) => {
               if (node.kind === "now") {
                 return (
-                  <div key={node.key} ref={nowRef} className="flex shrink-0 flex-col items-center px-5">
+                  <div key={node.key} ref={nowRef} className="flex shrink-0 flex-col items-center px-3 md:px-5">
                     <Link
                       href="/routine"
-                      className="flex h-6 items-center text-[16px] font-bold tabular-nums text-neutral-900"
+                      className="flex h-6 items-center text-[18px] font-bold tabular-nums text-neutral-900"
                       aria-label={`${node.hour}시 일과 보기`}
                     >
                       {node.hour}시
@@ -796,7 +796,7 @@ export function TodayTimelineAxisPanel({
                       <span className="h-3.5 w-3.5 rounded-full bg-[#F19E36] ring-4 ring-[#FBE3C4]" aria-hidden />
                     </div>
                     {remainingText != null && (
-                      <span className="mt-2 whitespace-nowrap rounded-full bg-[#FBE3C4] px-2.5 py-1 text-[13px] font-semibold tabular-nums text-[#9A5B0E]">
+                      <span className="mt-2 whitespace-nowrap rounded-full bg-[#FBE3C4] px-2.5 py-1 text-[15px] font-semibold tabular-nums text-[#9A5B0E]">
                         {remainingText} 남음
                       </span>
                     )}
@@ -805,10 +805,10 @@ export function TodayTimelineAxisPanel({
               }
               if (node.kind === "empty") {
                 return (
-                  <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className="flex shrink-0 flex-col items-center px-5 opacity-45">
+                  <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className="flex shrink-0 flex-col items-center px-3 md:px-5 opacity-45">
                     <Link
                       href="/routine"
-                      className="flex h-6 items-center text-[15px] font-medium tabular-nums text-neutral-400"
+                      className="flex h-6 items-center text-[17px] font-medium tabular-nums text-neutral-400"
                       aria-label={`${node.hour}시 일과 보기`}
                     >
                       {node.hour}시
@@ -816,17 +816,17 @@ export function TodayTimelineAxisPanel({
                     <div className="relative z-[1] flex h-6 items-center justify-center">
                       <span className="h-3 w-3 rounded-full border-[1.5px] border-neutral-200 bg-white" aria-hidden />
                     </div>
-                    <span className="mt-1.5 whitespace-nowrap text-[15px] text-neutral-300">할 일 없음</span>
+                    <span className="mt-1.5 whitespace-nowrap text-[17px] text-neutral-300">할 일 없음</span>
                   </div>
                 );
               }
               const checked = completedIds.includes(node.item.id);
               return (
-                <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-5 ${node.tone === "current" ? "" : "opacity-45"}`}>
+                <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-3 md:px-5 ${node.tone === "current" ? "" : "opacity-45"}`}>
                   {node.hour != null ? (
                     <Link
                       href="/routine"
-                      className="flex h-6 items-center text-[15px] font-medium tabular-nums text-neutral-400"
+                      className="flex h-6 items-center text-[17px] font-medium tabular-nums text-neutral-400"
                       aria-label={`${node.hour}시 일과 보기`}
                     >
                       {node.hour}시
@@ -848,7 +848,7 @@ export function TodayTimelineAxisPanel({
                     />
                   </button>
                   <span
-                    className={`mt-2 whitespace-nowrap text-[15px] ${
+                    className={`mt-2 whitespace-nowrap text-[17px] ${
                       checked
                         ? "text-neutral-300 line-through"
                         : node.tone === "current"
@@ -866,9 +866,9 @@ export function TodayTimelineAxisPanel({
             <span className="shrink-0" style={{ width: sidePad }} aria-hidden />
           </div>
         </div>
-        {/* 양 끝을 흐리게 → 옆에 더 있다는 표시 */}
-        <span className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-12 bg-gradient-to-r from-white via-white/80 to-transparent md:w-24" aria-hidden />
-        <span className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-12 bg-gradient-to-l from-white via-white/80 to-transparent md:w-24" aria-hidden />
+        {/* 양 끝을 흐리게 → 옆에 더 있다는 표시. 폰은 좁게 해서 다음 시간대가 살짝 비치게 */}
+        <span className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-6 bg-gradient-to-r from-white via-white/80 to-transparent md:w-24" aria-hidden />
+        <span className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-6 bg-gradient-to-l from-white via-white/80 to-transparent md:w-24" aria-hidden />
         {/* PC: 마우스를 올리면 좌우 넘기기 버튼 */}
         <button type="button" onClick={() => scrollByPage(-1)} className={`${arrowClass} left-2`} aria-label="이전 시간대">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>

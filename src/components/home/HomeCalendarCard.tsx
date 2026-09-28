@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   loadScheduleEntries,
   getScheduleItemsInRange,
@@ -134,9 +135,14 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="min-w-[6.5rem] text-center text-xl font-semibold text-neutral-800">
+          {/* 누르면 스케줄 페이지 '이번 달' 보기로 이 달을 열기 */}
+          <Link
+            href={`/schedule?view=month&y=${year}&m=${month}`}
+            className="min-w-[6.5rem] rounded-lg text-center text-xl font-semibold text-neutral-800 underline-offset-4 transition hover:underline"
+            title="스케줄에서 이 달 보기"
+          >
             {year}년 {month}월
-          </span>
+          </Link>
           <button type="button" onClick={() => shiftMonth(1)} className={navButton} aria-label="다음 달">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

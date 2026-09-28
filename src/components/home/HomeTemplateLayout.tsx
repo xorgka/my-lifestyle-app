@@ -7,8 +7,9 @@ import {
   HOME_TEMPLATE_CHANGED_EVENT,
   type HomeTemplateId,
 } from "@/lib/homeTemplate";
+import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
-/** 설정(localStorage)에 저장된 홈 템플릿을 읽어 HomeLayout에 반영. 설정 변경 시 즉시 갱신 */
+/** 설정(localStorage)에 저장된 홈 템플릿을 읽어 HomeLayout에 반영. 설정 변경 시·다른 기기에서 바꾼 값이 동기화될 때 즉시 갱신 */
 export function HomeTemplateLayout() {
   const [templateId, setTemplateId] = useState<HomeTemplateId>("basic");
 
@@ -16,9 +17,11 @@ export function HomeTemplateLayout() {
     const sync = () => setTemplateId(getHomeTemplate());
     sync();
     window.addEventListener(HOME_TEMPLATE_CHANGED_EVENT, sync);
+    window.addEventListener(USER_SETTINGS_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(HOME_TEMPLATE_CHANGED_EVENT, sync);
+      window.removeEventListener(USER_SETTINGS_SYNC_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, []);
