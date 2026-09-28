@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useEffect, useCallback } from "react";
+import { useId, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { loadSetting, saveSetting, USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
@@ -455,5 +455,183 @@ export function TimetableCard({
         {content}
       </div>
     </Link>
+  );
+}
+
+/**
+ * 달력 템플릿용 오늘 타임라인: 가로 시간축 위에 시간대마다 점·시작 시각, 아래에 그 시간대 할 일(동그란 체크).
+ * 지금 시간대만 주황 점 + 남은 시간 + 어두운 카드로 강조, 앞뒤 시간대는 글자만 연하게.
+ */
+export function TodayTimelinePanel({
+  timelineSlots,
+  currentSlotId,
+  completedIds,
+  remainingText,
+  onToggle,
+  className = "",
+}: {
+  timelineSlots: { slot: TimetableSlot; start: number; end: number | null }[];
+  currentSlotId: string | null;
+  completedIds: string[];
+  remainingText: string | null;
+  onToggle: (itemId: string) => void;
+  className?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const currentRef = useRef<HTMLDivElement>(null);
+  /** 지금 칸 최대 폭 = 보이는 영역 폭 - 좌우 여백 - 카드가 왼쪽으로 삐져나온 16px. 넘치면 칸 안에서 줄바꿈 → 폰에서도 지금 할 일이 다 보이고 양 끝 흐림에 안 가려짐 */
+  const [currentMaxWidth, setCurrentMaxWidth] = useState<number | null>(null);
+  const currentIndex = timelineSlots.findIndex((t) => t.slot.id === currentSlotId);
+
+  useEffect(() => {
+    const box = scrollRef.current;
+    const track = trackRef.current;
+    if (!box || !track) return;
+    const measure = () => {
+      const pad = parseFloat(getComputedStyle(track).paddingLeft) || 0;
+      setCurrentMaxWidth(box.clientWidth - pad * 2 - 16);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [timelineSlots.length]);
+
+  // 열 때·시간대가 바뀔 때·폭이 바뀔 때 지금 칸(어두운 카드 기준, 슬롯보다 왼쪽으로 16px 나옴)이 가운데 오게.
+  // 부드러운 스크롤은 연달아 호출되면 도중에 끊겨 가운데까지 못 가서 바로 이동
+  useEffect(() => {
+    const box = scrollRef.current;
+    const cur = currentRef.current;
+    if (!box || !cur) return;
+    const left = cur.offsetLeft - 16;
+    const width = cur.offsetWidth + 16;
+    box.scrollLeft = left - (box.clientWidth - width) / 2;
+  }, [currentSlotId, timelineSlots.length, currentMaxWidth]);
+
+  const scrollByPage = (dir: -1 | 1) => {
+    const box = scrollRef.current;
+    if (box) box.scrollBy({ left: dir * box.clientWidth * 0.6, behavior: "smooth" });
+  };
+
+  const arrowClass =
+    "absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-500 opacity-0 shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition hover:text-neutral-900 group-hover:opacity-100 md:flex";
+
+  return (
+    <div
+      className={`group relative min-w-0 overflow-hidden rounded-3xl bg-white shadow-[0_1px_0_0_rgba(255,255,255,0.9)_inset,0_2px_4px_rgba(0,0,0,0.02),0_6px_12px_rgba(0,0,0,0.05),0_10px_24px_rgba(0,0,0,0.04)] ${className}`}
+    >
+      {timelineSlots.length === 0 ? (
+        <Link href="/routine" className="block px-6 py-5 text-[15px] font-medium text-neutral-500 hover:text-neutral-700">
+          오늘 타임테이블이 없어요
+        </Link>
+      ) : (
+        <>
+          <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">
+            <div ref={trackRef} className="relative flex w-max items-start gap-9 px-8 pb-5 pt-4 md:gap-11 md:px-12">
+              {/* 시간축: 점·시각 줄의 세로 가운데 = 위 여백(1rem) + 줄 높이 절반(0.75rem) */}
+              <span className="pointer-events-none absolute inset-x-0 top-[1.75rem] h-px -translate-y-1/2 bg-neutral-200" aria-hidden />
+              {timelineSlots.map(({ slot, start }, i) => {
+                const isCurrent = i === currentIndex;
+                const isPast = currentIndex >= 0 && i < currentIndex;
+                const items =
+                  slot.items.length === 0 ? (
+                    <p className={`text-[14px] leading-6 ${isCurrent ? "text-white/50" : "text-neutral-300"}`}>할 일 없음</p>
+                  ) : (
+                    <ul className={`flex items-center gap-x-4 gap-y-2 ${isCurrent ? "flex-wrap" : ""}`}>
+                      {slot.items.map((item) => {
+                        const checked = completedIds.includes(item.id);
+                        return (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              onClick={() => onToggle(item.id)}
+                              className="flex items-center gap-2 whitespace-nowrap text-left"
+                              aria-label={checked ? `${item.text || "항목"} 완료 해제` : `${item.text || "항목"} 완료`}
+                            >
+                              <span
+                                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                                  checked
+                                    ? isCurrent
+                                      ? "border-white bg-white text-neutral-900"
+                                      : "border-neutral-300 bg-neutral-300 text-white"
+                                    : isCurrent
+                                      ? "border-white/45"
+                                      : "border-neutral-300"
+                                }`}
+                                aria-hidden
+                              >
+                                {checked && (
+                                  <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={4}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </span>
+                              <span
+                                className={`text-[14px] leading-6 ${
+                                  checked
+                                    ? `line-through ${isCurrent ? "text-white/40" : "text-neutral-300"}`
+                                    : isCurrent
+                                      ? "font-semibold text-white"
+                                      : isPast
+                                        ? "font-medium text-neutral-400"
+                                        : "font-medium text-neutral-500"
+                                }`}
+                              >
+                                {item.text || "항목"}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                return (
+                  <div
+                    key={slot.id}
+                    ref={isCurrent ? currentRef : undefined}
+                    // 지금 칸은 양 끝 흐림보다 위에 둬서 폰에서 가장자리까지 와도 안 가려지게
+                    className={`relative shrink-0 ${isCurrent ? "z-[6]" : ""}`}
+                    style={isCurrent && currentMaxWidth ? { maxWidth: currentMaxWidth } : undefined}
+                  >
+                    {/* 점 + 시각을 시간축 선 위 한 줄에. 흰 배경으로 뒤의 선을 가려 글자가 선 위에 얹힌 모양 */}
+                    <div className="relative z-[1] flex h-6 w-fit items-center gap-2 bg-white pr-2.5">
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${isCurrent ? "bg-[#F19E36] ring-4 ring-[#FBE3C4]" : "bg-neutral-300"}`}
+                        aria-hidden
+                      />
+                      <span className={`text-[14px] font-bold tabular-nums ${isCurrent ? "ml-0.5 text-neutral-900" : "text-neutral-400"}`}>
+                        {start}시
+                      </span>
+                      {isCurrent && remainingText != null && (
+                        <span className="rounded-full bg-[#FBE3C4] px-2 py-px text-[12px] font-semibold tabular-nums text-[#9A5B0E]">
+                          {remainingText} 남음
+                        </span>
+                      )}
+                    </div>
+                    {/* 지금 칸은 어두운 카드, 나머지는 같은 세로 여백만 줘서 할 일 줄 높이를 맞춤 */}
+                    {isCurrent ? <div className="-ml-4 mt-2.5 rounded-2xl bg-neutral-900 px-4 py-3">{items}</div> : <div className="mt-2.5 py-3">{items}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* 양 끝을 흐리게 → 옆에 시간대가 더 있다는 표시 */}
+          <span className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-16 bg-gradient-to-r from-white via-white/80 to-transparent md:w-32" aria-hidden />
+          <span className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-16 bg-gradient-to-l from-white via-white/80 to-transparent md:w-32" aria-hidden />
+          {/* PC: 마우스를 올리면 좌우 넘기기 버튼 */}
+          <button type="button" onClick={() => scrollByPage(-1)} className={`${arrowClass} left-2`} aria-label="이전 시간대">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button type="button" onClick={() => scrollByPage(1)} className={`${arrowClass} right-2`} aria-label="다음 시간대">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+    </div>
   );
 }

@@ -178,8 +178,19 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
         className="grid h-[340px] flex-none grid-cols-7 gap-px overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-200/80 md:h-auto md:min-h-0 md:flex-1"
         style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}
       >
-        {cells.map((cell) => {
+        {cells.map((cell, idx) => {
           const items = itemsByDate[cell.dateStr] ?? [];
+          /** 네 모서리 칸은 바깥 틀(rounded-xl, 테두리 1px 안쪽 = 11px)과 같은 곡선으로 → 오늘 테두리가 잘리지 않음 */
+          const cornerClass =
+            idx === 0
+              ? "rounded-tl-[11px]"
+              : idx === 6
+                ? "rounded-tr-[11px]"
+                : idx === cells.length - 7
+                  ? "rounded-bl-[11px]"
+                  : idx === cells.length - 1
+                    ? "rounded-br-[11px]"
+                    : "";
           const isToday = cell.dateStr === today;
           const hasHoliday = items.some((it) => it.type === "holiday");
           /** 시스템 일정(공휴일·생일·기타)은 날짜 숫자 오른쪽에 작게, 내 일정만 아래 목록에 */
@@ -209,7 +220,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                   : cell.isCurrentMonth
                     ? "bg-white"
                     : "bg-neutral-50"
-              } ${isToday ? "ring-2 ring-inset ring-neutral-800" : ""}`}
+              } ${isToday ? "ring-2 ring-inset ring-neutral-800" : ""} ${cornerClass}`}
             >
               <div className="flex min-w-0 items-baseline justify-between gap-1">
               <span

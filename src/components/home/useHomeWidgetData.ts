@@ -194,6 +194,15 @@ export function useHomeWidgetData() {
   const sortedSlots = dayTimetable ? sortTimetableSlots(dayTimetable.slots) : [];
   const firstSlotHour =
     sortedSlots.length > 0 ? parseInt(String(sortedSlots[0].time).trim(), 10) : 0;
+  /** 오늘 타임라인: 시간대마다 화면에 보일 시작 시각(0~23)과 끝 시각(다음 시간대 시작, 마지막은 null) */
+  const timelineSlots = sortedSlots.map((slot, i) => {
+    const hourOf = (t: TimetableSlot) =>
+      startTimeOverride != null && !Number.isNaN(firstSlotHour)
+        ? getDisplayHour(t, firstSlotHour, startTimeOverride)
+        : Number(t.time) % 24;
+    const next = sortedSlots[i + 1];
+    return { slot, start: hourOf(slot), end: next ? hourOf(next) : null };
+  });
   const currentSlotDisplayHour =
     currentSlot && startTimeOverride != null && !Number.isNaN(firstSlotHour)
       ? getDisplayHour(currentSlot, firstSlotHour, startTimeOverride)
@@ -238,6 +247,7 @@ export function useHomeWidgetData() {
     currentSlot,
     currentSlotDisplayHour,
     completedIds,
+    timelineSlots,
     nextSlotHour,
     remainingText,
     now,
