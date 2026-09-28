@@ -30,6 +30,7 @@ function getDisplayHour(slot: TimetableSlot, firstSlotHour: number, startTimeOve
   return getSlotDisplayHour(slot.time, firstSlotHour, startTimeOverride);
 }
 
+/** 지금 시간대. 오늘 마지막 시간대(예: 0시 취침)는 다음 날 첫 시간대(예: 8시 기상) 전까지 이어짐 */
 export function getCurrentSlot(
   day: DayTimetable | null,
   startTimeOverride: number | null
@@ -42,10 +43,7 @@ export function getCurrentSlot(
   if (startTimeOverride != null && !Number.isNaN(firstSlotHour)) {
     for (let i = 0; i < sorted.length; i++) {
       const start = getDisplayHour(sorted[i], firstSlotHour, startTimeOverride);
-      const end =
-        i + 1 < sorted.length
-          ? getDisplayHour(sorted[i + 1], firstSlotHour, startTimeOverride)
-          : 24;
+      const end = getDisplayHour(sorted[(i + 1) % sorted.length], firstSlotHour, startTimeOverride);
       const inSlot =
         start <= end
           ? currentHour >= start && currentHour < end
@@ -57,13 +55,23 @@ export function getCurrentSlot(
 
   for (let i = 0; i < sorted.length; i++) {
     const start = Number(sorted[i].time);
-    const end = i + 1 < sorted.length ? Number(sorted[i + 1].time) : 5;
+    const end = Number(sorted[(i + 1) % sorted.length].time);
     const inSlot = start <= end
       ? currentHour >= start && currentHour < end
       : currentHour >= start || currentHour < end;
     if (inSlot) return sorted[i];
   }
   return sorted[0];
+}
+
+/**
+ * 지금 시간대가 끝나는 시각. 24 이상이면 내일(24 + 시).
+ * 자정을 넘긴 시간대(예: 22시 시작, 지금 1시)는 끝이 오늘이고, 아직 자정 전이면 다음 경계가 시작보다 작을 때 내일.
+ */
+function nextBoundaryHour(curStart: number, nextStart: number): number {
+  const nowHour = new Date().getHours();
+  if (nowHour < curStart) return nextStart;
+  return nextStart <= curStart ? nextStart + 24 : nextStart;
 }
 
 function getNextSlotHour(
@@ -74,17 +82,16 @@ function getNextSlotHour(
   if (!day || !currentSlot || day.slots.length === 0) return 24;
   const sorted = sortTimetableSlots(day.slots);
   const idx = sorted.findIndex((s) => s.id === currentSlot.id);
-  if (idx < 0 || idx + 1 >= sorted.length) return 24;
+  if (idx < 0) return 24;
   const firstSlotHour = parseInt(String(sorted[0].time).trim(), 10) || 0;
   const nextSlot = sorted[idx + 1];
+  const useOverride = startTimeOverride != null && !Number.isNaN(firstSlotHour);
+  const currentStart = useOverride ? getDisplayHour(currentSlot, firstSlotHour, startTimeOverride) : Number(currentSlot.time);
 
-  if (startTimeOverride != null && !Number.isNaN(firstSlotHour)) {
-    const nextDisplay = getDisplayHour(nextSlot, firstSlotHour, startTimeOverride);
-    const currentDisplay = getDisplayHour(currentSlot, firstSlotHour, startTimeOverride);
-    if (nextDisplay <= currentDisplay) return 24 + nextDisplay;
-    return nextDisplay;
-  }
-  return Number(nextSlot.time);
+  // 오늘 마지막 시간대는 다음 날 첫 시간대에 끝남 (getCurrentSlot과 같은 기준)
+  const boundarySlot = nextSlot ?? sorted[0];
+  const nextStart = useOverride ? getDisplayHour(boundarySlot, firstSlotHour, startTimeOverride) : Number(boundarySlot.time);
+  return nextBoundaryHour(currentStart, nextStart);
 }
 
 export function getRemainingToNextSlot(nextHour: number, now: Date): string {
