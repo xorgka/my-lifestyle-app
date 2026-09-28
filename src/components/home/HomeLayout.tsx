@@ -3,19 +3,19 @@
 import { HomeCalendarCard } from "@/components/home/HomeCalendarCard";
 import { HomeMemoCard } from "@/components/home/HomeMemoCard";
 import { HomeVideoCard } from "@/components/home/HomeVideoCard";
-import { RoutineCard, SleepCard, TimetableCard, TodayTimelinePanel } from "@/components/home/HomeWidgetCards";
+import { RoutineCard, SleepCard, TimetableCard, TodayTimelineAxisPanel, TodayTimelinePanel } from "@/components/home/HomeWidgetCards";
 import { InsightPhotoCard } from "@/components/home/InsightPhotoCard";
 import { WeatherCardWrapper } from "@/components/home/WeatherCardWrapper";
 import { useHomeWidgetData } from "@/components/home/useHomeWidgetData";
 
-export type HomeTemplate = "A" | "B" | "video" | "calendar";
+export type HomeTemplate = "A" | "B" | "video" | "calendar" | "timeline";
 
 /** A = 현재 디자인. 위 날씨/메모/인사이트, 아래 일기|루틴|타임테이블. B = 동일 레이아웃 + 타임테이블 카드만 B 디자인(흰 박스+작은 시간 정사각형). video = 인사이트·타임테이블 대신 세로 영상 플레이어. */
 export function HomeLayout({ template }: { template: HomeTemplate }) {
   const data = useHomeWidgetData();
   const timetableVariant = template === "B" ? "B" : "A";
 
-  if (template === "calendar") {
+  if (template === "calendar" || template === "timeline") {
     return (
       <>
         {/* 모바일: 날씨 | 영상 → 오늘 타임라인 → 달력 → 메모. 데스크톱: 위 줄 = 날씨 | 메모 | 영상, 가운데 = 오늘 타임라인, 아래 = 달력 */}
@@ -27,14 +27,25 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
             compact
             className="order-2 h-[220px] w-full md:order-none md:col-start-3 md:row-start-1 md:h-[280px]"
           />
-          <TodayTimelinePanel
-            timelineSlots={data.timelineSlots}
-            currentSlotId={data.currentSlot?.id ?? null}
-            completedIds={data.completedIds}
-            remainingText={data.remainingText}
-            onToggle={data.handleTimetableToggle}
-            className="order-3 col-span-2 md:order-none md:col-span-3 md:row-start-2"
-          />
+          {template === "timeline" ? (
+            <TodayTimelineAxisPanel
+              timelineSlots={data.timelineSlots}
+              currentSlotId={data.currentSlot?.id ?? null}
+              completedIds={data.completedIds}
+              remainingText={data.remainingText}
+              onToggle={data.handleTimetableToggle}
+              className="order-3 col-span-2 md:order-none md:col-span-3 md:row-start-2"
+            />
+          ) : (
+            <TodayTimelinePanel
+              timelineSlots={data.timelineSlots}
+              currentSlotId={data.currentSlot?.id ?? null}
+              completedIds={data.completedIds}
+              remainingText={data.remainingText}
+              onToggle={data.handleTimetableToggle}
+              className="order-3 col-span-2 md:order-none md:col-span-3 md:row-start-2"
+            />
+          )}
           <HomeCalendarCard className="order-4 col-span-2 md:order-none md:col-span-3 md:row-start-3 md:h-[520px]" />
           <div className="order-5 col-span-2 flex min-w-0 flex-col md:order-none md:col-span-1 md:col-start-2 md:row-start-1">
             <HomeMemoCard />

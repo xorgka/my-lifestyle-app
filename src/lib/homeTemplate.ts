@@ -10,7 +10,7 @@ const HOME_TEMPLATE_KEY = "home-template";
 
 export const HOME_TEMPLATE_CHANGED_EVENT = "home-template-changed";
 
-export type HomeTemplateId = "basic" | "video" | "calendar";
+export type HomeTemplateId = "basic" | "video" | "calendar" | "timeline";
 
 export const HOME_TEMPLATE_OPTIONS: { id: HomeTemplateId; label: string; description: string }[] = [
   {
@@ -28,11 +28,16 @@ export const HOME_TEMPLATE_OPTIONS: { id: HomeTemplateId; label: string; descrip
     label: "달력 템플릿",
     description: "날씨(낮게) · 메모 아래에 월간 달력 (날짜별 일정 한눈에). 인사이트·수면·루틴·현재 할일은 빠져요",
   },
+  {
+    id: "timeline",
+    label: "타임라인 템플릿",
+    description: "달력 템플릿과 같은 구성. 오늘 타임라인이 가로 축 위에 할 일마다 점으로 표시돼요",
+  },
 ];
 
 export function getHomeTemplate(): HomeTemplateId {
   const v = loadSetting<string>(HOME_TEMPLATE_KEY, "basic");
-  return v === "video" || v === "calendar" ? v : "basic";
+  return v === "video" || v === "calendar" || v === "timeline" ? v : "basic";
 }
 
 export function setHomeTemplate(id: HomeTemplateId): void {

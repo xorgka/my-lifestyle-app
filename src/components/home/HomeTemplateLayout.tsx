@@ -23,5 +23,17 @@ export function HomeTemplateLayout() {
     };
   }, []);
 
-  return <HomeLayout template={templateId === "video" ? "video" : templateId === "calendar" ? "calendar" : "B"} />;
+  return (
+    <HomeLayout
+      template={
+        templateId === "video"
+          ? "video"
+          : templateId === "calendar"
+            ? "calendar"
+            : templateId === "timeline"
+              ? "timeline"
+              : "B"
+      }
+    />
+  );
 }
