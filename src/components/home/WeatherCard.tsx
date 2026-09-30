@@ -72,6 +72,38 @@ function isRainDay(code: number): boolean {
   return id === "rain" || id === "showers" || id === "thunderstorm";
 }
 
+/**
+ * 비 오는 요일을 칸에 들어가는 만큼만 앞(가까운 날)에서부터 표시. 잘린 "…" 없이 넘치는 요일은 뺀다.
+ * 카드 폭이 바뀌면 다시 전부 넣어 보고 줄임.
+ */
+function FitDays({ labels, separator, className }: { labels: string[]; separator: string; className: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [count, setCount] = useState(labels.length);
+  const key = labels.join(",");
+
+  useEffect(() => {
+    setCount(labels.length);
+    const card = ref.current?.closest("section");
+    if (!card) return;
+    // 이 칸 자체는 글자 수에 따라 폭이 바뀌어서, 폭이 고정된 카드를 지켜봄
+    const ro = new ResizeObserver(() => setCount(labels.length));
+    ro.observe(card);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el && count > 1 && el.scrollWidth > el.clientWidth) setCount((c) => c - 1);
+  });
+
+  return (
+    <span ref={ref} className={`min-w-0 overflow-hidden whitespace-nowrap ${className}`}>
+      {labels.slice(0, count).join(separator)}
+    </span>
+  );
+}
+
 function rainMessage(hoursAhead: number | null | undefined): string | null {
   return rainMessageLines(hoursAhead)?.join(" ") ?? null;
 }
@@ -348,9 +380,11 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
         <div className="relative z-10 flex min-w-0 max-w-[50%] shrink-0 items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-white md:hidden">
           <Umbrella strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" aria-hidden />
           <span className="h-4 w-px shrink-0 bg-white/50" aria-hidden />
-          <span className="min-w-0 truncate text-sm font-bold">
-            {rainDayLabels.length > 0 ? rainDayLabels.join(", ") : "이번 주 비 없음"}
-          </span>
+          {rainDayLabels.length > 0 ? (
+            <FitDays labels={rainDayLabels} separator=", " className="text-sm font-bold" />
+          ) : (
+            <span className="min-w-0 truncate text-sm font-bold">이번 주 비 없음</span>
+          )}
         </div>
       )}
 
@@ -374,7 +408,11 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
             <Umbrella strokeWidth={1.75} className="h-5 w-5" aria-hidden />
             이번 주 비
           </span>
-          <span className="min-w-0 truncate text-lg font-bold">{rainDayLabels.length > 0 ? rainDayLabels.join(" · ") : "없음"}</span>
+          {rainDayLabels.length > 0 ? (
+            <FitDays labels={rainDayLabels} separator=" · " className="text-right text-base font-bold" />
+          ) : (
+            <span className="text-base font-bold">없음</span>
+          )}
         </div>
       )}
 
