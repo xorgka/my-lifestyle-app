@@ -21,6 +21,9 @@ export const SYNCED_SETTING_KEYS = [
   "home-alert-bar-enabled", // 홈 알림바 표시 여부
   "home-routine-display-percent", // 홈 루틴 카드 %표시
   "sidebar-hidden-menus", // 사이드바에서 숨긴 메뉴
+  "diet-profile", // 다이어트: 키·나이·성별·목표·트레드밀 기본값
+  "diet-foods", // 다이어트: 음식별 칼로리 목록
+  "diet-combos", // 다이어트: 자주 먹는 식단 조합
   "my-lifestyle-insights-favorites", // 인사이트 즐겨찾기
   "memo-selected-category-id", // 메모에서 마지막으로 보던 카테고리
   "my-lifestyle-journal-secret-pin-hash", // 일기 비밀글 PIN

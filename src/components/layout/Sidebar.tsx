@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { House, CalendarDays, CircleCheck, NotebookText, Folder, SquarePlay, ChartNoAxesColumn, Coins, type LucideIcon } from "lucide-react";
+import { House, CalendarDays, CircleCheck, NotebookText, Salad, Folder, SquarePlay, ChartNoAxesColumn, Coins, type LucideIcon } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { SnippetsModal } from "./SnippetsModal";
 import { YoutubePlayerBar } from "./YoutubePlayerBar";
@@ -18,6 +18,7 @@ const MENU_ICONS: Record<string, LucideIcon> = {
   "/schedule": CalendarDays,
   "/routine/list": CircleCheck,
   "/memo": NotebookText,
+  "/diet": Salad,
   "/projects": Folder,
   "/youtube": SquarePlay,
   "/finance": ChartNoAxesColumn,

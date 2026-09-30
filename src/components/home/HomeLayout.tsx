@@ -1,6 +1,7 @@
 "use client";
 
 import { HomeCalendarCard } from "@/components/home/HomeCalendarCard";
+import { HomeDietCard } from "@/components/home/HomeDietCard";
 import { HomeMemoCard } from "@/components/home/HomeMemoCard";
 import { HomeVideoCard } from "@/components/home/HomeVideoCard";
 import { RoutineCard, SleepCard, TimetableCard, TodayTimelineAxisPanel, TodayTimelinePanel } from "@/components/home/HomeWidgetCards";
@@ -18,15 +19,13 @@ export function HomeLayout({ template }: { template: HomeTemplate }) {
   if (template === "calendar" || template === "timeline") {
     return (
       <>
-        {/* 모바일: 오늘 타임라인 → 날씨 | 영상 → 달력 → 메모. 데스크톱: 맨 위 = 오늘 타임라인, 가운데 = 날씨 | 메모 | 영상, 아래 = 달력 */}
-        <div className="grid grid-cols-[minmax(0,1fr)_124px] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_210px] md:items-stretch">
+        {/* 모바일: 오늘 타임라인 → 날씨 | 다이어트 → 달력 → 메모. 데스크톱: 맨 위 = 오늘 타임라인, 가운데 = 날씨(정사각형) | 메모 | 다이어트, 아래 = 달력.
+            영상은 인사말 오른쪽 동그라미(HomeCornerVideo). 메모 폭 = 예전(날씨 1 : 메모 0.8, 영상 210px) 메모 폭의 약 88% */}
+        <div className="grid grid-cols-[minmax(0,1fr)_124px] gap-4 md:grid-cols-[280px_calc((100%_-_2rem_-_210px)*0.39)_minmax(0,1fr)] md:items-stretch">
           <div className="order-2 flex h-[220px] min-w-0 flex-col md:col-start-1 md:row-start-2 md:h-[280px]">
             <WeatherCardWrapper compact />
           </div>
-          <HomeVideoCard
-            compact
-            className="order-3 h-[220px] w-full md:order-none md:col-start-3 md:row-start-2 md:h-[280px]"
-          />
+          <HomeDietCard className="order-3 h-[220px] w-full md:order-none md:col-start-3 md:row-start-2 md:h-[280px]" />
           {template === "timeline" ? (
             <TodayTimelineAxisPanel
               timelineSlots={data.timelineSlots}

@@ -59,8 +59,16 @@ async function loadAllVideos(): Promise<{ byCategory: VideosByCategory; namesKey
   return { byCategory, namesKey: names.sort().join("|") };
 }
 
-/** 세로(쇼츠) 영상 플레이어 카드. 카테고리 내 랜덤 순서 재생, 끝나면 자동 다음 */
-export function HomeVideoCard({ className = "", compact = false }: { className?: string; compact?: boolean }) {
+/** 세로(쇼츠) 영상 플레이어 카드. 카테고리 내 랜덤 순서 재생, 끝나면 자동 다음. circle = 작은 동그라미(compact 전용) */
+export function HomeVideoCard({
+  className = "",
+  compact = false,
+  circle = false,
+}: {
+  className?: string;
+  compact?: boolean;
+  circle?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videosByCategory, setVideosByCategory] = useState<VideosByCategory | null>(null);
@@ -422,7 +430,7 @@ export function HomeVideoCard({ className = "", compact = false }: { className?:
         }}
         aria-label="영상 크게 보기"
         title="클릭하면 크게 재생"
-        className={`relative cursor-pointer overflow-hidden rounded-3xl border border-neutral-300 bg-neutral-950 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)] ${className}`}
+        className={`relative cursor-pointer overflow-hidden border border-neutral-300 bg-neutral-950 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)] ${circle ? "rounded-full" : "rounded-3xl"} ${className}`}
       >
         {src ? (
           <video
@@ -433,9 +441,18 @@ export function HomeVideoCard({ className = "", compact = false }: { className?:
             className="pointer-events-none h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center px-2 text-center text-xs text-neutral-400">
-            {videosByCategory === null ? "불러오는 중…" : "영상 없음"}
-          </div>
+          !circle && (
+            <div className="flex h-full items-center justify-center px-2 text-center text-xs text-neutral-400">
+              {videosByCategory === null ? "불러오는 중…" : "영상 없음"}
+            </div>
+          )
+        )}
+        {circle && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-white" aria-hidden>
+            <svg className="ml-0.5 h-1/3 w-1/3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5l11 7-11 7V5z" />
+            </svg>
+          </span>
         )}
       </div>
     );

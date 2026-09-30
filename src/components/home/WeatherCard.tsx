@@ -11,6 +11,7 @@ import {
   CloudSnow,
   CloudSun,
   Sun,
+  Umbrella,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -94,6 +95,12 @@ function rainMessageLines(hoursAhead: number | null | undefined): [string, strin
   if (hoursAhead === null) return ["24시간 안에", "비 소식이 없어요"];
   if (hoursAhead === 0) return ["지금", "비가 오고 있어요"];
   return [`${hoursAhead}시간 후에`, "비가 와요"];
+}
+
+/** 비 오는 날씨(비·소나기·뇌우)인 날 */
+function isRainDay(code: number): boolean {
+  const id = getThemeByCode(code).id;
+  return id === "rain" || id === "showers" || id === "thunderstorm";
 }
 
 function rainMessage(hoursAhead: number | null | undefined): string | null {
@@ -212,7 +219,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
     };
   }, [themeId]);
 
-  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:p-7 md:max-xl:gap-3 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
+  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:gap-6 md:p-6 md:max-xl:gap-3 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
   const blueLayer = (
     <div
       className="absolute inset-0 rounded-3xl"
@@ -349,8 +356,8 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
       </div>
 
       {compact && (
-        <div className="relative z-10 hidden items-center justify-between gap-3 md:flex">
-          <div className="flex shrink-0 items-center gap-3">
+        <div className="relative z-10 hidden flex-col gap-2 md:flex">
+          <div className="flex items-center gap-3">
             <span className="shrink-0 text-6xl leading-none md:max-xl:text-5xl" aria-hidden>{weather.theme.icon}</span>
             <span className="text-5xl font-semibold leading-none tracking-tight text-white md:max-xl:text-4xl">
               {weather.temp}
@@ -358,26 +365,28 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
             </span>
           </div>
           {rainMessage(rainHoursAhead) && (
-            <div className="min-w-0 border-l-2 border-white/60 py-0.5 pl-3 text-left md:max-xl:hidden text-[15px] font-semibold leading-[1.4] text-white">
-              {rainMessageLines(rainHoursAhead)?.map((line) => (
-                <span key={line} className="block whitespace-nowrap">
-                  {line}
-                </span>
-              ))}
-            </div>
+            <p className="text-[15px] font-semibold leading-snug text-white">{rainMessage(rainHoursAhead)}</p>
           )}
         </div>
       )}
 
-      {/* 좁은 화면(모바일·폴드): 말풍선 대신 작은 한 줄 */}
-      {compact && rainMessage(rainHoursAhead) && (
-        <p className="relative z-10 truncate text-[13px] font-medium text-white/85 hidden md:max-xl:block md:max-xl:text-[15px]">
-          {rainMessage(rainHoursAhead)}
-        </p>
+      {compact && stripForecast && (
+        <div className="relative z-10 flex items-center gap-2.5 rounded-2xl bg-white/15 px-4 py-3 text-white max-md:hidden">
+          <Umbrella size={24} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          <span className="h-5 w-px shrink-0 bg-white/50" aria-hidden />
+          <span className="min-w-0 truncate text-lg font-bold">
+            {stripForecast.some((day) => isRainDay(day.weatherCode))
+              ? stripForecast
+                  .filter((day) => isRainDay(day.weatherCode))
+                  .map((day) => ["일", "월", "화", "수", "목", "금", "토"][new Date(day.date + "T12:00:00").getDay()])
+                  .join(", ")
+              : "이번 주 비 없음"}
+          </span>
+        </div>
       )}
 
       {compact && stripForecast && (
-        <div className="relative z-10 grid grid-cols-7 gap-1 text-center">
+        <div className="relative z-10 grid grid-cols-7 gap-1 text-center md:hidden">
           {stripForecast.map((day) => {
             const d = new Date(day.date + "T12:00:00");
             return (

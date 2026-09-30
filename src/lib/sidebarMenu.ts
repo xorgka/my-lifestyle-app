@@ -21,6 +21,7 @@ export const SIDEBAR_MENU_ITEMS: SidebarMenuItem[] = [
   { href: "/schedule", label: "스케줄", badge: true },
   { href: "/routine/list", label: "루틴", activePrefixes: ["/routine"] },
   { href: "/memo", label: "노트", activePrefixes: ["/memo", "/journal"] },
+  { href: "/diet", label: "다이어트" },
   { href: "/projects", label: "프로젝트" },
   { href: "/youtube", label: "유튜브", exact: true },
   { href: "/finance", label: "가계부" },
