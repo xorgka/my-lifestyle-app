@@ -438,7 +438,7 @@ export function HomeVideoCard({
             muted
             playsInline
             preload="metadata"
-            className="pointer-events-none h-full w-full object-cover"
+            className={`pointer-events-none h-full w-full object-cover ${circle ? "scale-[1.6]" : ""}`}
           />
         ) : (
           !circle && (

@@ -11,14 +11,17 @@ function dateLabel(d: Date): string {
 }
 
 /**
- * 다이어트 목표 패널: 목표 체중 진행, 오늘 운동 목표 달성률, 연속 달성 일수, 번갈아 나오는 자극 문구.
+ * 다이어트 목표 패널: 목표 체중 진행, 보고 있는 날짜의 운동 목표 달성률, 연속 달성 일수, 번갈아 나오는 자극 문구.
  */
 export function DietGoalPanel({
   targetWeightKg,
   weeklyLossKg,
   startWeightKg,
   currentWeightKg,
-  todayExerciseKcal,
+  dayLabel,
+  dayIsPast,
+  dayExerciseKcal,
+  dayAchieved,
   exerciseGoalKcal,
   streakDays,
   todayAchieved,
@@ -34,10 +37,17 @@ export function DietGoalPanel({
   /** 처음 기록한 몸무게 */
   startWeightKg: number | null;
   currentWeightKg: number | null;
-  todayExerciseKcal: number;
+  /** 운동 칸이 보여주는 날짜: 오늘이면 "오늘", 아니면 "9월 30일" */
+  dayLabel: string;
+  /** 보고 있는 날짜가 오늘보다 전 */
+  dayIsPast: boolean;
+  /** 보고 있는 날짜의 운동 칼로리 */
+  dayExerciseKcal: number;
+  dayAchieved: boolean;
   exerciseGoalKcal: number;
   /** 운동 목표를 연속으로 달성한 날 수 (오늘 달성했으면 오늘 포함, 아니면 어제까지) */
   streakDays: number;
+  /** 오늘 운동 목표 달성 여부 (연속 달성 문구용) */
   todayAchieved: boolean;
   /** 최근 7일(오늘 포함) 중 운동 목표 달성한 날 */
   weekAchievedDays: number;
@@ -69,8 +79,8 @@ export function DietGoalPanel({
   const lostKg = hasGoal && start != null ? start - currentWeightKg! : 0;
   const progressPct = totalKg > 0 ? Math.min(100, Math.max(0, (lostKg / totalKg) * 100)) : 0;
 
-  const exercisePct = exerciseGoalKcal > 0 ? Math.min(100, (todayExerciseKcal / exerciseGoalKcal) * 100) : 0;
-  const exerciseLeft = Math.max(0, exerciseGoalKcal - todayExerciseKcal);
+  const exercisePct = exerciseGoalKcal > 0 ? Math.min(100, (dayExerciseKcal / exerciseGoalKcal) * 100) : 0;
+  const exerciseLeft = Math.max(0, exerciseGoalKcal - dayExerciseKcal);
   const leftMinutes = treadmillMinutesFor(exerciseLeft);
 
   // 번갈아 보여줄 문구
@@ -85,12 +95,14 @@ export function DietGoalPanel({
     );
   if (hasGoal && remainKg === 0) messages.push(`목표 ${targetWeightKg}kg 달성! 이제 유지가 목표예요`);
   if (hasGoal && lostKg > 0) messages.push(`시작 ${start}kg에서 ${lostKg.toFixed(1)}kg 뺐어요. 목표의 ${Math.round(progressPct)}%까지 왔어요`);
-  if (todayAchieved) messages.push(`오늘 운동 목표 달성! ${fmt(todayExerciseKcal)}kcal 태웠어요`);
+  if (dayAchieved) messages.push(`${dayLabel} 운동 목표 달성! ${fmt(dayExerciseKcal)}kcal 태웠어요`);
   else if (exerciseGoalKcal > 0)
     messages.push(
-      leftMinutes != null
-        ? `오늘 운동 ${fmt(exerciseLeft)}kcal 남았어요 — ${treadmillLabel} ${fmt(leftMinutes)}분이면 채워요`
-        : `오늘 운동 ${fmt(exerciseLeft)}kcal 남았어요`
+      dayIsPast
+        ? `${dayLabel} 운동은 목표보다 ${fmt(exerciseLeft)}kcal 모자랐어요`
+        : leftMinutes != null
+          ? `${dayLabel} 운동 ${fmt(exerciseLeft)}kcal 남았어요 — ${treadmillLabel} ${fmt(leftMinutes)}분이면 채워요`
+          : `${dayLabel} 운동 ${fmt(exerciseLeft)}kcal 남았어요`
     );
   if (streakDays > 0)
     messages.push(todayAchieved ? `${streakDays}일 연속 운동 목표 달성 중이에요` : `${streakDays}일 연속 달성 중 — 오늘도 이어가면 ${streakDays + 1}일째예요`);
@@ -158,13 +170,13 @@ export function DietGoalPanel({
 
       <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 md:gap-4">
         <div>
-          <p className="text-xs font-medium text-white/50 md:text-sm">오늘 운동</p>
+          <p className="text-xs font-medium text-white/50 md:text-sm">{dayLabel} 운동</p>
           <p className="mt-1 text-lg font-bold tabular-nums md:text-2xl">
-            {fmt(todayExerciseKcal)}
+            {fmt(dayExerciseKcal)}
             <span className="text-xs font-medium text-white/40 md:text-sm"> / {fmt(exerciseGoalKcal)}kcal</span>
           </p>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/15">
-            <div className={`h-full rounded-full ${todayAchieved ? "bg-emerald-400" : "bg-[#F19E36]"}`} style={{ width: `${exercisePct}%` }} />
+            <div className={`h-full rounded-full ${dayAchieved ? "bg-emerald-400" : "bg-[#F19E36]"}`} style={{ width: `${exercisePct}%` }} />
           </div>
         </div>
         <div>

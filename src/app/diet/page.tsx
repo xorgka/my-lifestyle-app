@@ -275,10 +275,10 @@ const HISTORY_RANGES = [
 ] as const;
 type HistoryRange = (typeof HISTORY_RANGES)[number]["id"];
 const HISTORY_TABS = [
+  { id: "table", label: "날짜별 표" },
   { id: "weight", label: "몸무게" },
   { id: "intake", label: "먹은 칼로리" },
   { id: "exercise", label: "운동" },
-  { id: "table", label: "날짜별 표" },
 ] as const;
 type HistoryTab = (typeof HISTORY_TABS)[number]["id"];
 
@@ -292,7 +292,7 @@ export default function DietPage() {
   const [combos, setCombos] = useState<DietCombo[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [weightInput, setWeightInput] = useState("");
-  const [historyTab, setHistoryTab] = useState<HistoryTab>("weight");
+  const [historyTab, setHistoryTab] = useState<HistoryTab>("table");
   const [historyRange, setHistoryRange] = useState<HistoryRange>(30);
   const [history, setHistory] = useState<DietDay[]>([]);
   /** 운동 연속 달성 계산용 최근 기록 (기록 탭 기간과 별개) */
@@ -655,7 +655,10 @@ export default function DietPage() {
         weeklyLossKg={profile.weeklyLossKg}
         startWeightKg={startWeightKg}
         currentWeightKg={weightNow}
-        todayExerciseKcal={exerciseKcalOn(today)}
+        dayLabel={date === today ? "오늘" : `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`}
+        dayIsPast={date < today}
+        dayExerciseKcal={exerciseKcalOn(date)}
+        dayAchieved={achievedOn(date)}
         exerciseGoalKcal={exerciseGoal}
         streakDays={streakDays}
         todayAchieved={todayAchieved}
