@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarCheck, Flame, Target } from "lucide-react";
+import { Target } from "lucide-react";
 import { KCAL_PER_KG } from "@/lib/dietCalc";
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
@@ -11,7 +11,7 @@ function dateLabel(d: Date): string {
 }
 
 /**
- * 다이어트 목표 패널: 목표 체중 진행, 보고 있는 날짜의 운동 목표 달성률, 연속 달성 일수, 번갈아 나오는 자극 문구.
+ * 다이어트 목표 패널: 목표 체중 게이지, 예상 달성일, 번갈아 나오는 문구.
  */
 export function DietGoalPanel({
   targetWeightKg,
@@ -23,9 +23,6 @@ export function DietGoalPanel({
   dayExerciseKcal,
   dayAchieved,
   exerciseGoalKcal,
-  streakDays,
-  todayAchieved,
-  weekAchievedDays,
   actualDailyDeficit,
   paceDayCount,
   treadmillMinutesFor,
@@ -45,12 +42,6 @@ export function DietGoalPanel({
   dayExerciseKcal: number;
   dayAchieved: boolean;
   exerciseGoalKcal: number;
-  /** 운동 목표를 연속으로 달성한 날 수 (오늘 달성했으면 오늘 포함, 아니면 어제까지) */
-  streakDays: number;
-  /** 오늘 운동 목표 달성 여부 (연속 달성 문구용) */
-  todayAchieved: boolean;
-  /** 최근 7일(오늘 포함) 중 운동 목표 달성한 날 */
-  weekAchievedDays: number;
   /** 최근 실제 기록의 하루 평균 적자(kcal, +면 빠지는 중). 기록한 날이 3일 미만이면 null */
   actualDailyDeficit: number | null;
   /** 평균에 쓴 날 수 */
@@ -79,7 +70,6 @@ export function DietGoalPanel({
   const lostKg = hasGoal && start != null ? start - currentWeightKg! : 0;
   const progressPct = totalKg > 0 ? Math.min(100, Math.max(0, (lostKg / totalKg) * 100)) : 0;
 
-  const exercisePct = exerciseGoalKcal > 0 ? Math.min(100, (dayExerciseKcal / exerciseGoalKcal) * 100) : 0;
   const exerciseLeft = Math.max(0, exerciseGoalKcal - dayExerciseKcal);
   const leftMinutes = treadmillMinutesFor(exerciseLeft);
 
@@ -101,13 +91,9 @@ export function DietGoalPanel({
       dayIsPast
         ? `${dayLabel} 운동은 목표보다 ${fmt(exerciseLeft)}kcal 모자랐어요`
         : leftMinutes != null
-          ? `${dayLabel} 운동 ${fmt(exerciseLeft)}kcal 남았어요 — ${treadmillLabel} ${fmt(leftMinutes)}분이면 채워요`
+          ? `${dayLabel} 운동 ${fmt(exerciseLeft)}kcal 남았어요 — ${treadmillLabel} ${Math.ceil(leftMinutes)}분이면 채워요`
           : `${dayLabel} 운동 ${fmt(exerciseLeft)}kcal 남았어요`
     );
-  if (streakDays > 0)
-    messages.push(todayAchieved ? `${streakDays}일 연속 운동 목표 달성 중이에요` : `${streakDays}일 연속 달성 중 — 오늘도 이어가면 ${streakDays + 1}일째예요`);
-  else messages.push("오늘 운동 목표를 채우면 연속 기록이 시작돼요");
-  messages.push(`최근 7일 중 ${weekAchievedDays}일 운동 목표를 채웠어요`);
 
   const [msgIndex, setMsgIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -124,9 +110,15 @@ export function DietGoalPanel({
   const message = messages[msgIndex % messages.length];
 
   return (
-    <section className="rounded-3xl bg-neutral-900 p-5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.18)] md:p-7">
+    <section className="relative rounded-3xl bg-neutral-900 p-5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.18)] md:p-7">
       {hasGoal ? (
         <>
+          {/* 폰: 예상 달성일만 오른쪽 위에 (계산 기준 설명은 생략) */}
+          {remainKg > 0 && (
+            <p className="absolute right-5 top-5 text-sm tabular-nums text-white/60 md:hidden">
+              예상 달성 <b className="text-base text-white">{paceStalled ? "—" : dateLabel(eta)}</b>
+            </p>
+          )}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="flex items-center gap-1.5 text-sm font-medium text-white/60">
@@ -141,7 +133,7 @@ export function DietGoalPanel({
               </p>
             </div>
             {remainKg > 0 && (
-              <p className="text-right text-sm tabular-nums text-white/60">
+              <p className="hidden text-right text-sm tabular-nums text-white/60 md:block">
                 예상 달성 <b className="text-base text-white">{paceStalled ? "—" : dateLabel(eta)}</b>
                 <br />
                 {!usePace
@@ -168,38 +160,19 @@ export function DietGoalPanel({
         </button>
       )}
 
-      <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 md:gap-4">
-        <div>
-          <p className="text-xs font-medium text-white/50 md:text-sm">{dayLabel} 운동</p>
-          <p className="mt-1 text-lg font-bold tabular-nums md:text-2xl">
-            {fmt(dayExerciseKcal)}
-            <span className="text-xs font-medium text-white/40 md:text-sm"> / {fmt(exerciseGoalKcal)}kcal</span>
-          </p>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/15">
-            <div className={`h-full rounded-full ${dayAchieved ? "bg-emerald-400" : "bg-[#F19E36]"}`} style={{ width: `${exercisePct}%` }} />
-          </div>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-white/50 md:text-sm">연속 달성</p>
-          <p className="mt-1 flex items-center gap-1 text-lg font-bold tabular-nums md:text-2xl">
-            <Flame className={`h-5 w-5 ${streakDays > 0 ? "text-[#FF7A45]" : "text-white/30"}`} aria-hidden />
-            {streakDays}일
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-white/50 md:text-sm">최근 7일</p>
-          <p className="mt-1 flex items-center gap-1 text-lg font-bold tabular-nums md:text-2xl">
-            <CalendarCheck className="h-5 w-5 text-emerald-400" aria-hidden />
-            {weekAchievedDays}/7일
-          </p>
-        </div>
-      </div>
-
       <p
-        className={`mt-4 min-h-[1.5em] text-[15px] font-semibold text-[#FFB25C] transition-opacity duration-300 md:text-base ${visible ? "opacity-100" : "opacity-0"}`}
+        className={`mt-5 min-h-[1.5em] text-[15px] font-semibold text-[#FFB25C] transition-opacity duration-300 md:text-base ${visible ? "opacity-100" : "opacity-0"}`}
         aria-live="polite"
       >
-        {message}
+        {message.includes(" — ") ? (
+          <>
+            {message.split(" — ")[0]}
+            <span className="hidden md:inline"> </span>
+            <br className="md:hidden" />— {message.split(" — ").slice(1).join(" — ")}
+          </>
+        ) : (
+          message
+        )}
       </p>
     </section>
   );

@@ -108,7 +108,7 @@ function MealBlock({
 
   return (
     // min-w-0: 그리드 칸 안에서 폰 폭보다 넓어지지 않게 (기본값이면 입력칸·선택창의 원래 폭 때문에 화면 밖으로 넘침)
-    <div className="min-w-0 rounded-2xl bg-neutral-50 p-4">
+    <div className="min-w-0 rounded-2xl border border-neutral-300 bg-neutral-50 p-4">
       <div className="flex items-baseline justify-between">
         <h3 className="text-[15px] font-bold text-neutral-900">{label}</h3>
         <span className="text-[15px] font-semibold tabular-nums text-neutral-900">
@@ -483,11 +483,9 @@ export default function DietPage() {
   };
   const exerciseGoal = profile.dailyExerciseGoalKcal;
   const achievedOn = (dateKey: string) => exerciseGoal > 0 && exerciseKcalOn(dateKey) >= exerciseGoal;
-  const todayAchieved = achievedOn(today);
-  let streakDays = 0;
-  for (let d = todayAchieved ? today : shiftDateKey(today, -1); achievedOn(d); d = shiftDateKey(d, -1)) streakDays += 1;
-  const weekAchievedDays = Array.from({ length: 7 }, (_, i) => shiftDateKey(today, -i)).filter(achievedOn).length;
   const startWeightKg = weights.length > 0 ? weights[0].weightKg : null;
+  /** 보고 있는 날짜: 오늘이면 "오늘", 아니면 "9월 30일" */
+  const dayLabel = date === today ? "오늘" : `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`;
 
   /** 예상 달성일용 실제 페이스: 어제까지 최근 7일 중 먹은 걸 기록한 날의 하루 평균 적자 (소모 − 먹은 양).
    * 오늘은 아직 다 안 먹어서 빼고, 먹은 기록이 없는 날은 모르니 뺀다 */
@@ -655,14 +653,11 @@ export default function DietPage() {
         weeklyLossKg={profile.weeklyLossKg}
         startWeightKg={startWeightKg}
         currentWeightKg={weightNow}
-        dayLabel={date === today ? "오늘" : `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`}
+        dayLabel={dayLabel}
         dayIsPast={date < today}
         dayExerciseKcal={exerciseKcalOn(date)}
         dayAchieved={achievedOn(date)}
         exerciseGoalKcal={exerciseGoal}
-        streakDays={streakDays}
-        todayAchieved={todayAchieved}
-        weekAchievedDays={weekAchievedDays}
         actualDailyDeficit={actualDailyDeficit}
         paceDayCount={paceDays.length}
         treadmillMinutesFor={(kcal) => (kcalPerMin > 0 ? kcal / kcalPerMin : null)}
@@ -670,67 +665,84 @@ export default function DietPage() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      {/* 오늘 요약: 먹은 양 / 먹어도 되는 양 게이지 */}
+      {/* 하루 요약: 먹은 양 · 운동 · 예상 변화를 한 패널에 크게 */}
       <section className={cardClass}>
         {(() => {
           const allowed = burn != null ? burn - deficitTarget : null;
           const over = needMore != null && needMore > 0;
           const pct = allowed != null && allowed > 0 ? Math.min(100, (intake / allowed) * 100) : 0;
+          const exercisePct = exerciseGoal > 0 ? Math.min(100, (exerciseKcal / exerciseGoal) * 100) : 0;
+          const exerciseLeft = Math.max(0, exerciseGoal - exerciseKcal);
+          const dayAchieved = achievedOn(date);
+          const grams = balance != null ? kcalToGrams(balance) : null;
           return (
-            <>
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-neutral-500">오늘 먹은 양</p>
-                  <p className="mt-1 tabular-nums">
-                    <span className="text-4xl font-bold text-neutral-900 md:text-5xl">{fmt(intake)}</span>
-                    <span className="ml-1.5 text-base text-neutral-400">{allowed != null ? `/ ${fmt(allowed)} kcal` : "kcal"}</span>
-                  </p>
-                </div>
-              </div>
-              {allowed != null && (
-                <>
-                  <div className="mt-4 h-3.5 overflow-hidden rounded-full bg-neutral-100">
-                    <div className={`h-full rounded-full transition-all ${over ? "bg-red-500" : "bg-neutral-900"}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm text-neutral-500">
-                    <span>주 {profile.weeklyLossKg}kg 감량 목표 기준</span>
-                    <span className={over ? "font-semibold text-red-600" : ""}>
+            <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-neutral-200">
+              <div className="min-w-0 md:pr-6">
+                <p className="text-sm font-medium text-neutral-500">먹은 양</p>
+                <p className="mt-1 tabular-nums">
+                  <span className={`text-4xl font-bold md:text-5xl ${over ? "text-red-500" : "text-neutral-900"}`}>{fmt(intake)}</span>
+                  <span className="ml-1.5 text-base text-neutral-400">{allowed != null ? `/ ${fmt(allowed)}` : "kcal"}</span>
+                </p>
+                {allowed != null && (
+                  <>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-neutral-100">
+                      <div className={`h-full rounded-full transition-all ${over ? "bg-red-500" : "bg-neutral-900"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className={`mt-2 text-sm ${over ? "font-semibold text-red-600" : "text-neutral-500"}`}>
                       {over
                         ? kcalPerMin > 0
-                          ? `트레드밀 ${incline}%·${speed}km/h ${fmt(needMore! / kcalPerMin)}분 하면 만회`
-                          : `${fmt(needMore!)}kcal 더 써야 해요`
-                        : "더 해야 할 운동 없음"}
-                    </span>
-                  </div>
-                </>
-              )}
-              <div className="mt-5 grid grid-cols-3 gap-2 border-t border-neutral-100 pt-4 text-center">
-                <div>
-                  <p className="text-xs text-neutral-400 md:text-sm">쓴 칼로리</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-neutral-900">{burn != null ? fmt(burn) : "–"}</p>
-                  {base != null && (
-                    <p className="text-[11px] tabular-nums text-neutral-400">
-                      기본 {fmt(base)}
-                      {profile.dailyActivities.length > 0 && ` + 매일 ${fmt(dailyActivityKcal)}`}
+                          ? `${fmt(needMore!)}kcal 초과 · 트레드밀 ${Math.ceil(needMore! / kcalPerMin)}분이면 만회`
+                          : `${fmt(needMore!)}kcal 초과`
+                        : `주 ${profile.weeklyLossKg}kg 감량 목표 기준`}
                     </p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-400 md:text-sm">운동</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-neutral-900">{fmt(exerciseKcal)}kcal</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-400 md:text-sm">예상 변화</p>
-                  <p
-                    className={`mt-0.5 text-lg font-bold tabular-nums ${
-                      balance == null ? "text-neutral-900" : balance > 0 ? "text-red-500" : "text-emerald-600"
-                    }`}
-                  >
-                    {balance != null ? `${balance > 0 ? "+" : "−"}${fmt(Math.abs(kcalToGrams(balance)))}g` : "–"}
-                  </p>
-                </div>
+                  </>
+                )}
               </div>
-            </>
+
+              <div className="min-w-0 md:px-6">
+                <p className="text-sm font-medium text-neutral-500">운동</p>
+                <p className="mt-1 tabular-nums">
+                  <span className="text-4xl font-bold text-neutral-900 md:text-5xl">{fmt(exerciseKcal)}</span>
+                  {exerciseGoal > 0 && <span className="ml-1.5 text-base text-neutral-400">/ {fmt(exerciseGoal)}</span>}
+                </p>
+                {exerciseGoal > 0 && (
+                  <>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className={`h-full rounded-full transition-all ${dayAchieved ? "bg-emerald-500" : "bg-[#F19E36]"}`}
+                        style={{ width: `${exercisePct}%` }}
+                      />
+                    </div>
+                    <p className={`mt-2 text-sm ${dayAchieved ? "font-semibold text-emerald-600" : "text-neutral-500"}`}>
+                      {dayAchieved
+                        ? "운동 목표 달성!"
+                        : date < today
+                          ? `목표보다 ${fmt(exerciseLeft)}kcal 모자랐어요`
+                          : kcalPerMin > 0
+                            ? `${fmt(exerciseLeft)}kcal 남음 · 트레드밀 ${Math.ceil(exerciseLeft / kcalPerMin)}분`
+                            : `${fmt(exerciseLeft)}kcal 남음`}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="min-w-0 md:pl-6">
+                <p className="text-sm font-medium text-neutral-500">예상 변화</p>
+                <p
+                  className={`mt-1 text-5xl font-extrabold tabular-nums tracking-tight md:text-6xl ${
+                    grams == null ? "text-neutral-300" : grams > 0 ? "text-red-500" : "text-emerald-600"
+                  }`}
+                >
+                  {grams != null ? `${grams > 0 ? "+" : "\u2212"}${fmt(Math.abs(grams))}g` : "–"}
+                </p>
+                {burn != null && (
+                  <p className="mt-2 text-sm tabular-nums text-neutral-500">
+                    쓴 칼로리 {fmt(burn)} − 먹은 양 {fmt(intake)} = {burn - intake < 0 ? "−" : ""}
+                    {fmt(Math.abs(burn - intake))}kcal
+                  </p>
+                )}
+              </div>
+            </div>
           );
         })()}
       </section>
@@ -814,7 +826,7 @@ export default function DietPage() {
           })}
         </div>
 
-        <div className="mt-4 rounded-2xl bg-neutral-50 p-4">
+        <div className="mt-4 rounded-2xl border border-neutral-300 bg-neutral-50 p-4">
           {exTab === "treadmill" && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-[15px] text-neutral-600">
