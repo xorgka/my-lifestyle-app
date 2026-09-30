@@ -2,18 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  Cloud,
-  CloudDrizzle,
-  CloudFog,
-  CloudLightning,
-  CloudRain,
-  CloudSnow,
-  CloudSun,
-  Sun,
-  Umbrella,
-  type LucideIcon,
-} from "lucide-react";
+import { Umbrella } from "lucide-react";
 import {
   fetchCurrentWeather,
   fetchRainHoursAhead,
@@ -69,26 +58,6 @@ const WEATHER_CARD_COLORS: Record<string, string> = {
   snow: "linear-gradient(160deg,#A9BFD4,#86A0BA)",
 };
 
-const WEATHER_LINE_ICONS: Record<string, LucideIcon> = {
-  clear: Sun,
-  partlyCloudy: CloudSun,
-  overcast: Cloud,
-  fog: CloudFog,
-  rain: CloudRain,
-  showers: CloudDrizzle,
-  snow: CloudSnow,
-  thunderstorm: CloudLightning,
-};
-
-/** 가는 선 날씨 아이콘 (달력 템플릿용) */
-function WeatherLineIcon({ code, size, light = false }: { code: number; size: number; light?: boolean }) {
-  const id = getThemeByCode(code).id;
-  const Icon = WEATHER_LINE_ICONS[id] ?? Cloud;
-  const sunny = id === "clear" || id === "partlyCloudy";
-  const color = light ? "text-white" : sunny ? "text-amber-500" : "text-slate-500";
-  return <Icon size={size} strokeWidth={1.5} className={`shrink-0 ${color}`} aria-hidden />;
-}
-
 /** 의미 단위 두 줄 (말풍선용). 한 줄로 쓸 땐 rainMessage가 공백으로 이어 붙임 */
 function rainMessageLines(hoursAhead: number | null | undefined): [string, string] | null {
   if (hoursAhead === undefined) return null;
@@ -117,7 +86,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [forecast, setForecast] = useState<DailyForecast[] | null>(null);
-  /** 카드 안 미니 예보: 오늘을 빼고 내일부터 7일 */
+  /** 카드 안 "이번 주 비 오는 요일"용 예보: 오늘을 빼고 내일부터 7일 */
   const [stripForecast, setStripForecast] = useState<DailyForecast[] | null>(null);
   const [forecastFailed, setForecastFailed] = useState(false);
   const [rainHoursAhead, setRainHoursAhead] = useState<number | null | undefined>(undefined);
@@ -219,7 +188,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
     };
   }, [themeId]);
 
-  const sectionClass = (compact ? "justify-center gap-4 border border-white/20 md:gap-6 md:p-6 md:max-xl:gap-3 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
+  const sectionClass = (compact ? "justify-center gap-3 border border-white/20 max-md:flex-row max-md:items-center max-md:justify-between max-md:px-6 max-md:py-5 md:gap-6 md:p-6 md:max-xl:gap-3 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
   const blueLayer = (
     <div
       className="absolute inset-0 rounded-3xl"
@@ -319,7 +288,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
           />
         </>
       )}
-      <div className={`relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${compact ? "md:hidden" : ""}`}>
+      <div className={`relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${compact ? "hidden" : ""}`}>
         <div className={`min-w-0 ${whiteText ? "text-white" : ""} ${useCustomBg ? "[text-shadow:0_1px_4px_rgba(0,0,0,0.7),0_0_1px_rgba(0,0,0,0.8)]" : ""}`}>
           <div className={`${compact ? "hidden" : ""} text-[11px] font-semibold uppercase tracking-[0.18em] ${whiteText ? "text-white/90" : "text-neutral-500"}`}>
             CURRENT WEATHER
@@ -356,25 +325,25 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
       </div>
 
       {compact && (
-        <div className="relative z-10 hidden flex-col gap-2 md:flex">
-          <div className="flex items-center gap-3">
-            <span className="shrink-0 text-6xl leading-none md:max-xl:text-5xl" aria-hidden>{weather.theme.icon}</span>
-            <span className="text-5xl font-semibold leading-none tracking-tight text-white md:max-xl:text-4xl">
+        <div className="relative z-10 flex min-w-0 flex-col gap-1 md:gap-2">
+          <div className="flex items-center gap-2 md:gap-3">
+            <span className="shrink-0 text-3xl leading-none md:text-6xl md:max-xl:text-5xl" aria-hidden>{weather.theme.icon}</span>
+            <span className="text-3xl font-semibold leading-none tracking-tight text-white md:text-5xl md:max-xl:text-4xl">
               {weather.temp}
-              <span className="text-3xl font-medium text-white/80">°C</span>
+              <span className="text-xl font-medium text-white/80 md:text-3xl">°C</span>
             </span>
           </div>
           {rainMessage(rainHoursAhead) && (
-            <p className="text-[15px] font-semibold leading-snug text-white">{rainMessage(rainHoursAhead)}</p>
+            <p className="text-[12px] font-semibold leading-snug text-white md:text-[15px]">{rainMessage(rainHoursAhead)}</p>
           )}
         </div>
       )}
 
       {compact && stripForecast && (
-        <div className="relative z-10 flex items-center gap-2.5 rounded-2xl bg-white/15 px-4 py-3 text-white max-md:hidden">
-          <Umbrella size={24} strokeWidth={1.75} className="shrink-0" aria-hidden />
-          <span className="h-5 w-px shrink-0 bg-white/50" aria-hidden />
-          <span className="min-w-0 truncate text-lg font-bold">
+        <div className="relative z-10 flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-white max-md:max-w-[50%] md:shrink md:gap-2.5 md:rounded-2xl md:px-4 md:py-3">
+          <Umbrella strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0 md:h-6 md:w-6" aria-hidden />
+          <span className="h-4 w-px shrink-0 bg-white/50 md:h-5" aria-hidden />
+          <span className="min-w-0 truncate text-sm font-bold md:text-lg">
             {stripForecast.some((day) => isRainDay(day.weatherCode))
               ? stripForecast
                   .filter((day) => isRainDay(day.weatherCode))
@@ -382,24 +351,6 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
                   .join(", ")
               : "이번 주 비 없음"}
           </span>
-        </div>
-      )}
-
-      {compact && stripForecast && (
-        <div className="relative z-10 grid grid-cols-7 gap-1 text-center md:hidden">
-          {stripForecast.map((day) => {
-            const d = new Date(day.date + "T12:00:00");
-            return (
-              <div key={day.date} className="flex min-w-0 flex-col items-center gap-1 rounded-xl py-1">
-                <span className="text-[12px] font-semibold text-white/80">
-                  {["일", "월", "화", "수", "목", "금", "토"][d.getDay()]}
-                </span>
-                <WeatherLineIcon code={day.weatherCode} size={22} light />
-                <span className="text-[13px] font-bold leading-tight text-white">{day.max}°</span>
-                <span className="text-[12px] font-medium leading-tight text-white/60">{day.min}°</span>
-              </div>
-            );
-          })}
         </div>
       )}
 

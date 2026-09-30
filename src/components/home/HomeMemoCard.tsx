@@ -306,8 +306,8 @@ export function HomeMemoCard() {
       style={{ backgroundColor: MEMO_HEADER_BG }}
     >
       {/* 헤더: 큰 박스에서 보이는 윗부분. 영문 날짜(왼쪽) + + 버튼(오른쪽) */}
-      <div className="flex h-10 shrink-0 items-center justify-between px-5">
-        <span className="min-w-0 flex-1 truncate pr-2 text-base font-bold" style={{ color: "#6A581E" }}>
+      <div className="flex h-10 shrink-0 items-center justify-between px-6 md:px-5">
+        <span className="min-w-0 flex-1 truncate pr-2 text-base font-bold md:text-[17px]" style={{ color: "#6A581E" }}>
           {currentMemo ? currentMemo.title?.trim() || "제목 없음" : formatHeaderDate()}
         </span>
         <Link
@@ -338,7 +338,7 @@ export function HomeMemoCard() {
             </div>
           ) : currentMemo ? (
             <>
-              <div className="absolute inset-0 overflow-y-auto overflow-x-hidden px-5 pt-4 pb-12 scrollbar-hide">
+              <div className="absolute inset-0 overflow-y-auto overflow-x-hidden px-6 pt-5 pb-12 scrollbar-hide md:px-5 md:pt-4">
                 <div
                   className="whitespace-pre-wrap break-words text-[15px] font-normal leading-relaxed text-neutral-700 md:text-[17px]"
                   style={{ lineHeight: "1.5" }}

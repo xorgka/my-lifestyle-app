@@ -34,6 +34,20 @@ function buildCells(year: number, month: number) {
   return { cells, rows };
 }
 
+/** 모바일 주간 보기: weekStart(일요일)부터 7일 */
+function buildWeekCells(weekStart: Date) {
+  const cells = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i);
+    return { dateStr: localDateStr(d), dayNum: d.getDate(), isCurrentMonth: true };
+  });
+  return { cells, rows: 1 };
+}
+
+/** 그 날이 들어 있는 주의 일요일 */
+function startOfWeek(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+}
+
 function chipClass(item: ScheduleItem): string {
   if (item.type === "holiday") return "bg-red-50 text-red-700";
   if (item.type === "builtin" && item.builtinKind === "birthday") return "bg-violet-50 text-violet-700";
@@ -62,6 +76,17 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
   const [addOpen, setAddOpen] = useState(false);
   /** 모바일: 누른 날짜의 일정을 달력 아래에 펼쳐 보여줌 */
   const [selectedDate, setSelectedDate] = useState(() => todayStr());
+  /** 모바일은 한 주만 보여줌 (화살표로 주 이동) */
+  const [isMobile, setIsMobile] = useState(false);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!dayModalDate) return;
@@ -82,7 +107,19 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
     return () => window.removeEventListener("focus", refresh);
   }, [refresh]);
 
-  const { cells, rows } = useMemo(() => buildCells(year, month), [year, month]);
+  const { cells, rows } = useMemo(
+    () => (isMobile ? buildWeekCells(weekStart) : buildCells(year, month)),
+    [isMobile, weekStart, year, month]
+  );
+  /** 제목에 보일 연·월: 주간 보기는 선택한 날짜가 그 주에 있으면 그 날짜의 달, 아니면 그 주의 목요일(주의 대부분이 속한 달) 기준 */
+  const selectedInWeek = cells.some((c) => c.dateStr === selectedDate);
+  const titleDate = isMobile
+    ? selectedInWeek
+      ? new Date(selectedDate + "T12:00:00")
+      : new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 4)
+    : new Date(year, month - 1, 1);
+  const titleYear = titleDate.getFullYear();
+  const titleMonth = titleDate.getMonth() + 1;
 
   const itemsByDate = useMemo(() => {
     const map: Record<string, ScheduleItem[]> = {};
@@ -109,7 +146,12 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
   };
 
   const today = todayStr();
-  const shiftMonth = (delta: number) => {
+  /** 이전/다음: 데스크톱은 달, 모바일은 주 */
+  const shift = (delta: number) => {
+    if (isMobile) {
+      setWeekStart((w) => new Date(w.getFullYear(), w.getMonth(), w.getDate() + delta * 7));
+      return;
+    }
     const d = new Date(year, month - 1 + delta, 1);
     setYear(d.getFullYear());
     setMonth(d.getMonth() + 1);
@@ -118,6 +160,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
     const d = new Date();
     setYear(d.getFullYear());
     setMonth(d.getMonth() + 1);
+    setWeekStart(startOfWeek(d));
     setSelectedDate(todayStr());
   };
 
@@ -130,20 +173,20 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
     >
       <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => shiftMonth(-1)} className={navButton} aria-label="이전 달">
+          <button type="button" onClick={() => shift(-1)} className={navButton} aria-label={isMobile ? "이전 주" : "이전 달"}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           {/* 누르면 스케줄 페이지 '이번 달' 보기로 이 달을 열기 */}
           <Link
-            href={`/schedule?view=month&y=${year}&m=${month}`}
+            href={`/schedule?view=month&y=${titleYear}&m=${titleMonth}`}
             className="min-w-[6.5rem] rounded-lg text-center text-xl font-semibold text-neutral-800 underline-offset-4 transition hover:underline"
             title="스케줄에서 이 달 보기"
           >
-            {year}년 {month}월
+            {titleYear}년 {titleMonth}월
           </Link>
-          <button type="button" onClick={() => shiftMonth(1)} className={navButton} aria-label="다음 달">
+          <button type="button" onClick={() => shift(1)} className={navButton} aria-label={isMobile ? "다음 주" : "다음 달"}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
@@ -181,14 +224,20 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
       </div>
 
       <div
-        className="grid h-[340px] flex-none grid-cols-7 gap-px overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-200/80 md:h-auto md:min-h-0 md:flex-1"
+        className={`grid ${isMobile ? "h-[76px]" : "h-[340px]"} flex-none grid-cols-7 gap-px overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-200/80 md:h-auto md:min-h-0 md:flex-1`}
         style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}
       >
         {cells.map((cell, idx) => {
           const items = itemsByDate[cell.dateStr] ?? [];
           /** 네 모서리 칸은 바깥 틀(rounded-xl, 테두리 1px 안쪽 = 11px)과 같은 곡선으로 → 오늘 테두리가 잘리지 않음 */
           const cornerClass =
-            idx === 0
+            rows === 1
+              ? idx === 0
+                ? "rounded-l-[11px]"
+                : idx === 6
+                  ? "rounded-r-[11px]"
+                  : ""
+              : idx === 0
               ? "rounded-tl-[11px]"
               : idx === 6
                 ? "rounded-tr-[11px]"

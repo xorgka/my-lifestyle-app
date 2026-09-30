@@ -489,6 +489,19 @@ export default function DietPage() {
   const weekAchievedDays = Array.from({ length: 7 }, (_, i) => shiftDateKey(today, -i)).filter(achievedOn).length;
   const startWeightKg = weights.length > 0 ? weights[0].weightKg : null;
 
+  /** 예상 달성일용 실제 페이스: 어제까지 최근 7일 중 먹은 걸 기록한 날의 하루 평균 적자 (소모 − 먹은 양).
+   * 오늘은 아직 다 안 먹어서 빼고, 먹은 기록이 없는 날은 모르니 뺀다 */
+  const paceDays = Array.from({ length: 7 }, (_, i) => recent.find((x) => x.date === shiftDateKey(today, -(i + 1))))
+    .filter((d): d is DietDay => !!d && d.meals.length > 0);
+  const actualDailyDeficit =
+    base != null && paceDays.length >= 3
+      ? paceDays.reduce(
+          (s, d) =>
+            s + base + dailyActivityKcal + d.exercises.reduce((a, e) => a + e.kcal, 0) - d.meals.reduce((a, m) => a + m.kcal, 0),
+          0
+        ) / paceDays.length
+      : null;
+
   /** 오늘 목표 적자까지 더 써야 하는 칼로리 (음수면 이미 달성) */
   const needMore = balance != null ? balance + deficitTarget : null;
 
@@ -647,6 +660,8 @@ export default function DietPage() {
         streakDays={streakDays}
         todayAchieved={todayAchieved}
         weekAchievedDays={weekAchievedDays}
+        actualDailyDeficit={actualDailyDeficit}
+        paceDayCount={paceDays.length}
         treadmillMinutesFor={(kcal) => (kcalPerMin > 0 ? kcal / kcalPerMin : null)}
         treadmillLabel={`트레드밀 ${incline}%·${speed}km/h`}
         onOpenSettings={() => setSettingsOpen(true)}
