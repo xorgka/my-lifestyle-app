@@ -188,7 +188,7 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
     };
   }, [themeId]);
 
-  const sectionClass = (compact ? "justify-center gap-3 border border-white/20 max-md:flex-row max-md:items-center max-md:justify-between max-md:px-6 max-md:py-5 md:gap-6 md:p-6 md:max-xl:gap-3 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
+  const sectionClass = (compact ? "justify-center gap-3 border border-white/20 max-md:flex-row max-md:items-center max-md:justify-between max-md:px-6 max-md:py-5 md:justify-between md:p-6 md:max-xl:p-4 " : "justify-between md:p-9 ") + "weather-card-texture relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl p-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
   const blueLayer = (
     <div
       className="absolute inset-0 rounded-3xl"
@@ -249,6 +249,10 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
   }
 
   const useCustomBg = !compact && customBgUrl && !customBgFailed;
+  /** 이번 주(내일부터 7일) 비 오는 요일 */
+  const rainDayLabels = (stripForecast ?? [])
+    .filter((day) => isRainDay(day.weatherCode))
+    .map((day) => ["일", "월", "화", "수", "목", "금", "토"][new Date(day.date + "T12:00:00").getDay()]);
   /** 진한 배경(사진 또는 달력 템플릿의 날씨색)이면 흰 글씨 */
   const whiteText = compact || useCustomBg;
 
@@ -324,33 +328,53 @@ export function WeatherCard({ compact = false }: { compact?: boolean }) {
         </span>
       </div>
 
+      {/* 폰: 가로로 낮게 — 왼쪽 기온·비 문구, 오른쪽 비 오는 요일 */}
       {compact && (
-        <div className="relative z-10 flex min-w-0 flex-col gap-1 md:gap-2">
-          <div className="flex items-center gap-2 md:gap-3">
-            <span className="shrink-0 text-3xl leading-none md:text-6xl md:max-xl:text-5xl" aria-hidden>{weather.theme.icon}</span>
-            <span className="text-3xl font-semibold leading-none tracking-tight text-white md:text-5xl md:max-xl:text-4xl">
+        <div className="relative z-10 flex min-w-0 flex-col gap-1 md:hidden">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-3xl leading-none" aria-hidden>{weather.theme.icon}</span>
+            <span className="text-3xl font-semibold leading-none tracking-tight text-white">
               {weather.temp}
-              <span className="text-xl font-medium text-white/80 md:text-3xl">°C</span>
+              <span className="text-xl font-medium text-white/80">°C</span>
             </span>
           </div>
           {rainMessage(rainHoursAhead) && (
-            <p className="text-[12px] font-semibold leading-snug text-white md:text-[15px]">{rainMessage(rainHoursAhead)}</p>
+            <p className="text-[12px] font-semibold leading-snug text-white">{rainMessage(rainHoursAhead)}</p>
           )}
         </div>
       )}
 
       {compact && stripForecast && (
-        <div className="relative z-10 flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-white max-md:max-w-[50%] md:shrink md:gap-2.5 md:rounded-2xl md:px-4 md:py-3">
-          <Umbrella strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0 md:h-6 md:w-6" aria-hidden />
-          <span className="h-4 w-px shrink-0 bg-white/50 md:h-5" aria-hidden />
-          <span className="min-w-0 truncate text-sm font-bold md:text-lg">
-            {stripForecast.some((day) => isRainDay(day.weatherCode))
-              ? stripForecast
-                  .filter((day) => isRainDay(day.weatherCode))
-                  .map((day) => ["일", "월", "화", "수", "목", "금", "토"][new Date(day.date + "T12:00:00").getDay()])
-                  .join(", ")
-              : "이번 주 비 없음"}
+        <div className="relative z-10 flex min-w-0 max-w-[50%] shrink-0 items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-white md:hidden">
+          <Umbrella strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" aria-hidden />
+          <span className="h-4 w-px shrink-0 bg-white/50" aria-hidden />
+          <span className="min-w-0 truncate text-sm font-bold">
+            {rainDayLabels.length > 0 ? rainDayLabels.join(", ") : "이번 주 비 없음"}
           </span>
+        </div>
+      )}
+
+      {/* PC 정사각형: 위 = 아이콘 | 기온, 날씨 이름, 비 문구 / 아래 = 구분선 + 이번 주 비 오는 요일 */}
+      {compact && (
+        <div className="relative z-10 hidden min-w-0 flex-col text-white md:flex">
+          <div className="flex items-start justify-between gap-3">
+            <span className="shrink-0 text-6xl leading-none md:max-xl:text-5xl" aria-hidden>{weather.theme.icon}</span>
+            <span className="text-6xl font-semibold leading-none tracking-tight md:max-xl:text-5xl">{weather.temp}°</span>
+          </div>
+          <p className="mt-5 text-xl font-bold md:max-xl:mt-3 md:max-xl:text-lg">{weatherCodeToLabel(weather.weatherCode)}</p>
+          {rainMessage(rainHoursAhead) && (
+            <p className="mt-1 text-[15px] font-medium text-white/75 md:max-xl:text-sm">{rainMessage(rainHoursAhead)}</p>
+          )}
+        </div>
+      )}
+
+      {compact && stripForecast && (
+        <div className="relative z-10 hidden items-center justify-between gap-3 border-t border-white/30 pt-3.5 text-white md:flex md:max-xl:pt-2.5">
+          <span className="flex shrink-0 items-center gap-1.5 text-[15px] font-medium text-white/80">
+            <Umbrella strokeWidth={1.75} className="h-5 w-5" aria-hidden />
+            이번 주 비
+          </span>
+          <span className="min-w-0 truncate text-lg font-bold">{rainDayLabels.length > 0 ? rainDayLabels.join(" · ") : "없음"}</span>
         </div>
       )}
 
