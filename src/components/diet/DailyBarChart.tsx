@@ -43,6 +43,8 @@ export function DailyBarChart({
   const barW = Math.max(2, Math.min(18, slot * 0.6));
   const y = (v: number) => padT + (1 - v / max) * (H - padT - padB);
   const label = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
+  /** 말풍선용 날짜: 값(숫자)과 헷갈리지 않게 "10월 1일" */
+  const tipDate = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
   const ticks = [0, max / 2, max].map((v) => Math.round(v / 10) * 10);
 
   const activeIndex = active != null ? dates.indexOf(active) : -1;
@@ -105,8 +107,9 @@ export function DailyBarChart({
           style={{ left: `${activeLeft}%`, top: 0 }}
           role="tooltip"
         >
-          <p className="text-[15px] font-semibold tabular-nums">
-            {label(active)} · {Math.round(activeValue).toLocaleString()}
+          <p className="text-[13px] font-medium text-white/60">{tipDate(active)}</p>
+          <p className="mt-0.5 text-lg font-bold leading-tight tabular-nums">
+            {Math.round(activeValue).toLocaleString()}
             {unit}
           </p>
           {details?.[active]?.map((line) => (

@@ -40,6 +40,8 @@ export function WeightChart({
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(times[i]).toFixed(1)},${y(p.weightKg).toFixed(1)}`).join(" ");
   const ticks = [min, (min + max) / 2, max];
   const label = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
+  /** 말풍선용 날짜: 값(숫자)과 헷갈리지 않게 "10월 1일" */
+  const tipDate = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
   const last = points[points.length - 1];
 
   const activePoint = active != null ? points[active] : null;
@@ -105,7 +107,8 @@ export function WeightChart({
           style={{ left: `${activeLeft}%`, top: `${activeTop}%` }}
           role="tooltip"
         >
-          {label(activePoint.date)} · {activePoint.weightKg}kg
+          <p className="text-[13px] font-medium text-white/60">{tipDate(activePoint.date)}</p>
+          <p className="mt-0.5 text-lg font-bold leading-tight">{activePoint.weightKg}kg</p>
         </div>
       )}
     </div>
