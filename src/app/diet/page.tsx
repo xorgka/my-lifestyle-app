@@ -224,8 +224,9 @@ function MealBlock({
               저장
             </button>
           ) : (
+            // 이름 칸이 조합 선택창 옆에서 찌그러지지 않게 한 줄을 통째로 씀
             <form
-              className="flex min-w-0 flex-1 gap-1.5"
+              className="flex min-w-0 basis-full gap-1.5"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!comboName.trim()) return;
