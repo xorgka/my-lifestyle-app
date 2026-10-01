@@ -5,17 +5,31 @@ import { createPortal } from "react-dom";
 import {
   type DailyActivity,
   type DietCombo,
+  type DietExercise,
   type DietFood,
   type DietProfile,
   genDietId,
   getDietCombos,
+  getDietExercises,
   getDietFoods,
   getDietProfile,
   saveDietCombos,
+  saveDietExercises,
   saveDietFoods,
   saveDietProfile,
 } from "@/lib/dietDb";
-import { bmiLabel, calcBmi, calcBmr, calcDailyBase, dailyDeficitTarget, treadmillKcalPerMin, walkKcal, type Sex } from "@/lib/dietCalc";
+import {
+  EXERCISE_INTENSITIES,
+  bmiLabel,
+  calcBmi,
+  calcBmr,
+  calcDailyBase,
+  dailyDeficitTarget,
+  definedExerciseKcal,
+  treadmillKcalPerMin,
+  walkKcal,
+  type Sex,
+} from "@/lib/dietCalc";
 
 const inputClass =
   "w-full min-w-0 rounded-xl border border-neutral-200 px-3.5 py-2.5 text-[15px] text-neutral-900 tabular-nums focus:border-neutral-400 focus:outline-none";
@@ -30,6 +44,28 @@ const TABS = [
   { id: "food", label: "식단" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
+
+/** 운동 종류 편집 줄: 버튼 값·효과 문구는 치는 동안 글자 그대로 들고 있다가 저장할 때 바꿈 */
+type ExerciseRow = DietExercise & { presetsText: string; tipsText: string };
+
+const smallInputClass =
+  "rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[15px] tabular-nums focus:border-neutral-400 focus:outline-none";
+
+/** "1, 3, 5" → [1, 3, 5] */
+function parsePresets(text: string): number[] {
+  return text
+    .split(/[,\s]+/)
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n > 0);
+}
+
+/** 한 줄에 하나씩 적은 문구 → 배열 */
+function parseLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
 
 /** 빈 칸이면 null, 숫자가 아니면 null */
 function toNum(v: string): number | null {
@@ -60,6 +96,12 @@ export function DietSettingsModal({
   const [foods, setFoods] = useState<DietFood[]>(() => getDietFoods());
   const [combos, setCombos] = useState<DietCombo[]>(() => getDietCombos());
   const [activities, setActivities] = useState<DailyActivity[]>(profile.dailyActivities);
+  const [exercises, setExercises] = useState<ExerciseRow[]>(() =>
+    getDietExercises().map((x) => ({ ...x, presetsText: x.presets.join(", "), tipsText: x.tips.join("\n") }))
+  );
+  const [treadmillTips, setTreadmillTips] = useState(profile.treadmillTips.join("\n"));
+  const updateExercise = (id: string, patch: Partial<ExerciseRow>) =>
+    setExercises((list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
   const updateActivity = (id: string, patch: Partial<DailyActivity>) =>
     setActivities((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -86,8 +128,21 @@ export function DietSettingsModal({
       treadmillSpeed: toNum(speed) ?? profile.treadmillSpeed,
       dailyExerciseGoalKcal: toNum(exerciseGoal) ?? profile.dailyExerciseGoalKcal,
       dailyActivities: activities.filter((a) => a.name.trim() && a.minutes > 0 && a.speedKmh > 0).map((a) => ({ ...a, name: a.name.trim() })),
+      treadmillTips: parseLines(treadmillTips),
     };
     saveDietProfile(next);
+    // 이름 없는 줄은 버림
+    saveDietExercises(
+      exercises
+        .filter((x) => x.name.trim())
+        .map(({ presetsText, tipsText, ...x }) => ({
+          ...x,
+          name: x.name.trim(),
+          presets: parsePresets(presetsText),
+          tips: parseLines(tipsText),
+          secondsPerRep: x.unit === "reps" ? x.secondsPerRep ?? 3 : undefined,
+        }))
+    );
     saveDietFoods(foods);
     saveDietCombos(combos);
     if (w != null && w !== currentWeightKg) onSaveWeight(w);
@@ -231,7 +286,7 @@ export function DietSettingsModal({
               <>
               <section>
                 <h3 className="text-sm font-semibold text-neutral-800">하루 운동 목표</h3>
-                <p className="mt-1 text-xs text-neutral-400">그날 운동 칼로리가 이걸 넘으면 달성으로 쳐서, 연속 달성 일수를 세요. 매일 하는 활동(산책)은 빼고 계산해요.</p>
+                <p className="mt-1 text-xs text-neutral-400">그날 운동 칼로리가 이걸 넘으면 운동 목표 달성이에요. 매일 하는 활동(산책)은 빼고 계산해요.</p>
                 <div className="mt-3 flex items-center gap-2">
                   <input inputMode="numeric" value={exerciseGoal} onChange={(e) => setExerciseGoal(e.target.value)} className={`${inputClass} w-28 text-right`} />
                   <span className="text-[15px] text-neutral-600">kcal</span>
@@ -307,6 +362,113 @@ export function DietSettingsModal({
                     <input inputMode="decimal" value={speed} onChange={(e) => setSpeed(e.target.value)} className={inputClass} />
                   </label>
                 </div>
+                <label className="block">
+                  <span className={labelClass}>효과 문구 (한 줄에 하나)</span>
+                  <textarea value={treadmillTips} onChange={(e) => setTreadmillTips(e.target.value)} rows={3} className={`${inputClass} resize-none`} />
+                </label>
+              </section>
+              <section className="mt-6 border-t border-neutral-100 pt-5">
+                <h3 className="text-sm font-semibold text-neutral-800">운동 종류</h3>
+                <p className="mt-1 text-xs text-neutral-400">
+                  운동 탭에 트레드밀 다음으로 나와요. 칼로리는 몸무게·강도·시간으로 계산한 추정치예요. 지워도 이미 적은 기록은 남아요.
+                </p>
+                <ul className="mt-3 space-y-3">
+                  {exercises.map((x) => {
+                    const unitLabel = x.unit === "reps" ? "회" : "분";
+                    const first = parsePresets(x.presetsText)[0];
+                    return (
+                      <li key={x.id} className="space-y-2 rounded-2xl border border-neutral-200 p-3 text-sm text-neutral-600">
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={x.name}
+                            onChange={(e) => updateExercise(x.id, { name: e.target.value })}
+                            placeholder="운동 이름"
+                            className={`${smallInputClass} min-w-0 flex-1 font-medium text-neutral-900`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setExercises((list) => list.filter((e) => e.id !== x.id))}
+                            className="shrink-0 rounded-lg px-2 py-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            value={x.unit}
+                            onChange={(e) => updateExercise(x.id, { unit: e.target.value === "minutes" ? "minutes" : "reps" })}
+                            className={`${smallInputClass} bg-white`}
+                            aria-label="기록 단위"
+                          >
+                            <option value="reps">횟수로 기록</option>
+                            <option value="minutes">시간(분)으로 기록</option>
+                          </select>
+                          <select
+                            value={x.met}
+                            onChange={(e) => updateExercise(x.id, { met: Number(e.target.value) })}
+                            className={`${smallInputClass} bg-white`}
+                            aria-label="강도"
+                          >
+                            {EXERCISE_INTENSITIES.map((i) => (
+                              <option key={i.met} value={i.met}>
+                                강도 {i.label}
+                              </option>
+                            ))}
+                          </select>
+                          {x.unit === "reps" && (
+                            <label className="flex items-center gap-1.5">
+                              1회
+                              <input
+                                inputMode="decimal"
+                                value={x.secondsPerRep ?? ""}
+                                onChange={(e) => updateExercise(x.id, { secondsPerRep: toNum(e.target.value) ?? undefined })}
+                                placeholder="3"
+                                className={`${smallInputClass} w-14 text-right`}
+                              />
+                              초
+                            </label>
+                          )}
+                        </div>
+                        <label className="flex items-center gap-2">
+                          <span className="shrink-0">버튼 값</span>
+                          <input
+                            value={x.presetsText}
+                            onChange={(e) => updateExercise(x.id, { presetsText: e.target.value })}
+                            placeholder={x.unit === "reps" ? "10, 20, 30" : "1, 3, 5"}
+                            className={`${smallInputClass} min-w-0 flex-1`}
+                          />
+                          <span className="shrink-0">{unitLabel}</span>
+                        </label>
+                        <textarea
+                          value={x.tipsText}
+                          onChange={(e) => updateExercise(x.id, { tipsText: e.target.value })}
+                          placeholder="효과 문구 (한 줄에 하나, 비워도 돼요)"
+                          rows={3}
+                          className={`${smallInputClass} w-full resize-none`}
+                          aria-label={`${x.name} 효과 문구`}
+                        />
+                        {w != null && first != null && (
+                          <p className="text-xs tabular-nums text-neutral-400">
+                            {first}
+                            {unitLabel} ≈ {Math.round(definedExerciseKcal(x, w, first))}kcal
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExercises((list) => [
+                      ...list,
+                      { id: genDietId(), name: "", unit: "reps", presets: [], met: 3.8, secondsPerRep: 3, tips: [], presetsText: "", tipsText: "" },
+                    ])
+                  }
+                  className="mt-2 rounded-lg px-2 py-1 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100"
+                >
+                  + 운동 추가
+                </button>
               </section>
               </>
             )}

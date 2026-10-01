@@ -56,23 +56,24 @@ export function treadmillKcal(weightKg: number, speedKmh: number, inclinePct: nu
   return treadmillKcalPerMin(weightKg, speedKmh, inclinePct) * minutes;
 }
 
+/** 운동 강도 (METs). 맨몸운동 기준: 가벼움 2.8 · 보통 3.8 · 힘듦 8 */
+export const EXERCISE_INTENSITIES = [
+  { met: 2.8, label: "가벼움" },
+  { met: 3.8, label: "보통" },
+  { met: 8, label: "힘듦" },
+] as const;
+
 /**
- * 횟수로 하는 맨몸운동 순 소모 (추정치). 맨몸운동(힘든 강도) 8 METs로 계산.
- * 순 소모 kcal/분 = (MET − 1) × 3.5 × 체중 / 200
+ * 설정에서 만든 운동(팔굽혀펴기·풀업·데드행 등)의 순 소모 (추정치).
+ * 순 소모 kcal/분 = (MET − 1) × 3.5 × 체중 / 200. 횟수 운동은 1회에 걸리는 시간으로 분을 구한다.
  */
-function repsKcal(weightKg: number, reps: number, secondsPerRep: number): number {
-  const minutes = (reps * secondsPerRep) / 60;
-  return (((8 - 1) * 3.5 * weightKg) / 200) * minutes;
-}
-
-/** 팔굽혀펴기: 1회 약 2.5초 */
-export function pushupKcal(weightKg: number, reps: number): number {
-  return repsKcal(weightKg, reps, 2.5);
-}
-
-/** 턱걸이: 몸 전체를 들어 올려서 1회 약 3초로 잡음 */
-export function pullupKcal(weightKg: number, reps: number): number {
-  return repsKcal(weightKg, reps, 3);
+export function definedExerciseKcal(
+  ex: { unit: "reps" | "minutes"; met: number; secondsPerRep?: number },
+  weightKg: number,
+  amount: number
+): number {
+  const minutes = ex.unit === "reps" ? (amount * (ex.secondsPerRep ?? 3)) / 60 : amount;
+  return (((ex.met - 1) * 3.5 * weightKg) / 200) * minutes;
 }
 
 /** 평지 걷기 순 소모 (강아지 산책 등 매일 하는 활동) */

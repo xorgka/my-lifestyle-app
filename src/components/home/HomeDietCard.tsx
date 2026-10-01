@@ -7,20 +7,24 @@ import {
   DEFAULT_DIET_PROFILE,
   DIET_SETTINGS_CHANGED_EVENT,
   type DietDay,
+  type DietExercise,
   type DietProfile,
+  getDietExercises,
   getDietProfile,
   loadDietDay,
   loadWeightLog,
   todayDateKey,
 } from "@/lib/dietDb";
-import { calcBmr, calcDailyBase, dailyDeficitTarget, kcalToGrams, pullupKcal, pushupKcal, treadmillKcalPerMin, walkKcal } from "@/lib/dietCalc";
+import { calcBmr, calcDailyBase, dailyDeficitTarget, definedExerciseKcal, kcalToGrams, treadmillKcalPerMin, walkKcal } from "@/lib/dietCalc";
 import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
-/** 남은 운동 안내에 같이 넣는 팔굽혀펴기·턱걸이 횟수 */
-const PUSHUP_REPS = 100;
-const PULLUP_REPS = 30;
+/** 남은 운동 안내에 트레드밀과 같이 넣는 운동: [설정의 운동 id, 횟수, 카드에 쓸 짧은 이름(없으면 설정의 이름)] */
+const NOTE_COMBOS: [string, number, string?][] = [
+  ["pushup", 100, "푸시업"],
+  ["pullup", 30],
+];
 
 /** 게이지 한 줄: 아이콘 + 값 / 목표 (같은 줄 오른쪽에 안내 문구), 막대 */
 function Gauge({
@@ -65,9 +69,11 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
   const [profile, setProfile] = useState<DietProfile>(DEFAULT_DIET_PROFILE);
   const [day, setDay] = useState<DietDay | null>(null);
   const [weightNow, setWeightNow] = useState<number | null>(null);
+  const [exerciseDefs, setExerciseDefs] = useState<DietExercise[]>([]);
 
   const load = useCallback(() => {
     setProfile(getDietProfile());
+    setExerciseDefs(getDietExercises());
     const today = todayDateKey();
     loadDietDay(today).then(({ day: d }) => setDay(d));
     loadWeightLog().then((list) => {
@@ -104,7 +110,7 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
   /** 오늘 예상 체중 변화(g): 먹은 양 − 쓴 칼로리(기본 + 매일 활동 + 운동). 다이어트 페이지 "예상 변화"와 같은 값 */
   const changeGrams = base != null ? kcalToGrams(intake - (base + dailyActivityKcal + exerciseKcal)) : null;
 
-  // 남은 운동량: 설정한 트레드밀로 몇 분, 또는 팔굽혀펴기 100회·턱걸이 30회 + 트레드밀 몇 분 (번갈아 표시)
+  // 남은 운동량: 설정한 트레드밀로 몇 분, 또는 팔굽혀펴기 100회·풀업 30회 + 트레드밀 몇 분 (번갈아 표시)
   const exerciseGoal = profile.dailyExerciseGoalKcal;
   const exerciseLeft = Math.max(0, exerciseGoal - exerciseKcal);
   const tmPerMin =
@@ -114,14 +120,13 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
   if (exerciseGoal > 0 && exerciseLeft === 0) exerciseNotes.push("운동 목표 달성!");
   else if (exerciseLeft > 0 && tmPerMin > 0) {
     exerciseNotes.push(`${tmLabel} ${Math.ceil(exerciseLeft / tmPerMin)}분`);
-    // 팔굽혀펴기·턱걸이만으로 거의 채워지면 그 조합 안내는 생략
-    const combos: [string, number][] = [
-      [`푸시업 ${PUSHUP_REPS}회`, pushupKcal(weightNow!, PUSHUP_REPS)],
-      [`턱걸이 ${PULLUP_REPS}회`, pullupKcal(weightNow!, PULLUP_REPS)],
-    ];
-    combos.forEach(([label, kcal]) => {
+    // 설정에서 지운 운동은 건너뛰고, 그 운동만으로 거의 채워지면 조합 안내는 생략
+    NOTE_COMBOS.forEach(([id, reps, shortName]) => {
+      const ex = exerciseDefs.find((x) => x.id === id);
+      if (!ex) return;
+      const kcal = definedExerciseKcal(ex, weightNow!, reps);
       if (exerciseLeft - kcal >= tmPerMin * 5)
-        exerciseNotes.push(`트레드밀 ${Math.ceil((exerciseLeft - kcal) / tmPerMin)}분 + ${label}`);
+        exerciseNotes.push(`트레드밀 ${Math.ceil((exerciseLeft - kcal) / tmPerMin)}분 + ${shortName ?? ex.name} ${reps}${ex.unit === "reps" ? "회" : "분"}`);
     });
   }
   const [noteIndex, setNoteIndex] = useState(0);

@@ -19,7 +19,8 @@ export const MEAL_TYPES: { id: MealType; label: string }[] = [
 
 export type MealEntry = { id: string; meal: MealType; name: string; kcal: number };
 
-export type ExerciseType = "treadmill" | "pushup" | "pullup" | "custom";
+/** "treadmill"(트레드밀) · "custom"(기타, 칼로리 직접 입력) · 그 밖은 설정에서 만든 운동(DietExercise)의 id */
+export type ExerciseType = string;
 
 export type ExerciseEntry = {
   id: string;
@@ -56,6 +57,24 @@ export type DietProfile = {
   dailyActivities: DailyActivity[];
   /** 하루 운동 목표(kcal). 그날 운동 칼로리가 이걸 넘으면 달성 */
   dailyExerciseGoalKcal: number;
+  /** 트레드밀 탭 말풍선에 보여줄 효과 문구 */
+  treadmillTips: string[];
+};
+
+/** 설정에서 추가·수정·삭제하는 운동 종류 (트레드밀·기타는 고정이라 여기 없음) */
+export type DietExercise = {
+  id: string;
+  name: string;
+  /** 횟수로 기록하는지 시간(분)으로 기록하는지 */
+  unit: "reps" | "minutes";
+  /** 빠르게 고르는 버튼 값 */
+  presets: number[];
+  /** 강도 (METs). dietCalc의 EXERCISE_INTENSITIES 참고 */
+  met: number;
+  /** 횟수 운동: 1회에 걸리는 시간(초) */
+  secondsPerRep?: number;
+  /** 운동 탭 말풍선에 보여줄 효과 문구 (한 줄에 하나) */
+  tips: string[];
 };
 
 export type DietFood = { name: string; kcal: number };
@@ -71,7 +90,31 @@ export const DEFAULT_DIET_PROFILE: DietProfile = {
   treadmillSpeed: 5,
   dailyActivities: [{ id: "act-dog-walk", name: "강아지 산책", minutes: 30, speedKmh: 3.5 }],
   dailyExerciseGoalKcal: 300,
+  treadmillTips: ["살이 쭉쭉 빠짐", "하체 근력 튼튼해짐", "체력 좋아짐"],
 };
+
+/** 처음 쓸 때 기본으로 들어 있는 운동 (id는 예전 기록의 운동 종류와 같게 둠) */
+export const DEFAULT_DIET_EXERCISES: DietExercise[] = [
+  {
+    id: "pushup",
+    name: "팔굽혀펴기",
+    unit: "reps",
+    presets: [10, 20, 30, 50, 100, 150, 200, 250, 300],
+    met: 8,
+    secondsPerRep: 2.5,
+    tips: ["가슴 두꺼워짐", "팔뚝 탄탄해짐", "요요 막아줌"],
+  },
+  {
+    id: "pullup",
+    name: "풀업",
+    unit: "reps",
+    presets: [5, 10, 15, 20, 30, 50, 100],
+    met: 8,
+    secondsPerRep: 3,
+    tips: ["코어 강화, 복근도 생김", "어깨 넓어짐", "굽은 어깨 펴짐"],
+  },
+  { id: "deadhang", name: "데드행", unit: "minutes", presets: [1, 3, 5], met: 3.8, tips: [] },
+];
 
 /** 처음 쓸 때 기본으로 들어 있는 음식 (보통 1인분 기준 추정 칼로리. 설정에서 고칠 수 있음) */
 const RICE: DietFood = { name: "작은 햇반 (130g)", kcal: 195 };
@@ -153,6 +196,27 @@ export function getDietCombos(): DietCombo[] {
 
 export function saveDietCombos(combos: DietCombo[]): void {
   saveSetting("diet-combos", combos);
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
+}
+
+export function getDietExercises(): DietExercise[] {
+  // 한 번도 저장한 적 없으면 기본 운동 (저장한 뒤엔 지워도 다시 안 생김)
+  const v = loadSetting<unknown>("diet-exercises", DEFAULT_DIET_EXERCISES);
+  return Array.isArray(v)
+    ? v
+        .filter((e): e is DietExercise => !!e && typeof e.id === "string" && typeof e.name === "string")
+        .map((e) => ({
+          ...e,
+          unit: e.unit === "minutes" ? "minutes" : "reps",
+          presets: Array.isArray(e.presets) ? e.presets.filter((n) => typeof n === "number" && n > 0) : [],
+          met: typeof e.met === "number" && e.met > 1 ? e.met : 3.8,
+          tips: Array.isArray(e.tips) ? e.tips.filter((t) => typeof t === "string") : [],
+        }))
+    : [];
+}
+
+export function saveDietExercises(exercises: DietExercise[]): void {
+  saveSetting("diet-exercises", exercises);
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
 }
 

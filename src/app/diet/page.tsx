@@ -13,6 +13,7 @@ import {
   MEAL_TYPES,
   type DietCombo,
   type DietDay,
+  type DietExercise,
   type DietFood,
   type DietProfile,
   type ExerciseEntry,
@@ -20,6 +21,7 @@ import {
   type MealType,
   genDietId,
   getDietCombos,
+  getDietExercises,
   getDietFoods,
   getDietProfile,
   loadDietDay,
@@ -36,9 +38,8 @@ import {
   calcBmr,
   calcDailyBase,
   dailyDeficitTarget,
+  definedExerciseKcal,
   kcalToGrams,
-  pullupKcal,
-  pushupKcal,
   treadmillKcal,
   treadmillKcalPerMin,
   walkKcal,
@@ -66,6 +67,34 @@ function shiftDateKey(key: string, days: number): string {
 function dateLabel(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
   return `${m}월 ${d}일 (${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`;
+}
+
+/**
+ * 운동 기록을 종류별로 합쳐서 ["트레드밀 30분", "팔굽혀펴기 100회", "데드행 3분", (기타로 적은 이름)].
+ * 이름은 지금 설정의 운동 이름을 쓰고(이름을 바꿔도 예전 기록이 따라옴), 설정에서 지운 운동은 기록할 때의 이름으로.
+ */
+function summarizeExercises(entries: ExerciseEntry[], defs: DietExercise[], includeCustom = true): string[] {
+  const out: string[] = [];
+  const treadmillMin = entries.filter((e) => e.type === "treadmill").reduce((n, e) => n + (e.minutes ?? 0), 0);
+  if (treadmillMin > 0) out.push(`트레드밀 ${fmt(treadmillMin)}분`);
+  const types = Array.from(new Set(entries.filter((e) => e.type !== "treadmill" && e.type !== "custom").map((e) => e.type)));
+  // 설정에 있는 순서대로, 지운 운동은 뒤에
+  const order = (t: string) => {
+    const i = defs.findIndex((x) => x.id === t);
+    return i < 0 ? defs.length : i;
+  };
+  types
+    .sort((x, y) => order(x) - order(y))
+    .forEach((t) => {
+      const list = entries.filter((e) => e.type === t);
+      const name = defs.find((x) => x.id === t)?.name ?? list[0].name;
+      const reps = list.reduce((n, e) => n + (e.reps ?? 0), 0);
+      const minutes = list.reduce((n, e) => n + (e.minutes ?? 0), 0);
+      if (reps > 0) out.push(`${name} ${fmt(reps)}회`);
+      if (minutes > 0) out.push(`${name} ${fmt(minutes)}분`);
+    });
+  if (includeCustom) out.push(...Array.from(new Set(entries.filter((e) => e.type === "custom").map((e) => e.name))));
+  return out;
 }
 
 /** 한 끼: 음식 목록·합계, 음식 추가(이름 치면 저장된 칼로리 자동 채움), 조합 불러오기/저장 */
@@ -254,17 +283,8 @@ function MealBlock({
   );
 }
 
-type ExerciseTab = "treadmill" | "pushup" | "pullup" | "custom";
-type RepsExercise = "pushup" | "pullup";
-
-/** 횟수로 기록하는 운동 */
-const REPS_EXERCISES: Record<
-  RepsExercise,
-  { name: string; presets: number[]; kcal: (weightKg: number, reps: number) => number }
-> = {
-  pushup: { name: "팔굽혀펴기", presets: [10, 20, 30, 50, 100, 150, 200, 250, 300], kcal: pushupKcal },
-  pullup: { name: "턱걸이", presets: [5, 10, 15, 20, 30, 50, 100], kcal: pullupKcal },
-};
+/** "treadmill" · "custom" · 설정에서 만든 운동의 id */
+type ExerciseTab = string;
 
 const HISTORY_RANGES = [
   { id: 7, label: "7일" },
@@ -313,7 +333,10 @@ export default function DietPage() {
   const [tmIncline, setTmIncline] = useState("");
   const [tmSpeed, setTmSpeed] = useState("");
   const [tmMinutes, setTmMinutes] = useState("30");
-  const [repsInput, setRepsInput] = useState<Record<RepsExercise, string>>({ pushup: "20", pullup: "10" });
+  /** 설정에서 만든 운동 종류 */
+  const [exerciseDefs, setExerciseDefs] = useState<DietExercise[]>([]);
+  /** 운동별로 입력 중인 횟수·분 (안 적었으면 첫 버튼 값) */
+  const [amountInput, setAmountInput] = useState<Record<string, string>>({});
   const [customName, setCustomName] = useState("");
   const [customKcal, setCustomKcal] = useState("");
 
@@ -326,6 +349,7 @@ export default function DietPage() {
       setTmSpeed((v) => v || String(p.treadmillSpeed));
       setFoods(getDietFoods());
       setCombos(getDietCombos());
+      setExerciseDefs(getDietExercises());
     };
     sync();
     window.addEventListener(DIET_SETTINGS_CHANGED_EVENT, sync);
@@ -431,7 +455,7 @@ export default function DietPage() {
   // 기록 탭: 날짜별 먹은 칼로리·운동 칼로리
   const intakeByDate: Record<string, number> = {};
   const exerciseByDate: Record<string, number> = {};
-  const exerciseStats = { days: 0, kcal: 0, treadmillMin: 0, pushups: 0, pullups: 0 };
+  const exerciseStats = { days: 0, kcal: 0 };
   history.forEach((d) => {
     const eaten = d.meals.reduce((s, m) => s + m.kcal, 0);
     const burned = d.exercises.reduce((s, e) => s + e.kcal, 0);
@@ -441,11 +465,6 @@ export default function DietPage() {
       exerciseStats.days += 1;
       exerciseStats.kcal += burned;
     }
-    d.exercises.forEach((e) => {
-      if (e.type === "treadmill") exerciseStats.treadmillMin += e.minutes ?? 0;
-      if (e.type === "pushup") exerciseStats.pushups += e.reps ?? 0;
-      if (e.type === "pullup") exerciseStats.pullups += e.reps ?? 0;
-    });
   });
   const intakeDays = Object.keys(intakeByDate);
   const intakeStats = {
@@ -459,7 +478,14 @@ export default function DietPage() {
       const intake = d.meals.reduce((s, m) => s + m.kcal, 0);
       const exercise = d.exercises.reduce((s, e) => s + e.kcal, 0);
       const net = base != null && intake > 0 ? intake - (base + dailyActivityKcal + exercise) : null;
-      return { date: d.date, intake, exercise, weight: d.weightKg, grams: net != null ? kcalToGrams(net) : null };
+      return {
+        date: d.date,
+        intake,
+        exercise,
+        exerciseDetail: summarizeExercises(d.exercises, exerciseDefs).join(" · "),
+        weight: d.weightKg,
+        grams: net != null ? kcalToGrams(net) : null,
+      };
     });
 
   const incline = Number(tmIncline) || 0;
@@ -535,33 +561,38 @@ export default function DietPage() {
 
   const tmMin = Number(tmMinutes) || 0;
   const tmPreview = weightNow && speed > 0 && tmMin > 0 ? treadmillKcal(weightNow, speed, incline, tmMin) : null;
-  /** 운동 탭 툴팁: 이 운동을 하면 몸이 어떻게 바뀌는지 짧게 */
-  const exerciseTips: Partial<Record<ExerciseTab, string[]>> = {
-    treadmill: ["살이 쭉쭉 빠짐", "하체 근력 튼튼해짐", "체력 좋아짐"],
-    pushup: ["가슴 두꺼워짐", "팔뚝 탄탄해짐", "요요 막아줌"],
-    pullup: ["코어 강화, 복근도 생김", "어깨 넓어짐", "굽은 어깨 펴짐"],
+  /** 운동 탭 툴팁: 이 운동을 하면 몸이 어떻게 바뀌는지 짧게 (설정에서 고침) */
+  const exerciseTips: Record<ExerciseTab, string[]> = {
+    treadmill: profile.treadmillTips,
+    ...Object.fromEntries(exerciseDefs.map((x) => [x.id, x.tips])),
   };
+  /** 지운 운동의 탭이 열려 있으면 트레드밀로 */
+  const activeTab = exTab === "treadmill" || exTab === "custom" || exerciseDefs.some((x) => x.id === exTab) ? exTab : "treadmill";
 
-  /** 팔굽혀펴기·턱걸이 입력 폼 (횟수 → 칼로리) */
-  const renderRepsForm = (kind: RepsExercise) => {
-    const ex = REPS_EXERCISES[kind];
-    const value = repsInput[kind];
+  /** 설정에서 만든 운동 입력 폼 (횟수·분 → 칼로리) */
+  const renderDefinedForm = (ex: DietExercise) => {
+    const unitLabel = ex.unit === "reps" ? "회" : "분";
+    const value = amountInput[ex.id] ?? String(ex.presets[0] ?? "");
     const n = Number(value) || 0;
-    const preview = weightNow && n > 0 ? ex.kcal(weightNow, n) : null;
-    const setValue = (v: string) => setRepsInput((r) => ({ ...r, [kind]: v }));
+    const preview = weightNow && n > 0 ? definedExerciseKcal(ex, weightNow, n) : null;
+    const setValue = (v: string) => setAmountInput((r) => ({ ...r, [ex.id]: v }));
     return (
       <div className="space-y-3">
         <label className="flex items-center gap-1.5 text-[15px] text-neutral-600">
-          횟수
-          <input inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClass} w-20 text-right`} />회
+          {ex.unit === "reps" ? "횟수" : "시간"}
+          <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClass} w-20 text-right`} />
+          {unitLabel}
         </label>
-        <div className="flex flex-wrap gap-1.5">
-          {ex.presets.map((r) => (
-            <button key={r} type="button" onClick={() => setValue(String(r))} className={chipClass(value === String(r))}>
-              {r}회
-            </button>
-          ))}
-        </div>
+        {ex.presets.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {ex.presets.map((r) => (
+              <button key={r} type="button" onClick={() => setValue(String(r))} className={chipClass(value === String(r))}>
+                {r}
+                {unitLabel}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <p className="text-[15px] text-neutral-700">
             {preview != null ? (
@@ -570,13 +601,16 @@ export default function DietPage() {
                 <span className="ml-1.5 text-xs text-neutral-400">(추정치)</span>
               </>
             ) : (
-              <span className="text-sm text-neutral-400">몸무게를 설정하면 계산돼요</span>
+              <span className="text-sm text-neutral-400">{weightNow ? `${ex.unit === "reps" ? "횟수" : "시간"}를 적어 주세요` : "몸무게를 설정하면 계산돼요"}</span>
             )}
           </p>
           <button
             type="button"
             disabled={preview == null}
-            onClick={() => preview != null && addExercise({ type: kind, name: ex.name, reps: n, kcal: Math.round(preview) })}
+            onClick={() =>
+              preview != null &&
+              addExercise({ type: ex.id, name: ex.name, ...(ex.unit === "reps" ? { reps: n } : { minutes: n }), kcal: Math.round(preview) })
+            }
             className="shrink-0 rounded-xl bg-neutral-900 px-4 py-2 text-[15px] font-semibold text-white hover:bg-neutral-700 disabled:opacity-30"
           >
             추가
@@ -787,14 +821,9 @@ export default function DietPage() {
         {/* relative: 폰에서 툴팁을 버튼 줄 기준으로 펼침 */}
         <div className="relative mt-4 flex flex-wrap gap-1.5">
           {(
-            [
-              ["treadmill", "트레드밀"],
-              ["pushup", "팔굽혀펴기"],
-              ["pullup", "턱걸이"],
-              ["custom", "기타"],
-            ] as const
+            [["treadmill", "트레드밀"], ...exerciseDefs.map((x) => [x.id, x.name]), ["custom", "기타"]] as [string, string][]
           ).map(([id, label], i) => {
-            const tip = exerciseTips[id];
+            const tip = exerciseTips[id]?.length ? exerciseTips[id] : null;
             return (
               <div key={id} data-exercise-tab className="group md:relative">
                 <button
@@ -803,7 +832,7 @@ export default function DietPage() {
                     setExTab(id);
                     setTipFor(tip ? id : null);
                   }}
-                  className={chipClass(exTab === id)}
+                  className={chipClass(activeTab === id)}
                 >
                   {label}
                 </button>
@@ -812,7 +841,7 @@ export default function DietPage() {
                   <div
                     // 안 보일 땐 hidden(자리도 안 차지해 폰 화면이 옆으로 안 넘침).
                     // 폰: 버튼 줄 왼쪽 기준. PC: 각 버튼 위(오른쪽 버튼은 오른쪽 기준)
-                    className={`pointer-events-none absolute bottom-full left-0 z-30 mb-2.5 whitespace-nowrap rounded-2xl bg-neutral-900 px-4 py-3 text-base font-bold leading-relaxed text-[#FFB25C] shadow-xl md:text-lg md:group-hover:block ${
+                    className={`pointer-events-none absolute bottom-full left-0 z-30 mb-2.5 whitespace-nowrap rounded-2xl bg-neutral-900 px-3.5 py-2.5 text-[15px] font-bold leading-relaxed text-[#FFB25C] shadow-xl md:text-[19px] md:group-hover:block ${
                       i >= 2 ? "md:left-auto md:right-0" : "md:left-0"
                     } ${tipFor === id ? "block" : "hidden"}`}
                     role="tooltip"
@@ -828,7 +857,7 @@ export default function DietPage() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-neutral-300 bg-neutral-50 p-4">
-          {exTab === "treadmill" && (
+          {activeTab === "treadmill" && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-[15px] text-neutral-600">
                 <label className="flex items-center gap-1.5">
@@ -878,9 +907,11 @@ export default function DietPage() {
             </div>
           )}
 
-          {(exTab === "pushup" || exTab === "pullup") && renderRepsForm(exTab)}
+          {exerciseDefs.filter((x) => x.id === activeTab).map((x) => (
+            <div key={x.id}>{renderDefinedForm(x)}</div>
+          ))}
 
-          {exTab === "custom" && (
+          {activeTab === "custom" && (
             <form
               className="flex gap-2"
               onSubmit={(e) => {
@@ -908,9 +939,10 @@ export default function DietPage() {
                 <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">
                   {e.type === "treadmill"
                     ? `트레드밀 ${e.incline}% · ${e.speed}km/h · ${e.minutes}분`
-                    : e.type === "pushup" || e.type === "pullup"
-                      ? `${e.name} ${e.reps}회`
-                      : e.name}
+                    : e.type === "custom"
+                      ? e.name
+                      : // 설정에서 만든 운동: 지금 이름으로 (지운 운동은 기록할 때의 이름)
+                        `${exerciseDefs.find((x) => x.id === e.type)?.name ?? e.name} ${e.reps != null ? `${e.reps}회` : `${e.minutes ?? 0}분`}`}
                 </span>
                 <span className="shrink-0 text-sm tabular-nums text-neutral-500">{fmt(e.kcal)}kcal</span>
                 <button
@@ -1017,14 +1049,17 @@ export default function DietPage() {
               <p className="text-sm tabular-nums text-neutral-500">
                 운동한 날 {exerciseStats.days}일
                 {exerciseStats.days > 0 && ` · 총 ${fmt(exerciseStats.kcal)}kcal`}
-                {exerciseStats.treadmillMin > 0 && ` · 트레드밀 ${fmt(exerciseStats.treadmillMin)}분`}
-                {exerciseStats.pushups > 0 && ` · 팔굽혀펴기 ${fmt(exerciseStats.pushups)}회`}
-                {exerciseStats.pullups > 0 && ` · 턱걸이 ${fmt(exerciseStats.pullups)}회`}
+                {summarizeExercises(
+                  history.flatMap((d) => d.exercises),
+                  exerciseDefs,
+                  false
+                ).map((line) => ` · ${line}`)}
               </p>
               <div className="mt-3">
                 <DailyBarChart
                   dates={historyDates}
                   values={exerciseByDate}
+                  details={Object.fromEntries(history.map((d) => [d.date, summarizeExercises(d.exercises, exerciseDefs)]))}
                   unit="kcal"
                   color="#F19E36"
                   emptyText="운동을 기록하면 날짜별로 여기에 쌓여요."
@@ -1056,7 +1091,10 @@ export default function DietPage() {
                         className={`cursor-pointer border-b border-neutral-50 transition hover:bg-neutral-50 ${r.date === date ? "bg-neutral-50" : ""}`}
                         title="이 날짜로 이동"
                       >
-                        <td className="px-1 py-2 text-neutral-700">{dateLabel(r.date)}</td>
+                        <td className="px-1 py-2 text-neutral-700">
+                          {dateLabel(r.date)}
+                          {r.exerciseDetail && <span className="block text-xs text-neutral-400">{r.exerciseDetail}</span>}
+                        </td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.intake > 0 ? fmt(r.intake) : "–"}</td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.exercise > 0 ? fmt(r.exercise) : "–"}</td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.weight != null ? `${r.weight}kg` : "–"}</td>
@@ -1071,7 +1109,7 @@ export default function DietPage() {
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-2 text-xs text-neutral-400">예상 변화는 먹은 것을 기록한 날만, 지금 몸무게·설정 기준으로 계산해요. 줄을 누르면 그날로 이동해요.</p>
+                <p className="mt-2 text-xs text-neutral-400">날짜 아래 작은 글씨는 그날 한 운동이에요. 예상 변화는 먹은 것을 기록한 날만, 지금 몸무게·설정 기준으로 계산해요. 줄을 누르면 그날로 이동해요.</p>
               </div>
             ))}
         </div>

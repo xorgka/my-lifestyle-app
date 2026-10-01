@@ -1,9 +1,13 @@
 "use client";
 
-/** 날짜별 막대 그래프 (SVG). 기록 없는 날은 막대 없음. 목표선이 있으면 점선 */
+import { useState } from "react";
+
+/** 날짜별 막대 그래프 (SVG). 기록 없는 날은 막대 없음. 목표선이 있으면 점선.
+ * 막대에 마우스를 올리거나(PC) 누르면(폰) 날짜·값·설명 말풍선 */
 export function DailyBarChart({
   dates,
   values,
+  details,
   unit,
   color = "#171717",
   target,
@@ -14,12 +18,15 @@ export function DailyBarChart({
   dates: string[];
   /** 날짜 → 값. 없으면 기록 없음 */
   values: Record<string, number>;
+  /** 날짜 → 말풍선에 한 줄씩 보여줄 설명 (예: 그날 한 운동들) */
+  details?: Record<string, string[]>;
   unit: string;
   color?: string;
   target?: number | null;
   targetLabel?: string;
   emptyText: string;
 }) {
+  const [active, setActive] = useState<string | null>(null);
   const recorded = dates.filter((d) => values[d] != null && values[d] > 0);
   if (recorded.length === 0) {
     return <p className="py-8 text-center text-sm text-neutral-400">{emptyText}</p>;
@@ -38,7 +45,13 @@ export function DailyBarChart({
   const label = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
   const ticks = [0, max / 2, max].map((v) => Math.round(v / 10) * 10);
 
+  const activeIndex = active != null ? dates.indexOf(active) : -1;
+  const activeValue = active != null ? values[active] : null;
+  /** 말풍선 가로 위치(%). 양 끝에서는 그래프 밖으로 안 나가게 정렬을 바꿈 */
+  const activeLeft = activeIndex >= 0 ? ((padL + slot * (activeIndex + 0.5)) / W) * 100 : 0;
+
   return (
+    <div className="relative" onMouseLeave={() => setActive(null)}>
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`날짜별 ${unit}`}>
       {ticks.map((v) => (
         <g key={v}>
@@ -53,9 +66,19 @@ export function DailyBarChart({
         if (v == null || v <= 0) return null;
         const x = padL + slot * i + (slot - barW) / 2;
         return (
-          <rect key={d} x={x} y={y(v)} width={barW} height={Math.max(1, H - padB - y(v))} rx={Math.min(4, barW / 2)} fill={color}>
-            <title>{`${label(d)} · ${Math.round(v).toLocaleString()}${unit}`}</title>
-          </rect>
+          <g key={d}>
+            <rect x={x} y={y(v)} width={barW} height={Math.max(1, H - padB - y(v))} rx={Math.min(4, barW / 2)} fill={color} opacity={active == null || active === d ? 1 : 0.45} />
+            {/* 막대가 가늘거나 낮아도 잡히게 그 날짜 칸 전체를 누를 수 있게 */}
+            <rect
+              x={padL + slot * i}
+              y={padT}
+              width={slot}
+              height={H - padT - padB}
+              fill="transparent"
+              onMouseEnter={() => setActive(d)}
+              onClick={() => setActive((cur) => (cur === d ? null : d))}
+            />
+          </g>
         );
       })}
       {target != null && target > 0 && (
@@ -74,5 +97,25 @@ export function DailyBarChart({
         {label(dates[dates.length - 1])}
       </text>
     </svg>
+      {active != null && activeValue != null && activeValue > 0 && (
+        <div
+          className={`pointer-events-none absolute z-10 whitespace-nowrap rounded-2xl bg-neutral-900 px-4 py-3 text-left text-white shadow-lg ${
+            activeLeft < 25 ? "" : activeLeft > 75 ? "-translate-x-full" : "-translate-x-1/2"
+          }`}
+          style={{ left: `${activeLeft}%`, top: 0 }}
+          role="tooltip"
+        >
+          <p className="text-[15px] font-semibold tabular-nums">
+            {label(active)} · {Math.round(activeValue).toLocaleString()}
+            {unit}
+          </p>
+          {details?.[active]?.map((line) => (
+            <p key={line} className="mt-1 text-[15px] leading-snug text-white/80">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
