@@ -1073,7 +1073,8 @@ export default function DietPage() {
               <p className="py-8 text-center text-sm text-neutral-400">기록한 날이 없어요.</p>
             ) : (
               <div className="-mx-1 overflow-x-auto">
-                <table className="w-full min-w-[420px] text-[15px] tabular-nums">
+                {/* 폰 폭에도 가로 스크롤 없이 들어가게: 숫자 칸은 한 줄, 날짜 칸의 운동 내용만 줄바꿈 */}
+                <table className="w-full whitespace-nowrap text-sm tabular-nums md:text-[15px]">
                   <thead>
                     <tr className="border-b border-neutral-100 text-left text-xs font-medium text-neutral-400">
                       <th className="px-1 py-2 font-medium">날짜</th>
@@ -1093,7 +1094,7 @@ export default function DietPage() {
                       >
                         <td className="px-1 py-2 text-neutral-700">
                           {dateLabel(r.date)}
-                          {r.exerciseDetail && <span className="block text-xs text-neutral-400">{r.exerciseDetail}</span>}
+                          {r.exerciseDetail && <span className="block whitespace-normal text-xs text-neutral-400">{r.exerciseDetail}</span>}
                         </td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.intake > 0 ? fmt(r.intake) : "–"}</td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.exercise > 0 ? fmt(r.exercise) : "–"}</td>
