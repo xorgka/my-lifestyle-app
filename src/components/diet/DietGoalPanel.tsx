@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Target } from "lucide-react";
 import { KCAL_PER_KG } from "@/lib/dietCalc";
+import { formatChange, useChangeUnit } from "@/components/diet/useChangeUnit";
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
@@ -25,6 +26,7 @@ export function DietGoalPanel({
   exerciseGoalKcal,
   actualDailyDeficit,
   paceDayCount,
+  totalChange,
   treadmillMinutesFor,
   treadmillLabel,
   onOpenSettings,
@@ -46,6 +48,8 @@ export function DietGoalPanel({
   actualDailyDeficit: number | null;
   /** 평균에 쓴 날 수 */
   paceDayCount: number;
+  /** 기록 시작일부터 지금까지 쌓인 칼로리(먹은 양 − 쓴 칼로리, +면 찌는 쪽)와, 계획대로였을 때의 값. 기록이 없으면 null */
+  totalChange: { sinceLabel: string; kcal: number; planKcal: number } | null;
   /** kcal → 설정한 트레드밀로 몇 분. 몸무게를 모르면 null */
   treadmillMinutesFor: (kcal: number) => number | null;
   treadmillLabel: string;
@@ -95,6 +99,7 @@ export function DietGoalPanel({
           : `${dayLabel} 운동 ${fmt(exerciseLeft)}kcal 남았어요`
     );
 
+  const [changeUnit, toggleChangeUnit] = useChangeUnit();
   const [msgIndex, setMsgIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   useEffect(() => {
@@ -152,6 +157,28 @@ export function DietGoalPanel({
             <span className="text-white/80">지금 {currentWeightKg}kg</span>
             <span>목표 {targetWeightKg}kg</span>
           </div>
+          {/* 기록 시작일부터 쌓인 칼로리: 0이면 제자리, 계획 값이면 목표대로 */}
+          {totalChange && (
+            // 누르면 kcal ↔ kg (지방 1kg = 7,700kcal)
+            <button
+              type="button"
+              onClick={toggleChangeUnit}
+              title={changeUnit === "kg" ? "누르면 kcal로 보기" : "누르면 kg으로 보기"}
+              className="mt-4 flex flex-wrap items-baseline gap-x-2 text-left text-sm tabular-nums text-white/60 md:text-[15px]"
+            >
+              <span>{totalChange.sinceLabel}부터 누적</span>
+              <b className={`text-lg md:text-xl ${totalChange.kcal > 0 ? "text-red-300" : "text-emerald-300"}`}>
+                {formatChange(totalChange.kcal, changeUnit)}
+                {changeUnit}
+              </b>
+              <span>
+                {/* 폰에서는 이 부분이 다음 줄로 내려가므로 가운뎃점을 뺀다 */}
+                <span className="hidden md:inline">· </span>
+                계획대로면 {formatChange(totalChange.planKcal, changeUnit)}
+                {changeUnit}
+              </span>
+            </button>
+          )}
         </>
       ) : (
         <button type="button" onClick={onOpenSettings} className="flex w-full items-center gap-2 text-left text-[15px] font-medium text-white/80">

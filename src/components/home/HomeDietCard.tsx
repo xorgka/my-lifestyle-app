@@ -15,8 +15,9 @@ import {
   loadWeightLog,
   todayDateKey,
 } from "@/lib/dietDb";
-import { calcBmr, calcDailyBase, dailyDeficitTarget, definedExerciseKcal, kcalToGrams, treadmillKcalPerMin, walkKcal } from "@/lib/dietCalc";
+import { calcBmr, calcDailyBase, dailyDeficitTarget, definedExerciseKcal, treadmillKcalPerMin, walkKcal } from "@/lib/dietCalc";
 import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
+import { formatChange, useChangeUnit } from "@/components/diet/useChangeUnit";
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
 
@@ -107,8 +108,8 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
     : 0;
   const allowed = base != null ? base + dailyActivityKcal + exerciseKcal - dailyDeficitTarget(profile.weeklyLossKg) : null;
   const overKcal = allowed != null && intake > allowed ? intake - allowed : 0;
-  /** 오늘 예상 체중 변화(g): 먹은 양 − 쓴 칼로리(기본 + 매일 활동 + 운동). 다이어트 페이지 "예상 변화"와 같은 값 */
-  const changeGrams = base != null ? kcalToGrams(intake - (base + dailyActivityKcal + exerciseKcal)) : null;
+  /** 오늘 예상 변화(kcal): 먹은 양 − 쓴 칼로리(기본 + 매일 활동 + 운동). 다이어트 페이지 "예상 변화"와 같은 값 */
+  const changeKcal = base != null ? intake - (base + dailyActivityKcal + exerciseKcal) : null;
 
   // 남은 운동량: 설정한 트레드밀로 몇 분, 또는 팔굽혀펴기 100회·풀업 30회 + 트레드밀 몇 분 (번갈아 표시)
   const exerciseGoal = profile.dailyExerciseGoalKcal;
@@ -129,6 +130,7 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
         exerciseNotes.push(`트레드밀 ${Math.ceil((exerciseLeft - kcal) / tmPerMin)}분 + ${shortName ?? ex.name} ${reps}${ex.unit === "reps" ? "회" : "분"}`);
     });
   }
+  const [changeUnit, toggleChangeUnit] = useChangeUnit();
   const [noteIndex, setNoteIndex] = useState(0);
   const [noteVisible, setNoteVisible] = useState(true);
   useEffect(() => {
@@ -142,6 +144,13 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
     return () => clearInterval(id);
   }, []);
   const exerciseNote = exerciseNotes.length > 0 ? exerciseNotes[noteIndex % exerciseNotes.length] : null;
+  // 많이 먹은 날: 초과한 칼로리와, 그걸 트레드밀로 만회하려면 몇 분인지 (번갈아 표시)
+  const overNotes: string[] = [];
+  if (overKcal > 0) {
+    overNotes.push(`${fmt(overKcal)}kcal 초과`);
+    if (tmPerMin > 0) overNotes.push(`트레드밀 ${Math.ceil(overKcal / tmPerMin)}분이면 만회`);
+  }
+  const overNote = overNotes.length > 0 ? overNotes[noteIndex % overNotes.length] : null;
 
   const remainKg =
     profile.targetWeightKg != null && weightNow != null ? Math.max(0, weightNow - profile.targetWeightKg) : null;
@@ -154,16 +163,27 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
       {/* 제목 줄 오른쪽에 목표 체중 · 오늘 예상 체중 변화 (폴드 폭에선 칸이 좁아 잘려서 숨김) */}
       <div className="flex items-baseline justify-between gap-2">
         <p className="shrink-0 text-base font-bold">다이어트</p>
-        <p className="min-w-0 truncate text-[13px] font-semibold tabular-nums text-white/60 md:max-xl:hidden">
+        <p className="min-w-0 truncate text-[12px] font-semibold tabular-nums text-white/60 md:text-[13px] md:max-xl:hidden">
           {remainKg != null &&
             (remainKg > 0 ? `목표 ${profile.targetWeightKg}kg까지 ${remainKg.toFixed(1)}kg` : `목표 ${profile.targetWeightKg}kg 달성`)}
-          {remainKg != null && changeGrams != null && <span className="mx-1 text-white/25">·</span>}
-          {changeGrams != null && (
+          {remainKg != null && changeKcal != null && <span className="mx-0.5 text-white/25 md:mx-1">·</span>}
+          {changeKcal != null && (
             <>
               오늘{" "}
-              <span className={changeGrams > 0 ? "text-red-400" : "text-emerald-400"}>
-                {changeGrams > 0 ? "+" : "−"}
-                {fmt(Math.abs(changeGrams))}g
+              {/* 누르면 kcal ↔ kg. 카드 전체가 링크라 이동은 막는다 */}
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleChangeUnit();
+                }}
+                title={changeUnit === "kg" ? "누르면 kcal로 보기" : "누르면 kg으로 보기"}
+                className={changeKcal > 0 ? "text-red-400" : "text-emerald-400"}
+              >
+                {formatChange(changeKcal, changeUnit)}
+                {changeUnit}
               </span>
             </>
           )}
@@ -175,7 +195,11 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
         value={intake}
         goal={allowed != null ? Math.max(0, allowed) : null}
         over={overKcal > 0}
-        note={overKcal > 0 ? <span className="text-red-400">{fmt(overKcal)}kcal 초과</span> : null}
+        note={
+          overNote ? (
+            <span className={`text-red-400 transition-opacity duration-300 ${noteVisible ? "opacity-100" : "opacity-0"}`}>{overNote}</span>
+          ) : null
+        }
       />
       <Gauge
         icon={Dumbbell}

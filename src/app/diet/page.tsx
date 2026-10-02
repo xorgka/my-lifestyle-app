@@ -6,6 +6,7 @@ import { DietSettingsModal } from "@/components/diet/DietSettingsModal";
 import { WeightChart } from "@/components/diet/WeightChart";
 import { DailyBarChart } from "@/components/diet/DailyBarChart";
 import { DietGoalPanel } from "@/components/diet/DietGoalPanel";
+import { formatChange, useChangeUnit } from "@/components/diet/useChangeUnit";
 import { Settings } from "lucide-react";
 import {
   DEFAULT_DIET_PROFILE,
@@ -39,7 +40,6 @@ import {
   calcDailyBase,
   dailyDeficitTarget,
   definedExerciseKcal,
-  kcalToGrams,
   treadmillKcal,
   treadmillKcalPerMin,
   walkKcal,
@@ -312,6 +312,8 @@ export default function DietPage() {
   const [foods, setFoods] = useState<DietFood[]>([]);
   const [combos, setCombos] = useState<DietCombo[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 예상 변화 단위: 숫자를 누르면 kcal ↔ kg */
+  const [changeUnit, toggleChangeUnit] = useChangeUnit();
   const [weightInput, setWeightInput] = useState("");
   const [historyTab, setHistoryTab] = useState<HistoryTab>("table");
   const [historyRange, setHistoryRange] = useState<HistoryRange>(30);
@@ -484,7 +486,7 @@ export default function DietPage() {
         exercise,
         exerciseDetail: summarizeExercises(d.exercises, exerciseDefs).join(" · "),
         weight: d.weightKg,
-        grams: net != null ? kcalToGrams(net) : null,
+        net,
       };
     });
 
@@ -525,6 +527,22 @@ export default function DietPage() {
             s + base + dailyActivityKcal + d.exercises.reduce((a, e) => a + e.kcal, 0) - d.meals.reduce((a, m) => a + m.kcal, 0),
           0
         ) / paceDays.length
+      : null;
+
+  /** 기록을 시작한 날부터 지금까지 쌓인 칼로리 (먹은 양 − 쓴 칼로리, +면 찌는 쪽).
+   * 먹은 걸 기록한 날만 세고, 계획은 같은 날 수만큼 목표 적자를 지켰을 때의 값 */
+  const loggedDays = recent.filter((d) => d.meals.length > 0).sort((a, b) => a.date.localeCompare(b.date));
+  const totalChange =
+    base != null && loggedDays.length > 0
+      ? {
+          sinceLabel: `${Number(loggedDays[0].date.slice(5, 7))}월 ${Number(loggedDays[0].date.slice(8, 10))}일`,
+          kcal: loggedDays.reduce(
+            (s, d) =>
+              s + d.meals.reduce((a, m) => a + m.kcal, 0) - (base + dailyActivityKcal + d.exercises.reduce((a, e) => a + e.kcal, 0)),
+            0
+          ),
+          planKcal: -deficitTarget * loggedDays.length,
+        }
       : null;
 
   /** 오늘 목표 적자까지 더 써야 하는 칼로리 (음수면 이미 달성) */
@@ -695,6 +713,7 @@ export default function DietPage() {
         exerciseGoalKcal={exerciseGoal}
         actualDailyDeficit={actualDailyDeficit}
         paceDayCount={paceDays.length}
+        totalChange={totalChange}
         treadmillMinutesFor={(kcal) => (kcalPerMin > 0 ? kcal / kcalPerMin : null)}
         treadmillLabel={`트레드밀 ${incline}%·${speed}km/h`}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -709,7 +728,6 @@ export default function DietPage() {
           const exercisePct = exerciseGoal > 0 ? Math.min(100, (exerciseKcal / exerciseGoal) * 100) : 0;
           const exerciseLeft = Math.max(0, exerciseGoal - exerciseKcal);
           const dayAchieved = achievedOn(date);
-          const grams = balance != null ? kcalToGrams(balance) : null;
           return (
             <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-neutral-200">
               <div className="min-w-0 md:pr-6">
@@ -763,17 +781,30 @@ export default function DietPage() {
 
               <div className="min-w-0 md:pl-6">
                 <p className="text-sm font-medium text-neutral-500">예상 변화</p>
-                <p
-                  className={`mt-1 text-5xl font-extrabold tabular-nums tracking-tight md:text-6xl ${
-                    grams == null ? "text-neutral-300" : grams > 0 ? "text-red-500" : "text-emerald-600"
-                  }`}
-                >
-                  {grams != null ? `${grams > 0 ? "+" : "\u2212"}${fmt(Math.abs(grams))}g` : "–"}
-                </p>
+                {/* 먹은 양 − 쓴 칼로리. +면 찌는 쪽(빨강), −면 빠지는 쪽(초록) */}
+                {balance != null ? (
+                  // 누르면 kcal ↔ kg (지방 1kg = 7,700kcal)
+                  <button
+                    type="button"
+                    onClick={toggleChangeUnit}
+                    className="mt-1 block text-left tabular-nums"
+                    title={changeUnit === "kg" ? "누르면 kcal로 보기" : "누르면 kg으로 보기"}
+                  >
+                    <span
+                      className={`text-5xl font-extrabold tracking-tight md:text-6xl ${
+                        balance > 0 ? "text-red-500" : "text-emerald-600"
+                      }`}
+                    >
+                      {formatChange(balance, changeUnit)}
+                    </span>
+                    <span className="ml-1.5 text-base text-neutral-400">{changeUnit}</span>
+                  </button>
+                ) : (
+                  <p className="mt-1 text-5xl font-extrabold tracking-tight text-neutral-300 md:text-6xl">–</p>
+                )}
                 {burn != null && (
                   <p className="mt-2 text-sm tabular-nums text-neutral-500">
-                    소비 {fmt(burn)} − 섭취 {fmt(intake)} = {burn - intake < 0 ? "−" : ""}
-                    {fmt(Math.abs(burn - intake))}kcal
+                    섭취 {fmt(intake)} − 소비 {fmt(burn)}
                   </p>
                 )}
               </div>
@@ -1108,10 +1139,25 @@ export default function DietPage() {
                         <td className="px-1 py-2 text-right text-neutral-900">{r.weight != null ? `${r.weight}kg` : "–"}</td>
                         <td
                           className={`px-1 py-2 text-right ${
-                            r.grams == null ? "text-neutral-300" : r.grams > 0 ? "text-red-500" : "text-emerald-600"
+                            r.net == null ? "text-neutral-300" : r.net > 0 ? "text-red-500" : "text-emerald-600"
                           }`}
                         >
-                          {r.grams == null ? "–" : `${r.grams > 0 ? "+" : "−"}${fmt(Math.abs(r.grams))}g`}
+                          {r.net == null ? (
+                            "–"
+                          ) : (
+                            // 숫자를 누르면 kcal ↔ kg (줄을 눌러 날짜를 옮기는 동작과 겹치지 않게 막음)
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleChangeUnit();
+                              }}
+                              title={changeUnit === "kg" ? "누르면 kcal로 보기" : "누르면 kg으로 보기"}
+                            >
+                              {formatChange(r.net, changeUnit)}
+                              {changeUnit === "kg" && "kg"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
