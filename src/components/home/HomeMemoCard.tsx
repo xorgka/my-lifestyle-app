@@ -31,21 +31,37 @@ export function HomeMemoCard() {
   const [cardStyle, setCardStyle] = useState<MemoCardStyle>("classic");
   const [expanded, setExpanded] = useState(false);
 
-  // 확대 모달: Esc로 닫기, 좌우 화살표 키로 이전/다음 메모
+  // 확대 모달: Esc로 닫기, 좌우 화살표·A/D 키로 이전/다음 메모
   useEffect(() => {
     if (!expanded) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setExpanded(false);
-      } else if (e.key === "ArrowLeft") {
+        // code로 판단: 한글 입력 상태(ㅁ/ㅇ)에서도 A/D가 먹게
+      } else if (e.key === "ArrowLeft" || e.code === "KeyA") {
         setIndex((i) => Math.max(0, i - 1));
-      } else if (e.key === "ArrowRight") {
+      } else if (e.key === "ArrowRight" || e.code === "KeyD") {
         setIndex((i) => Math.min(memos.length - 1, i + 1));
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [expanded, memos.length]);
+
+  // 확대 모달이 떠 있는 동안 뒤 페이지는 스크롤 안 되게. 스크롤바가 사라지며 화면이 옆으로 밀리지 않게 그 폭만큼 여백을 채움
+  useEffect(() => {
+    if (!expanded) return;
+    const { body, documentElement } = document;
+    const prevOverflow = body.style.overflow;
+    const prevPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+    return () => {
+      body.style.overflow = prevOverflow;
+      body.style.paddingRight = prevPaddingRight;
+    };
+  }, [expanded]);
 
   useEffect(() => {
     const sync = () => setCardStyle(getMemoCardStyle());
@@ -258,7 +274,7 @@ export function HomeMemoCard() {
                 role="dialog"
                 aria-modal="true"
                 onClick={(e) => e.stopPropagation()}
-                className="relative flex h-[min(560px,calc(100dvh-9rem))] w-full max-w-sm flex-shrink-0 md:w-auto md:min-w-[24rem] md:max-w-[min(56rem,calc(100vw-360px))] flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] md:h-[min(600px,calc(100dvh-5rem))]"
+                className="relative flex h-[min(580px,calc(100dvh-9rem))] w-full max-w-sm flex-shrink-0 md:w-auto md:min-w-[24rem] md:max-w-[min(56rem,calc(100vw-360px))] flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] md:h-[min(620px,calc(100dvh-5rem))]"
                 style={{ backgroundColor: "#FCDA55" }}
               >
                 <Link
