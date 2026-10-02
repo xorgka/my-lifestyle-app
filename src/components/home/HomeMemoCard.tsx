@@ -273,7 +273,16 @@ export function HomeMemoCard() {
               <div
                 role="dialog"
                 aria-modal="true"
-                onClick={(e) => e.stopPropagation()}
+                // 박스의 왼쪽 반을 누르면 이전, 오른쪽 반을 누르면 다음 메모 (박스 폭이 메모마다 달라도 자기 폭의 반 기준)
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (pinnedMemos.length < 2) return;
+                  // 글자를 드래그해 선택한 경우와 ··· 링크는 넘기지 않음
+                  if (window.getSelection()?.toString() || (e.target as HTMLElement).closest("a")) return;
+                  const r = e.currentTarget.getBoundingClientRect();
+                  const isLeft = e.clientX < r.left + r.width / 2;
+                  setIndex((i) => (isLeft ? Math.max(0, i - 1) : Math.min(pinnedMemos.length - 1, i + 1)));
+                }}
                 className="relative flex h-[min(580px,calc(100dvh-9rem))] w-full max-w-sm flex-shrink-0 md:w-auto md:min-w-[24rem] md:max-w-[min(56rem,calc(100vw-360px))] flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] md:h-[min(620px,calc(100dvh-5rem))]"
                 style={{ backgroundColor: "#FCDA55" }}
               >
