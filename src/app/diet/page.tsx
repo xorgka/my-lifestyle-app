@@ -663,7 +663,7 @@ export default function DietPage() {
           className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
         >
           <Settings className="h-4 w-4 text-neutral-500" aria-hidden />
-          키·몸무게·목표 설정
+          설정
         </button>
       </div>
 
@@ -772,7 +772,7 @@ export default function DietPage() {
                 </p>
                 {burn != null && (
                   <p className="mt-2 text-sm tabular-nums text-neutral-500">
-                    쓴 칼로리 {fmt(burn)} − 먹은 양 {fmt(intake)} = {burn - intake < 0 ? "−" : ""}
+                    소비 {fmt(burn)} − 섭취 {fmt(intake)} = {burn - intake < 0 ? "−" : ""}
                     {fmt(Math.abs(burn - intake))}kcal
                   </p>
                 )}
@@ -1094,7 +1094,14 @@ export default function DietPage() {
                       >
                         <td className="px-1 py-2 text-neutral-700">
                           {dateLabel(r.date)}
-                          {r.exerciseDetail && <span className="block whitespace-normal text-xs text-neutral-400">{r.exerciseDetail}</span>}
+                          {r.exerciseDetail && (
+                            <span className="hidden md:inline">
+                              <span className="mx-2 text-neutral-300" aria-hidden>
+                                |
+                              </span>
+                              <span className="text-xs text-neutral-400">{r.exerciseDetail}</span>
+                            </span>
+                          )}
                         </td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.intake > 0 ? fmt(r.intake) : "–"}</td>
                         <td className="px-1 py-2 text-right text-neutral-900">{r.exercise > 0 ? fmt(r.exercise) : "–"}</td>
@@ -1110,7 +1117,6 @@ export default function DietPage() {
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-2 text-xs text-neutral-400">날짜 아래 작은 글씨는 그날 한 운동이에요. 예상 변화는 먹은 것을 기록한 날만, 지금 몸무게·설정 기준으로 계산해요. 줄을 누르면 그날로 이동해요.</p>
               </div>
             ))}
         </div>
