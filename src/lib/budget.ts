@@ -6,6 +6,7 @@
 
 import { localDateStr, todayStr as todayStrFromUtil } from "./dateUtil";
 import { supabase } from "./supabase";
+import { loadSetting, saveSetting } from "./userSettings";
 import {
   loadEntriesFromDb,
   deleteEntryFromDb,
@@ -116,6 +117,8 @@ export function matchesHealthInsuranceItem(item: string): boolean {
  * (건강보험: 국민건강·건보료 포함)
  * 주택청약: 계좌이체 문자에 "801707"로 시작하는 마스킹 계좌번호로만 찍혀서 매번 다른
  * 항목으로 잡힘 (예: "801707**91,2605-97") → 주택청약 계좌로 통일.
+ * 통신요금 등: "KT통신요금08"처럼 "…요금" 뒤에 청구월 두 자리가 붙어 달마다 다른 항목이 됨
+ * → 뒤 숫자를 떼고 "KT통신요금"으로 통일.
  */
 export function canonicalizeBudgetItemName(item: string): string {
   const t = item.trim();
@@ -123,6 +126,8 @@ export function canonicalizeBudgetItemName(item: string): string {
   if (matchesHealthInsuranceItem(t)) return "건강보험";
   if (t.toLowerCase().includes("국민연금")) return "국민연금";
   if (t.startsWith("801707")) return "주택청약";
+  const fee = t.match(/^(.*요금)\s*[0-9０-９]{2}$/);
+  if (fee) return fee[1];
   return t;
 }
 
@@ -558,6 +563,49 @@ export function applySmsGroupRulesToItem(item: string, rules: SmsGroupRule[]): s
   return t;
 }
 
+/**
+ * 큰 묶음: 묶음을 한 번 더 묶는다. 예) 식비 = 배달·편의점·빵 …
+ * 기록은 그대로 두고 화면(카테고리 상세·항목 순위·브리핑)에서만 "식비 > 배달 > 배달 (세부)"로 보인다.
+ */
+export type ParentGroup = { parent: string; children: string[] };
+
+export const DEFAULT_PARENT_GROUPS: ParentGroup[] = [
+  { parent: "식비", children: ["배달", "편의점", "빵", "아이스크림", "쿠캣", "배달의민족", "식당"] },
+];
+
+/** 저장된 큰 묶음 (기기 간 동기화되는 설정). 저장된 적 없으면 기본값 */
+export function loadParentGroups(): ParentGroup[] {
+  const raw = loadSetting<unknown>("finance-parent-groups", null);
+  if (!Array.isArray(raw)) return DEFAULT_PARENT_GROUPS;
+  return raw
+    .map((r: unknown) => {
+      const o = (r ?? {}) as Record<string, unknown>;
+      const children = Array.isArray(o.children) ? o.children.map((c) => String(c ?? "").trim()).filter(Boolean) : [];
+      return { parent: String(o.parent ?? "").trim(), children: Array.from(new Set(children)) };
+    })
+    .filter((g) => g.parent);
+}
+
+export function saveParentGroups(groups: ParentGroup[]): void {
+  saveSetting("finance-parent-groups", groups);
+}
+
+/** "배달 (쿠팡이츠)" → "배달". 괄호 앞 이름이 묶음 이름 */
+export function baseGroupName(item: string): string {
+  return item.includes(" (") ? item.slice(0, item.indexOf(" (")) : item;
+}
+
+/** 묶음이 들어가는 큰 묶음 이름. 없으면 null. 큰 묶음과 같은 이름의 묶음("식비")도 그 아래로 넣는다 */
+export function parentOfGroup(group: string, parentGroups: ParentGroup[]): string | null {
+  const g = group.trim().toLowerCase();
+  if (!g) return null;
+  for (const p of parentGroups) {
+    if (p.parent.trim().toLowerCase() === g) return p.parent;
+    if (p.children.some((c) => c.trim().toLowerCase() === g)) return p.parent;
+  }
+  return null;
+}
+
 /** 항목명이 키워드 목록에 매칭되는지 (포함 여부) */
 function matchesKeyword(item: string, keywords: string[]): boolean {
   const lower = item.trim().toLowerCase();
@@ -602,9 +650,12 @@ export function getCategoryForEntry(
   const lower = item.trim().toLowerCase();
   // 건강보험(국민건강·건보료 포함)·국민연금은 키워드 설정과 관계없이 항상 세금·공과금으로 분류
   if (matchesHealthInsuranceItem(item) || lower.includes("국민연금")) return "세금";
+  // "하이마트"(가전 매장)는 글자 안에 "이마트"가 들어 있어 생활비의 "이마트" 키워드에 잘못 걸린다 → 그 부분만 가리고 비교
+  // "이마트24강일푸르내"(편의점)는 지점 이름 속 "푸르내" 때문에 고정비(월세)로 잘못 걸린다 → 지점 이름을 떼고 비교
+  const forMatch = item.replace(/하이마트/g, "하이·마트").replace(/이마트24강일푸르내/g, "이마트24");
   const order: CategoryId[] = ["고정비", "사업경비", "세금", "생활비", "기타"];
   for (const cat of order) {
-    if (cat !== "기타" && matchesKeyword(item, keywordsForMonth[cat])) return cat;
+    if (cat !== "기타" && matchesKeyword(forMatch, keywordsForMonth[cat])) return cat;
   }
   return "기타"; // 기본: 어떤 키워드에도 안 걸리면 기타
 }
@@ -647,6 +698,9 @@ export function getTaxExpenseByMonth(
       for (const d of details) {
         addToMonth(month, d.item.trim(), d.amount, kw);
       }
+      // 카드출금이 아니면 세부로 안 나눈 금액은 원래 항목 그대로 본다
+      const rest = e.amount - details.reduce((sum, d) => sum + d.amount, 0);
+      if (rest > 0 && !looksLikeCardBulkSettlementItem(e.item)) addToMonth(month, e.item, rest, kw);
     } else {
       addToMonth(month, e.item, e.amount, kw);
     }
@@ -695,6 +749,8 @@ export function getTaxExpenseDetailsByMonth(
       for (const d of details) {
         pushToMonth(month, d.item.trim(), d.amount, kw);
       }
+      const rest = e.amount - details.reduce((sum, d) => sum + d.amount, 0);
+      if (rest > 0 && !looksLikeCardBulkSettlementItem(e.item)) pushToMonth(month, e.item, rest, kw);
     } else {
       pushToMonth(month, e.item, e.amount, kw);
     }

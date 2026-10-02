@@ -25,6 +25,8 @@ export const SYNCED_SETTING_KEYS = [
   "diet-foods", // 다이어트: 음식별 칼로리 목록
   "diet-combos", // 다이어트: 자주 먹는 식단 조합
   "diet-exercises", // 다이어트: 운동 종류(이름·단위·버튼 값·강도·효과 문구)
+  "finance-monthly-goal", // 가계부: 한 달 지출 목표(원)
+  "finance-parent-groups", // 가계부: 큰 묶음 (식비 = 배달·편의점·빵 …)
   "my-lifestyle-insights-favorites", // 인사이트 즐겨찾기
   "memo-selected-category-id", // 메모에서 마지막으로 보던 카테고리
   "my-lifestyle-journal-secret-pin-hash", // 일기 비밀글 PIN

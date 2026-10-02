@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo, type ReactNode
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
+import { SpendingBriefing } from "@/components/finance/SpendingBriefing";
+import { ChildGroupRows, GroupedDetailList, nestByParentGroup } from "@/components/finance/GroupedDetailList";
 import { AmountToggle, formatAmountShort } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
@@ -41,13 +43,23 @@ import {
   todayStr,
   toYearMonth,
   type SmsGroupRule,
+  type ParentGroup,
+  DEFAULT_PARENT_GROUPS,
+  loadParentGroups,
+  saveParentGroups,
 } from "@/lib/budget";
+import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 import { type IncomeEntry, loadIncomeEntries } from "@/lib/income";
 import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 
 function formatNum(n: number): string {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
+}
+
+/** 만 원 단위로 반올림해서 "594만원". 1만 원이 안 되면 "8,500원" 그대로 */
+function formatManWon(n: number): string {
+  return Math.abs(n) < 10000 ? `${formatNum(n)}원` : `${Math.round(n / 10000).toLocaleString("ko-KR")}만원`;
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -148,6 +160,11 @@ export default function FinancePage() {
   const [smsGroupRules, setSmsGroupRules] = useState<SmsGroupRule[]>([]);
   const [smsRuleMatch, setSmsRuleMatch] = useState("");
   const [smsRuleLabel, setSmsRuleLabel] = useState("");
+  /** 큰 묶음 (식비 = 배달·편의점 …). 묶음을 한 번 더 묶어 보여준다 */
+  const [parentGroups, setParentGroups] = useState<ParentGroup[]>(DEFAULT_PARENT_GROUPS);
+  /** 큰 묶음 편집: 묶음을 추가하려고 입력 중인 큰 묶음 이름과 값 */
+  const [parentChildInput, setParentChildInput] = useState<{ parent: string; value: string } | null>(null);
+  const [newParentName, setNewParentName] = useState("");
   const [categoryDetailModal, setCategoryDetailModal] = useState<DisplayCategoryId | null>(null);
   /** 연도별 통계 카드 탭: 기존 표 / 지출 분석(순위·카테고리별) */
   const [statsTab, setStatsTab] = useState<"yearly" | "spending">("yearly");
@@ -286,6 +303,13 @@ export default function FinancePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const sync = () => setParentGroups(loadParentGroups());
+    sync();
+    window.addEventListener(USER_SETTINGS_SYNC_EVENT, sync);
+    return () => window.removeEventListener(USER_SETTINGS_SYNC_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     if (categoryDetailModal) setExpandedDetailItems(new Set());
@@ -471,7 +495,9 @@ export default function FinancePage() {
           map[cat] += d.amount;
         });
         const unclassified = e.amount - detailSum;
-        if (unclassified > 0) map.미분류 += unclassified;
+        // 카드출금이 아니면(쿠팡·이마트를 쓴 곳별로 나눈 것) 안 나눈 금액은 원래 항목 그대로 센다
+        if (unclassified > 0)
+          map[looksLikeCardBulkSettlementItem(e.item) ? "미분류" : getCategoryForEntry(e.item, kw)] += unclassified;
       } else {
         const cat = getCategoryForEntry(e.item, kw);
         map[cat] += e.amount;
@@ -564,11 +590,19 @@ export default function FinancePage() {
           out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
         });
         const unclassified = e.amount - detailSum;
-        if (unclassified > 0) {
+        if (unclassified > 0 && looksLikeCardBulkSettlementItem(e.item)) {
           const label = `${e.item} (미분류)`;
           if (!out.미분류[label]) out.미분류[label] = { total: 0, entries: [] };
           out.미분류[label].total += unclassified;
           out.미분류[label].entries.push({ date: e.date, amount: unclassified, item: label });
+        } else if (unclassified > 0) {
+          // 카드출금이 아니면(쿠팡·이마트를 쓴 곳별로 나눈 것) 안 나눈 금액은 원래 항목 그대로 남긴다
+          const cat = getCategoryForEntry(e.item, kw);
+          const rawItem = e.item.trim();
+          const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
+          if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
+          out[cat][itemKey].total += unclassified;
+          out[cat][itemKey].entries.push({ date: e.date, amount: unclassified, item: rawItem });
         }
       } else {
         const cat = getCategoryForEntry(e.item, kw);
@@ -587,12 +621,12 @@ export default function FinancePage() {
     return out;
   }, [viewMonthEntries, entryDetails, keywords, monthExtras, smsGroupRules]);
 
-  /** 기간별 보기: 해당 월 카드출금 — 세부 입력 건 + 카드 일괄결제 문자 패턴(예: KB카드출금) */
+  /**
+   * 기간별 보기: 해당 월 카드출금 — 카드 일괄결제 이름(예: 카드출금, KB카드출금)인 내역만.
+   * 쿠팡·이마트처럼 가게 결제에 세부를 나눠 적은 것은 카드값이 아니다.
+   */
   const viewMonthCardExpenseSummary = useMemo(() => {
-    const cardEntries = viewMonthEntries.filter(
-      (e) =>
-        entryDetails.some((d) => d.parentId === e.id) || looksLikeCardBulkSettlementItem(e.item)
-    );
+    const cardEntries = viewMonthEntries.filter((e) => looksLikeCardBulkSettlementItem(e.item));
     let total = 0;
     let detailTotal = 0;
     const rows: { entry: BudgetEntry; details: BudgetEntryDetail[]; unclassified: number }[] = [];
@@ -680,6 +714,9 @@ export default function FinancePage() {
         load();
       });
   };
+
+  /** 세부 입력 모달이 카드출금이 아닌 내역(쿠팡·이마트 등)을 쓴 곳별로 나누는 중인지 */
+  const cardModalSplitMode = cardModalEditEntry != null && !looksLikeCardBulkSettlementItem(cardModalItem);
 
   const openCardExpenseModal = (editEntry?: BudgetEntry) => {
     setCardExpenseMessage(null);
@@ -956,6 +993,38 @@ export default function FinancePage() {
     persistSmsGroupRules(next);
   };
 
+  const persistParentGroups = (next: ParentGroup[]) => {
+    setParentGroups(next);
+    saveParentGroups(next);
+  };
+
+  const addParentGroup = () => {
+    const name = newParentName.trim();
+    if (!name || parentGroups.some((g) => g.parent === name)) return;
+    persistParentGroups([...parentGroups, { parent: name, children: [] }]);
+    setNewParentName("");
+  };
+
+  const addParentChild = (parent: string, child: string) => {
+    const name = child.trim();
+    if (!name) return;
+    // 한 묶음은 큰 묶음 하나에만 들어간다
+    persistParentGroups(
+      parentGroups.map((g) =>
+        g.parent === parent
+          ? { ...g, children: g.children.includes(name) ? g.children : [...g.children, name] }
+          : { ...g, children: g.children.filter((c) => c !== name) }
+      )
+    );
+    setParentChildInput(null);
+  };
+
+  const removeParentChild = (parent: string, child: string) => {
+    persistParentGroups(
+      parentGroups.map((g) => (g.parent === parent ? { ...g, children: g.children.filter((c) => c !== child) } : g))
+    );
+  };
+
   /** 내보내기 연도: 2026년부터 올해까지 (올해가 2026이면 [2026], 2027이면 [2026, 2027] …) */
   const years = useMemo(() => {
     const y = new Date().getFullYear();
@@ -998,6 +1067,10 @@ export default function FinancePage() {
           const cat = getCategoryForEntry(d.item.trim(), kw);
           dataRows.push([e.date, d.item.trim(), CATEGORY_LABELS[cat], d.amount]);
         }
+        // 카드출금이 아니면 세부로 안 나눈 금액도 원래 항목으로 한 줄
+        const rest = e.amount - details.reduce((sum, d) => sum + d.amount, 0);
+        if (rest > 0 && !looksLikeCardBulkSettlementItem(e.item))
+          dataRows.push([e.date, e.item, CATEGORY_LABELS[getCategoryForEntry(e.item, kw)], rest]);
       } else {
         const cat = getCategoryForEntry(e.item, kw);
         dataRows.push([e.date, e.item, CATEGORY_LABELS[cat], e.amount]);
@@ -1123,11 +1196,19 @@ export default function FinancePage() {
           out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
         });
         const unclassified = e.amount - detailSum;
-        if (unclassified > 0) {
+        if (unclassified > 0 && looksLikeCardBulkSettlementItem(e.item)) {
           const label = `${e.item} (미분류)`;
           if (!out.미분류[label]) out.미분류[label] = { total: 0, entries: [] };
           out.미분류[label].total += unclassified;
           out.미분류[label].entries.push({ date: e.date, amount: unclassified, item: label });
+        } else if (unclassified > 0 && !isExcludedFromMonthTotal(e.item)) {
+          // 카드출금이 아니면(쿠팡·이마트를 쓴 곳별로 나눈 것) 안 나눈 금액은 원래 항목 그대로 남긴다
+          const cat = getCategoryForEntry(e.item, kw);
+          const rawItem = e.item.trim();
+          const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
+          if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
+          out[cat][itemKey].total += unclassified;
+          out[cat][itemKey].entries.push({ date: e.date, amount: unclassified, item: rawItem });
         }
       } else {
         if (isExcludedFromMonthTotal(e.item)) return;
@@ -1157,19 +1238,27 @@ export default function FinancePage() {
       기타: 0,
       미분류: 0,
     } as Record<DisplayCategoryId, number>;
-    const items: { item: string; total: number; count: number; category: DisplayCategoryId; entries: DetailEntry[] }[] = [];
+    const items: {
+      item: string;
+      total: number;
+      count: number;
+      category: DisplayCategoryId;
+      entries: DetailEntry[];
+      /** 큰 묶음(식비)이면 그 안의 묶음들 */
+      children?: { name: string; total: number; entries: DetailEntry[] }[];
+    }[] = [];
     (Object.keys(yearByCategoryDetail) as DisplayCategoryId[]).forEach((cat) => {
-      const grouped = groupByBaseName(yearByCategoryDetail[cat]);
+      const nodes = nestByParentGroup(groupByBaseName(yearByCategoryDetail[cat]), parentGroups);
       let catTotal = 0;
-      Object.entries(grouped).forEach(([item, { total, entries }]) => {
+      nodes.forEach(({ name, total, entries, children }) => {
         catTotal += total;
-        items.push({ item, total, count: entries.length, category: cat, entries });
+        items.push({ item: name, total, count: entries.length, category: cat, entries, children });
       });
       byCategory[cat] = catTotal;
     });
     const total = items.reduce((s, i) => s + i.total, 0);
     return { byCategory, items, total };
-  }, [yearByCategoryDetail]);
+  }, [yearByCategoryDetail, parentGroups]);
 
   /** 정렬 적용된 항목 순위 (금액순 / 건수순) */
   const rankedItems = useMemo(() => {
@@ -1706,6 +1795,16 @@ placeholder="항목"
           )}
       </Card>
 
+      {/* 이번 달 브리핑: 예상 지출·할부·구독·늘어난 것·새로 생긴 것 */}
+      <SpendingBriefing
+        entries={entries}
+        entryDetails={entryDetails}
+        keywords={keywords}
+        monthExtras={monthExtras}
+        smsGroupRules={smsGroupRules}
+        parentGroups={parentGroups}
+      />
+
       {/* 보기: 이번달(1~12월 드롭다운, 기본 현재월) / 특정(2026·2027) / 한눈에 */}
       <Card>
         <div className="flex items-start justify-between gap-2">
@@ -1713,7 +1812,7 @@ placeholder="항목"
           <button
             type="button"
             onClick={() => setShowMemoModal(true)}
-            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
+            className="relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
             title={`${memoMonthLabel} 메모`}
             aria-label={`${memoMonthLabel} 메모`}
           >
@@ -1730,6 +1829,7 @@ placeholder="항목"
               <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z" />
               <path d="M8 8h8M8 12h8M8 16h5" />
             </svg>
+            메모
             {currentMonthMemo.trim() !== "" && (
               <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
             )}
@@ -2503,10 +2603,20 @@ placeholder="항목"
           >
             <form ref={cardModalFormRef} onSubmit={(e) => e.preventDefault()}>
               <h3 className="text-lg font-semibold text-neutral-900">
-                {cardModalEditEntry ? "카드지출 수정" : "카드지출 입력"}
+                {cardModalSplitMode ? "세부 내역 나누기" : cardModalEditEntry ? "카드지출 수정" : "카드지출 입력"}
               </h3>
               <p className="mt-1 text-sm text-neutral-500">
-                항목명은 아무 이름이나 적어도 됩니다 (비우면 &quot;카드출금&quot;). 카드 총합을 먼저 적고, 세부내역을 추가한 뒤 반영하세요.
+                {cardModalSplitMode ? (
+                  <>
+                    이 결제를 쓴 곳별로 나눠 적어요. 예) 강아지 (간식) 20,000 / 장보기 30,000. 안 나눈 금액은 원래 이름
+                    그대로 남아요.
+                  </>
+                ) : (
+                  <>
+                    항목명에 &quot;카드출금&quot;처럼 카드와 출금(결제)이 들어가야 카드값으로 잡혀요 (비우면
+                    &quot;카드출금&quot;). 카드 총합을 먼저 적고, 세부내역을 추가한 뒤 반영하세요.
+                  </>
+                )}
               </p>
               <p className="mt-1 text-xs text-neutral-400">
                 저장 위치: {supabase ? "Supabase 서버" : "이 기기만 (로컬) — 지금 로컬에서 테스트 중이에요."}
@@ -2533,7 +2643,9 @@ placeholder="항목"
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-medium text-neutral-500">항목명 (예: KB카드출금)</label>
+                  <label className="block text-xs font-medium text-neutral-500">
+                    {cardModalSplitMode ? "항목명" : "항목명 (예: KB카드출금)"}
+                  </label>
                   <input
                     name="card-modal-item"
                     type="text"
@@ -2548,7 +2660,9 @@ placeholder="항목"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-neutral-500">카드 총합 (원)</label>
+                  <label className="block text-xs font-medium text-neutral-500">
+                    {cardModalSplitMode ? "총 금액 (원)" : "카드 총합 (원)"}
+                  </label>
                   <input
                     name="card-modal-total"
                     type="number"
@@ -2630,7 +2744,9 @@ placeholder="항목"
                       <span className="font-medium">{formatNum(detailSum)}원</span>
                     </div>
                     <div className="mt-1 flex justify-between">
-                      <span className="text-neutral-600">미분류 (총합 − 세부)</span>
+                      <span className="text-neutral-600">
+                        {cardModalSplitMode ? "원래 이름으로 남는 금액 (총합 − 세부)" : "미분류 (총합 − 세부)"}
+                      </span>
                       <span className="font-medium">{formatNum(unclassified >= 0 ? unclassified : 0)}원</span>
                     </div>
                   </div>
@@ -2721,67 +2837,19 @@ placeholder="항목"
               </span>
             </div>
             <div className="mt-4 space-y-4">
-              {(() => {
-                const rawDetail = viewMonthByCategoryDetail[categoryDetailModal];
-                const grouped = groupByBaseName(rawDetail);
-                return Object.keys(grouped).length === 0 ? (
-                  <p className="text-sm text-neutral-400">해당 카테고리 내역이 없어요.</p>
-                ) : (
-                Object.entries(grouped)
-                  .sort(([, a], [, b]) => b.total - a.total)
-                  .map(([itemName, { total, entries }]) => {
-                    const isExpanded = expandedDetailItems.has(itemName);
-                    return (
-                      <div
-                        key={itemName}
-                        className="rounded-xl border border-neutral-200 bg-neutral-50/50 overflow-hidden"
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedDetailItems((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(itemName)) next.delete(itemName);
-                              else next.add(itemName);
-                              return next;
-                            })
-                          }
-                          className="flex w-full items-center justify-between p-4 text-left hover:bg-neutral-100/80 transition-colors text-[13px] md:text-base"
-                        >
-                          <span className="font-semibold text-neutral-900">{itemName} ({entries.length})</span>
-                          <span className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-neutral-900 md:text-lg">
-                              {formatNum(total)}원
-                            </span>
-                            <span
-                              className={`text-neutral-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                              aria-hidden
-                            >
-                              ▼
-                            </span>
-                          </span>
-                        </button>
-                        {isExpanded && (
-                          <ul className="border-t border-neutral-200 space-y-1.5 px-4 pb-4 pt-2 pl-0 text-[13px] text-neutral-600 md:text-sm">
-                            {entries.map(({ date, amount, item }, i) => (
-                              <li
-                                key={`${date}-${item}-${i}`}
-                                className="flex justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
-                              >
-                                <span className="min-w-0">
-                                  <span className="mr-3 text-neutral-500">{formatDateLabelShort(date)}</span>
-                                  <span>{item}</span>
-                                </span>
-                                <span className="shrink-0 font-medium">{formatNum(amount)}원</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    );
+              <GroupedDetailList
+                grouped={groupByBaseName(viewMonthByCategoryDetail[categoryDetailModal])}
+                parentGroups={parentGroups}
+                expanded={expandedDetailItems}
+                onToggle={(key) =>
+                  setExpandedDetailItems((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(key)) next.delete(key);
+                    else next.add(key);
+                    return next;
                   })
-                );
-              })()}
+                }
+              />
             </div>
             <div className="mt-6 flex justify-end">
               <button
@@ -3117,6 +3185,105 @@ placeholder="항목"
                 ))}
               </ul>
             </div>
+            <div className="mt-6 rounded-xl border border-neutral-200 p-4">
+              <h4 className="text-base font-semibold text-neutral-900">큰 묶음</h4>
+              <p className="mt-1 text-sm text-neutral-600">
+                묶음을 한 번 더 묶어요. 예) <strong>식비</strong> 아래에 배달·편의점·빵. 카테고리 상세·항목 순위·브리핑에서{" "}
+                <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs">식비 &gt; 배달 &gt; 세부</code> 순서로 보여요. 기록은
+                바뀌지 않아요.
+              </p>
+              <div className="mt-3 space-y-3">
+                {parentGroups.map((g) => (
+                  <div key={g.parent} className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-neutral-800">{g.parent}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`큰 묶음 "${g.parent}"을 없앨까요? 안에 있던 묶음은 따로 보이게 돼요.`))
+                            persistParentGroups(parentGroups.filter((x) => x.parent !== g.parent));
+                        }}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {g.children.map((c) => (
+                        <span
+                          key={c}
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-neutral-700 ring-1 ring-neutral-200"
+                        >
+                          {c}
+                          <button
+                            type="button"
+                            onClick={() => removeParentChild(g.parent, c)}
+                            className="text-neutral-400 hover:text-red-600"
+                            aria-label={`${c} 빼기`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    {parentChildInput?.parent === g.parent ? (
+                      <form
+                        className="mt-3 flex flex-wrap items-center gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          addParentChild(g.parent, parentChildInput.value);
+                        }}
+                      >
+                        <input
+                          type="text"
+                          value={parentChildInput.value}
+                          onChange={(e) => setParentChildInput({ parent: g.parent, value: e.target.value })}
+                          placeholder="묶음 이름 (예: 배달)"
+                          className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
+                          autoFocus
+                        />
+                        <button type="submit" className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-white">
+                          추가
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setParentChildInput(null)}
+                          className="rounded-lg px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100"
+                        >
+                          취소
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setParentChildInput({ parent: g.parent, value: "" })}
+                        className="mt-2 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+                      >
+                        + 묶음 추가
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <form
+                className="mt-3 flex flex-wrap items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addParentGroup();
+                }}
+              >
+                <input
+                  type="text"
+                  value={newParentName}
+                  onChange={(e) => setNewParentName(e.target.value)}
+                  placeholder="새 큰 묶음 이름"
+                  className="w-44 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
+                />
+                <button type="submit" className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-white">
+                  큰 묶음 추가
+                </button>
+              </form>
+            </div>
             <div className="mt-6 flex justify-end">
               <button
                 type="button"
@@ -3286,7 +3453,8 @@ placeholder="항목"
                           <span className="text-sm font-medium text-neutral-600">{CATEGORY_LABELS[cat]}</span>
                           <span className="text-xs text-neutral-400">{pct.toFixed(0)}%</span>
                         </div>
-                        <div className="mt-1 text-base font-semibold text-neutral-900">{formatNum(amount)}원</div>
+                        {/* 만 원 단위로 간단히. 정확한 금액은 눌러서 나오는 상세 창에 */}
+                        <div className="mt-1 text-base font-semibold text-neutral-900">{formatManWon(amount)}</div>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-100">
                           <div className="h-full rounded-full bg-neutral-400" style={{ width: `${pct}%` }} />
                         </div>
@@ -3321,19 +3489,20 @@ placeholder="항목"
                 {rankPageItems.map((it, i) => {
                   const rank = rankPage * 10 + i + 1;
                   const pct = yearSpending.total > 0 ? (it.total / yearSpending.total) * 100 : 0;
-                  const isExpanded = rankExpanded.has(it.item);
+                  const rankKey = `${it.category}:${it.item}`;
+                  const toggleRank = (key: string) =>
+                    setRankExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    });
+                  const isExpanded = rankExpanded.has(rankKey);
                   return (
-                    <div key={it.item} className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                    <div key={rankKey} className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
                       <button
                         type="button"
-                        onClick={() =>
-                          setRankExpanded((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(it.item)) next.delete(it.item);
-                            else next.add(it.item);
-                            return next;
-                          })
-                        }
+                        onClick={() => toggleRank(rankKey)}
                         className="flex w-full items-center gap-3 p-3 text-left transition hover:bg-neutral-50"
                       >
                         <span className="w-6 shrink-0 text-center text-sm font-semibold text-neutral-400">{rank}</span>
@@ -3350,7 +3519,18 @@ placeholder="항목"
                         </span>
                         <span className={`shrink-0 text-neutral-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden>▼</span>
                       </button>
-                      {isExpanded && (
+                      {isExpanded && it.children && (
+                        <div className="border-t border-neutral-200 px-3 pb-3 pt-2 text-[13px]">
+                          <ChildGroupRows
+                            parentKey={rankKey}
+                            groups={it.children}
+                            expanded={rankExpanded}
+                            onToggle={toggleRank}
+                            order="desc"
+                          />
+                        </div>
+                      )}
+                      {isExpanded && !it.children && (
                         <ul className="space-y-1.5 border-t border-neutral-200 px-3 pb-3 pt-2 text-[13px] text-neutral-600">
                           {it.entries
                             .slice()
@@ -3429,66 +3609,19 @@ placeholder="항목"
                 </span>
               </div>
               <div className="mt-4 space-y-4">
-                {(() => {
-                  const grouped = groupByBaseName(yearByCategoryDetail[spendingCategoryModal]);
-                  return Object.keys(grouped).length === 0 ? (
-                    <p className="text-sm text-neutral-400">해당 카테고리 내역이 없어요.</p>
-                  ) : (
-                    Object.entries(grouped)
-                      .sort(([, a], [, b]) => b.total - a.total)
-                      .map(([itemName, { total, entries }]) => {
-                        const isExpanded = spendingExpandedItems.has(itemName);
-                        return (
-                          <div
-                            key={itemName}
-                            className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50/50"
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSpendingExpandedItems((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(itemName)) next.delete(itemName);
-                                  else next.add(itemName);
-                                  return next;
-                                })
-                              }
-                              className="flex w-full items-center justify-between p-4 text-left text-[13px] transition-colors hover:bg-neutral-100/80 md:text-base"
-                            >
-                              <span className="font-semibold text-neutral-900">{itemName} ({entries.length})</span>
-                              <span className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-neutral-900 md:text-lg">
-                                  {formatNum(total)}원
-                                </span>
-                                <span
-                                  className={`text-neutral-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                                  aria-hidden
-                                >
-                                  ▼
-                                </span>
-                              </span>
-                            </button>
-                            {isExpanded && (
-                              <ul className="space-y-1.5 border-t border-neutral-200 px-4 pb-4 pl-0 pt-2 text-[13px] text-neutral-600 md:text-sm">
-                                {entries.map(({ date, amount, item }, i) => (
-                                  <li
-                                    key={`${date}-${item}-${i}`}
-                                    className="flex justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
-                                  >
-                                    <span className="min-w-0">
-                                      <span className="mr-3 text-neutral-500">{formatDateLabelShort(date)}</span>
-                                      <span>{item}</span>
-                                    </span>
-                                    <span className="shrink-0 font-medium">{formatNum(amount)}원</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      })
-                  );
-                })()}
+                <GroupedDetailList
+                  grouped={groupByBaseName(yearByCategoryDetail[spendingCategoryModal])}
+                  parentGroups={parentGroups}
+                  expanded={spendingExpandedItems}
+                  onToggle={(key) =>
+                    setSpendingExpandedItems((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    })
+                  }
+                />
               </div>
               <div className="mt-6 flex justify-end">
                 <button
