@@ -805,7 +805,7 @@ export function TodayTimelineAxisPanel({
               }
               if (node.kind === "empty") {
                 return (
-                  <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className="flex shrink-0 flex-col items-center px-3 md:px-5 opacity-45">
+                  <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-3 md:px-5 ${node.tone === "past" ? "opacity-45" : "opacity-80"}`}>
                     <Link
                       href="/routine"
                       className="flex h-6 items-center text-[17px] font-medium tabular-nums text-neutral-400"
@@ -822,11 +822,11 @@ export function TodayTimelineAxisPanel({
               }
               const checked = completedIds.includes(node.item.id);
               return (
-                <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-3 md:px-5 ${node.tone === "current" ? "" : "opacity-45"}`}>
+                <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-3 md:px-5 ${node.tone === "past" ? "opacity-45" : ""}`}>
                   {node.hour != null ? (
                     <Link
                       href="/routine"
-                      className="flex h-6 items-center text-[17px] font-medium tabular-nums text-neutral-400"
+                      className={`flex h-6 items-center text-[17px] font-medium tabular-nums ${node.tone === "future" ? "text-neutral-500" : "text-neutral-400"}`}
                       aria-label={`${node.hour}시 일과 보기`}
                     >
                       {node.hour}시
@@ -847,7 +847,10 @@ export function TodayTimelineAxisPanel({
                       aria-hidden
                     />
                   </button>
-                  <span
+                  {/* 글자를 눌러도 동그라미처럼 완료 표시 */}
+                  <button
+                    type="button"
+                    onClick={() => onToggle(node.item.id)}
                     className={`mt-2 whitespace-nowrap text-[17px] ${
                       checked
                         ? "text-neutral-300 line-through"
@@ -855,11 +858,12 @@ export function TodayTimelineAxisPanel({
                           ? "font-semibold text-neutral-800"
                           : node.tone === "past"
                             ? "text-neutral-400"
-                            : "text-neutral-400"
+                            : "text-neutral-500"
                     }`}
+                    aria-label={checked ? `${node.item.text || "항목"} 완료 해제` : `${node.item.text || "항목"} 완료`}
                   >
                     {node.item.text || "항목"}
-                  </span>
+                  </button>
                 </div>
               );
             })}
