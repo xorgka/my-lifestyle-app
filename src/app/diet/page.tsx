@@ -560,6 +560,19 @@ export default function DietPage() {
         }
       : null;
 
+  /** 마지막으로 몸무게를 잰 날(오늘까지 중)부터 지금까지 쌓인 칼로리. 몸무게에 아직 안 잡힌 만큼이라 예상 달성일에 더한다 */
+  const lastWeighIn = weights.filter((w) => w.date <= todayKey).pop() ?? null;
+  const kcalSinceWeighIn =
+    base != null && lastWeighIn
+      ? loggedDays
+          .filter((d) => d.date >= lastWeighIn.date)
+          .reduce(
+            (s, d) =>
+              s + d.meals.reduce((a, m) => a + m.kcal, 0) - burnedSoFar(d.date, d.exercises.reduce((a, e) => a + e.kcal, 0))!,
+            0
+          )
+      : null;
+
   /** 오늘 목표 적자까지 더 써야 하는 칼로리 (음수면 이미 달성) */
   const needMore = balance != null ? balance + deficitTarget : null;
 
@@ -729,6 +742,7 @@ export default function DietPage() {
         actualDailyDeficit={actualDailyDeficit}
         paceDayCount={paceDays.length}
         totalChange={totalChange}
+        kcalSinceWeighIn={kcalSinceWeighIn}
         treadmillMinutesFor={(kcal) => (kcalPerMin > 0 ? kcal / kcalPerMin : null)}
         treadmillLabel={`트레드밀 ${incline}%·${speed}km/h`}
         onOpenSettings={() => setSettingsOpen(true)}

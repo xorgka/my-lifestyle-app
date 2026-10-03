@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Target } from "lucide-react";
-import { KCAL_PER_KG } from "@/lib/dietCalc";
+import { KCAL_PER_KG, dailyDeficitTarget } from "@/lib/dietCalc";
 import { formatChange, useChangeUnit } from "@/components/diet/useChangeUnit";
 
 const fmt = (n: number) => Math.round(n).toLocaleString();
@@ -27,6 +27,7 @@ export function DietGoalPanel({
   actualDailyDeficit,
   paceDayCount,
   totalChange,
+  kcalSinceWeighIn,
   treadmillMinutesFor,
   treadmillLabel,
   onOpenSettings,
@@ -50,6 +51,8 @@ export function DietGoalPanel({
   paceDayCount: number;
   /** 기록 시작일부터 지금까지 쌓인 칼로리(먹은 양 − 쓴 칼로리, +면 찌는 쪽)와, 계획대로였을 때의 값. 기록이 없으면 null */
   totalChange: { sinceLabel: string; kcal: number; planKcal: number } | null;
+  /** 마지막으로 몸무게를 잰 날부터 지금까지 쌓인 칼로리(+면 초과). 몸무게에 아직 안 잡힌 만큼이라 예상 달성일에 더한다 */
+  kcalSinceWeighIn: number | null;
   /** kcal → 설정한 트레드밀로 몇 분. 몸무게를 모르면 null */
   treadmillMinutesFor: (kcal: number) => number | null;
   treadmillLabel: string;
@@ -57,16 +60,15 @@ export function DietGoalPanel({
 }) {
   const hasGoal = targetWeightKg != null && currentWeightKg != null;
   const remainKg = hasGoal ? Math.max(0, currentWeightKg! - targetWeightKg!) : 0;
-  // 예상 달성일: 실제 기록(먹은 양·운동·소모)이 3일 이상 있으면 그 페이스로, 없으면 설정한 주당 감량 목표로
+  // 예상 달성일: 지금부터 계획대로(하루 목표 적자) 빼면 언제 닿는지.
+  // 체중 잰 뒤에 초과한 만큼은 남은 칼로리에 더해 날짜가 뒤로 밀리고, 적자였던 만큼은 앞당겨진다.
+  // 최근 실제 페이스는 아래 문구로만 알려준다.
   const usePace = actualDailyDeficit != null;
   const paceStalled = usePace && actualDailyDeficit! <= 0;
-  const etaDays = usePace
-    ? paceStalled
-      ? null
-      : Math.ceil((remainKg * KCAL_PER_KG) / actualDailyDeficit!)
-    : hasGoal && weeklyLossKg > 0
-      ? Math.ceil(remainKg / weeklyLossKg) * 7
-      : 0;
+  const planDeficit = dailyDeficitTarget(weeklyLossKg);
+  const sinceWeighIn = kcalSinceWeighIn ?? 0;
+  const remainKcal = Math.max(0, remainKg * KCAL_PER_KG + sinceWeighIn);
+  const etaDays = hasGoal && planDeficit > 0 ? Math.ceil(remainKcal / planDeficit) : null;
   const eta = new Date();
   eta.setDate(eta.getDate() + (etaDays ?? 0));
   const start = startWeightKg ?? currentWeightKg;
@@ -81,11 +83,18 @@ export function DietGoalPanel({
   const messages: string[] = [];
   if (hasGoal && remainKg > 0)
     messages.push(
-      !usePace
-        ? `목표 ${targetWeightKg}kg까지 ${remainKg.toFixed(1)}kg — 주 ${weeklyLossKg}kg씩이면 ${dateLabel(eta)}에 도착해요`
-        : paceStalled
-          ? `최근 ${paceDayCount}일은 하루 평균 ${fmt(-actualDailyDeficit!)}kcal 더 먹었어요 — 이 페이스면 안 빠져요`
-          : `최근 ${paceDayCount}일 하루 평균 ${fmt(actualDailyDeficit!)}kcal 적자 — 이 페이스면 ${dateLabel(eta)}에 도착해요`
+      etaDays != null
+        ? `목표 ${targetWeightKg}kg까지 ${remainKg.toFixed(1)}kg — 지금부터 주 ${weeklyLossKg}kg씩이면 ${dateLabel(eta)}에 도착해요`
+        : `목표 ${targetWeightKg}kg까지 ${remainKg.toFixed(1)}kg 남았어요`
+    );
+  // 최근 실제 페이스: 계획(하루 목표 적자)보다 빠른지 느린지
+  if (hasGoal && remainKg > 0 && usePace)
+    messages.push(
+      paceStalled
+        ? `최근 ${paceDayCount}일은 하루 평균 ${fmt(-actualDailyDeficit!)}kcal 더 먹었어요 — 이 페이스면 안 빠져요`
+        : actualDailyDeficit! >= planDeficit
+          ? `최근 ${paceDayCount}일 하루 평균 ${fmt(actualDailyDeficit!)}kcal 적자 — 계획보다 빠른 페이스예요`
+          : `최근 ${paceDayCount}일 하루 평균 ${fmt(actualDailyDeficit!)}kcal 적자 — 계획(${fmt(planDeficit)}kcal)보다 조금 느려요`
     );
   if (hasGoal && remainKg === 0) messages.push(`목표 ${targetWeightKg}kg 달성! 이제 유지가 목표예요`);
   if (hasGoal && lostKg > 0) messages.push(`시작 ${start}kg에서 ${lostKg.toFixed(1)}kg 뺐어요. 목표의 ${Math.round(progressPct)}%까지 왔어요`);
@@ -121,7 +130,7 @@ export function DietGoalPanel({
           {/* 폰: 예상 달성일만 오른쪽 위에 (계산 기준 설명은 생략) */}
           {remainKg > 0 && (
             <p className="absolute right-5 top-5 text-sm tabular-nums text-white/60 md:hidden">
-              예상 달성 <b className="text-base text-white">{paceStalled ? "—" : dateLabel(eta)}</b>
+              예상 달성 <b className="text-base text-white">{etaDays != null ? dateLabel(eta) : "—"}</b>
             </p>
           )}
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -139,13 +148,11 @@ export function DietGoalPanel({
             </div>
             {remainKg > 0 && (
               <p className="hidden text-right text-sm tabular-nums text-white/60 md:block">
-                예상 달성 <b className="text-base text-white">{paceStalled ? "—" : dateLabel(eta)}</b>
+                예상 달성 <b className="text-base text-white">{etaDays != null ? dateLabel(eta) : "—"}</b>
                 <br />
-                {!usePace
-                  ? `주 ${weeklyLossKg}kg씩 가정 · 기록 3일부터 실제로 계산`
-                  : paceStalled
-                    ? `최근 ${paceDayCount}일 하루 평균 ${fmt(-actualDailyDeficit!)}kcal 초과`
-                    : `최근 ${paceDayCount}일 하루 평균 ${fmt(actualDailyDeficit!)}kcal 적자`}
+                지금부터 주 {weeklyLossKg}kg씩 빼면
+                {Math.abs(sinceWeighIn) >= 1 &&
+                  ` · 체중 잰 뒤 ${sinceWeighIn > 0 ? "초과" : "적자"} ${fmt(Math.abs(sinceWeighIn))}kcal 반영`}
               </p>
             )}
           </div>
