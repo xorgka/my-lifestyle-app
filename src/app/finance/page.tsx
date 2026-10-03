@@ -2483,42 +2483,64 @@ placeholder="항목"
               {formatNum(
                 (viewMonthByDay[dayDetailDate] ?? []).reduce((s, e) => s + e.amount, 0)
               )}
-              원
+              원 · 더블클릭하면 고칠 수 있어요
             </p>
             <ul className="mt-4 space-y-2">
               {(viewMonthByDay[dayDetailDate] ?? []).map((e) => {
                 const cat = getCategoryForEntry(e.item, keywordsForViewMonth);
                 const isEditing = dayDetailEditingId === e.id;
+                const saveDayEdit = () => {
+                  const amount = Number(String(dayDetailEditAmount).replace(/,/g, ""));
+                  updateEntry(e.id, dayDetailEditItem, amount);
+                  setDayDetailEditingId(null);
+                };
                 return (
                   <li
                     key={e.id}
-                    className="rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-2.5 text-sm"
+                    // 카테고리 상세와 같이 더블클릭으로 수정
+                    onDoubleClick={
+                      isEditing
+                        ? undefined
+                        : () => {
+                            setDayDetailEditingId(e.id);
+                            setDayDetailEditItem(e.item);
+                            setDayDetailEditAmount(String(e.amount));
+                          }
+                    }
+                    title={isEditing ? undefined : "더블클릭해서 수정"}
+                    className={`rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-2.5 text-sm ${isEditing ? "" : "cursor-pointer select-none"}`}
                   >
                     {isEditing ? (
-                      <div className="space-y-2">
+                      // 한 줄로: 이름(남는 폭) · 금액 · 저장/취소 (좁으면 버튼만 다음 줄)
+                      <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="text"
                           value={dayDetailEditItem}
                           onChange={(ev) => setDayDetailEditItem(ev.target.value)}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter") saveDayEdit();
+                            if (ev.key === "Escape") setDayDetailEditingId(null);
+                          }}
                           placeholder="항목"
-                          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-neutral-800"
+                          className="min-w-0 flex-1 basis-32 rounded-lg border border-neutral-200 px-3 py-1.5 text-neutral-800"
+                          autoFocus
                         />
                         <input
                           type="number"
                           min={1}
                           value={dayDetailEditAmount}
                           onChange={(ev) => setDayDetailEditAmount(ev.target.value)}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter") saveDayEdit();
+                            if (ev.key === "Escape") setDayDetailEditingId(null);
+                          }}
                           placeholder="금액"
-                          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-neutral-800"
+                          className="w-28 rounded-lg border border-neutral-200 px-3 py-1.5 text-right text-neutral-800"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex shrink-0 gap-1.5">
                           <button
                             type="button"
-                            onClick={() => {
-                              const amount = Number(String(dayDetailEditAmount).replace(/,/g, ""));
-                              updateEntry(e.id, dayDetailEditItem, amount);
-                              setDayDetailEditingId(null);
-                            }}
+                            onClick={saveDayEdit}
                             className="rounded-lg bg-neutral-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700"
                           >
                             저장
@@ -2546,18 +2568,8 @@ placeholder="항목"
                           </span>
                           <button
                             type="button"
-                            onClick={() => {
-                              setDayDetailEditingId(e.id);
-                              setDayDetailEditItem(e.item);
-                              setDayDetailEditAmount(String(e.amount));
-                            }}
-                            className="text-xs font-medium text-neutral-500 hover:text-neutral-800"
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => removeEntry(e.id)}
+                            onDoubleClick={(ev) => ev.stopPropagation()}
                             className="text-neutral-400 hover:text-red-600"
                             aria-label="삭제"
                           >
