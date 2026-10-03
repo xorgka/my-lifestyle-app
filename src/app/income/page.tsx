@@ -364,11 +364,14 @@ export default function IncomePage() {
         if (!byCat[e.category]) byCat[e.category] = [];
         byCat[e.category].push(e);
       });
-      result[m] = Object.entries(byCat).map(([category, list]) => ({
-        category,
-        total: list.reduce((s, x) => s + x.amount, 0),
-        entries: list,
-      }));
+      // 구분은 가나다 순 (입력한 순서와 상관없이 달마다 같은 순서)
+      result[m] = Object.entries(byCat)
+        .sort(([a], [b]) => a.localeCompare(b, "ko"))
+        .map(([category, list]) => ({
+          category,
+          total: list.reduce((s, x) => s + x.amount, 0),
+          entries: list,
+        }));
     }
     return result;
   }, [incomeByMonth]);
