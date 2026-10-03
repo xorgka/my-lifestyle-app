@@ -100,7 +100,8 @@ function groupByBaseName(detail: Record<string, { total: number; entries: Detail
   return result;
 }
 
-type ViewMode = "yearMonth" | "custom" | "yearAtGlance";
+/** 월별(연·월 선택) / 한눈에(1~12월) */
+type ViewMode = "month" | "yearAtGlance";
 
 /** 항목 입력 (일반 input으로 state와 동기화해 추가 버튼이 확실히 동작) */
 const ItemInput = memo(function ItemInput({
@@ -148,12 +149,13 @@ export default function FinancePage() {
   /** 메모 자동저장 디바운스 타이머 */
   const memoSaveTimerRef = useRef<number | null>(null);
   const [selectedDate, setSelectedDate] = useState(todayStr());
-  const [viewMode, setViewMode] = useState<ViewMode>("yearMonth");
-  const [yearMonthSelect, setYearMonthSelect] = useState(new Date().getMonth() + 1);
-  const [customYear, setCustomYear] = useState(2026);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  /** 월별 보기에서 보고 있는 연·월 (처음엔 이번 달) */
+  const [customYear, setCustomYear] = useState(() => new Date().getFullYear());
   const [customMonth, setCustomMonth] = useState(new Date().getMonth() + 1);
   const [glanceYear, setGlanceYear] = useState(2026);
-  const [periodDropdown, setPeriodDropdown] = useState<"yearMonth" | "custom" | null>(null);
+  /** 연·월 고르는 창 열림 */
+  const [periodDropdown, setPeriodDropdown] = useState(false);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
   const [newItem, setNewItem] = useState("");
   const [newAmount, setNewAmount] = useState("");
@@ -334,15 +336,9 @@ export default function FinancePage() {
   }, [selectedDate]);
 
   const yearMonthForView = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    if (viewMode === "yearMonth")
-      return `${y}-${String(yearMonthSelect).padStart(2, "0")}`;
-    if (viewMode === "custom")
-      return `${customYear}-${String(customMonth).padStart(2, "0")}`;
     if (viewMode === "yearAtGlance") return `${glanceYear}-01`;
-    return toYearMonth(todayStr());
-  }, [viewMode, yearMonthSelect, customYear, customMonth, glanceYear]);
+    return `${customYear}-${String(customMonth).padStart(2, "0")}`;
+  }, [viewMode, customYear, customMonth, glanceYear]);
 
   /** 현재 보는 월의 메모 텍스트 */
   const currentMonthMemo = monthMemos[yearMonthForView] ?? "";
@@ -376,22 +372,17 @@ export default function FinancePage() {
     return `${y}년 ${m}월`;
   }, [yearMonthForView]);
 
-  /** 현재 보고 있는 월을 ±1개월 이동 (연도 넘어가면 자동 처리). 올해면 이번달 모드, 아니면 특정 모드로. */
+  /** 현재 보고 있는 월을 ±1개월 이동 (연도 넘어가면 자동 처리) */
   const stepViewMonth = useCallback(
     (dir: -1 | 1) => {
       const [y, m] = yearMonthForView.split("-").map(Number);
       const d = new Date(y, m - 1 + dir, 1);
       const ny = d.getFullYear();
       const nm = d.getMonth() + 1;
-      setPeriodDropdown(null);
-      if (ny === new Date().getFullYear()) {
-        setViewMode("yearMonth");
-        setYearMonthSelect(nm);
-      } else {
-        setViewMode("custom");
-        setCustomYear(ny);
-        setCustomMonth(nm);
-      }
+      setPeriodDropdown(false);
+      setViewMode("month");
+      setCustomYear(ny);
+      setCustomMonth(nm);
     },
     [yearMonthForView]
   );
@@ -452,10 +443,10 @@ export default function FinancePage() {
   );
 
   useEffect(() => {
-    if (periodDropdown == null) return;
+    if (!periodDropdown) return;
     const handleClick = (e: MouseEvent) => {
       if (periodDropdownRef.current && !periodDropdownRef.current.contains(e.target as Node)) {
-        setPeriodDropdown(null);
+        setPeriodDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
@@ -1883,66 +1874,32 @@ placeholder="항목"
           </button>
         </div>
         <div ref={periodDropdownRef} className="mt-3 mb-4 flex flex-wrap items-center gap-2">
+          {/* 월별: 버튼에 보고 있는 연·월을 보여주고, 누르면 연·월을 고른다 (◀ ▶로 넘겨도 같이 바뀜) */}
           <div className="relative">
             <button
               type="button"
               onClick={() => {
-                setViewMode("yearMonth");
-                setYearMonthSelect(new Date().getMonth() + 1);
-                setPeriodDropdown((d) => (d === "yearMonth" ? null : "yearMonth"));
+                setViewMode("month");
+                setPeriodDropdown((open) => !open);
               }}
-              className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
-                viewMode === "yearMonth"
+              className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium tabular-nums transition ${
+                viewMode === "month"
                   ? "bg-neutral-800 text-white"
                   : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
               }`}
             >
-              이번달
+              {customYear}년 {customMonth}월
               <span className="text-[10px] opacity-80">▼</span>
             </button>
-            {periodDropdown === "yearMonth" && (
-              <div className="absolute left-0 top-full z-10 mt-1 min-w-[100px] rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
-                {months.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => {
-                      setYearMonthSelect(m);
-                      setViewMode("yearMonth");
-                      setPeriodDropdown(null);
-                    }}
-                    className="block w-full px-4 py-2 text-left text-sm hover:bg-neutral-100"
-                  >
-                    {m}월
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setViewMode("custom");
-                setPeriodDropdown((d) => (d === "custom" ? null : "custom"));
-              }}
-              className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
-                viewMode === "custom"
-                  ? "bg-neutral-800 text-white"
-                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-              }`}
-            >
-              특정
-              <span className="text-[10px] opacity-80">▼</span>
-            </button>
-            {periodDropdown === "custom" && (
+            {periodDropdown && (
               <div className="absolute left-0 top-full z-10 mt-1 flex gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-lg">
                 <select
-                  value={customYears.includes(customYear) ? customYear : 2026}
+                  value={customYear}
                   onChange={(e) => setCustomYear(Number(e.target.value))}
                   className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                  aria-label="연도"
                 >
-                  {customYears.map((y) => (
+                  {(customYears.includes(customYear) ? customYears : [...customYears, customYear].sort((x, y) => x - y)).map((y) => (
                     <option key={y} value={y}>{y}년</option>
                   ))}
                 </select>
@@ -1950,6 +1907,7 @@ placeholder="항목"
                   value={customMonth}
                   onChange={(e) => setCustomMonth(Number(e.target.value))}
                   className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                  aria-label="월"
                 >
                   {months.map((m) => (
                     <option key={m} value={m}>{m}월</option>
@@ -2024,7 +1982,7 @@ placeholder="항목"
           </div>
         )}
 
-        {(viewMode === "yearMonth" || viewMode === "custom") && (
+        {viewMode === "month" && (
           <div className="mt-4 space-y-4">
             <div>
               <div className="inline-flex items-center gap-1.5 text-2xl font-semibold text-neutral-900">
