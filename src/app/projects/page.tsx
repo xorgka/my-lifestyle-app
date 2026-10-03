@@ -183,7 +183,18 @@ export default function ProjectsPage() {
   const monthStats = useMemo(() => groupStatsByMonth(allRequests), [allRequests]);
   const totalAmount = sumAmount(allRequests);
   const totalNetProfit = sumNetProfit(allRequests);
-  const avgMonthlyNetProfit = monthStats.length > 0 ? totalNetProfit / monthStats.length : 0;
+  /** 월 평균 순수익: 첫 의뢰 달부터 이번 달까지 모든 달로 나눈다 (의뢰가 없던 달은 0원으로 셈) */
+  const avgMonthlyNetProfit = useMemo(() => {
+    if (monthStats.length === 0) return 0;
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const first = monthStats[0].yearMonth;
+    const last = monthStats[monthStats.length - 1].yearMonth > thisMonth ? monthStats[monthStats.length - 1].yearMonth : thisMonth;
+    const [fy, fm] = first.split("-").map(Number);
+    const [ly, lm] = last.split("-").map(Number);
+    const monthCount = (ly - fy) * 12 + (lm - fm) + 1;
+    return totalNetProfit / monthCount;
+  }, [monthStats, totalNetProfit]);
 
   /** 월별 완료 안 된(진행중/해당없음) 의뢰 건수 */
   const incompleteCountByMonth = useMemo(() => {
