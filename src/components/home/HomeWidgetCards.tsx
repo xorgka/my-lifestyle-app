@@ -805,7 +805,7 @@ export function TodayTimelineAxisPanel({
               }
               if (node.kind === "empty") {
                 return (
-                  <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-3 md:px-5 ${node.tone === "past" ? "opacity-45" : "opacity-80"}`}>
+                  <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className="flex shrink-0 flex-col items-center px-3 opacity-80 md:px-5">
                     <Link
                       href="/routine"
                       className="flex h-6 items-center text-[17px] font-medium tabular-nums text-neutral-400"
@@ -822,11 +822,11 @@ export function TodayTimelineAxisPanel({
               }
               const checked = completedIds.includes(node.item.id);
               return (
-                <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className={`flex shrink-0 flex-col items-center px-3 md:px-5 ${node.tone === "past" ? "opacity-45" : ""}`}>
+                <div key={node.key} ref={node.isEnd ? currentEndRef : undefined} className="flex shrink-0 flex-col items-center px-3 md:px-5">
                   {node.hour != null ? (
                     <Link
                       href="/routine"
-                      className={`flex h-6 items-center text-[17px] font-medium tabular-nums ${node.tone === "future" ? "text-neutral-500" : "text-neutral-400"}`}
+                      className="flex h-6 items-center text-[17px] font-medium tabular-nums text-neutral-500"
                       aria-label={`${node.hour}시 일과 보기`}
                     >
                       {node.hour}시
@@ -856,9 +856,7 @@ export function TodayTimelineAxisPanel({
                         ? "text-neutral-300 line-through"
                         : node.tone === "current"
                           ? "font-semibold text-neutral-800"
-                          : node.tone === "past"
-                            ? "text-neutral-400"
-                            : "text-neutral-500"
+                          : "text-neutral-500"
                     }`}
                     aria-label={checked ? `${node.item.text || "항목"} 완료 해제` : `${node.item.text || "항목"} 완료`}
                   >
