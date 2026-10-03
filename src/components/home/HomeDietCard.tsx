@@ -15,7 +15,7 @@ import {
   loadWeightLog,
   todayDateKey,
 } from "@/lib/dietDb";
-import { calcBmr, calcDailyBase, dailyDeficitTarget, definedExerciseKcal, treadmillKcalPerMin, walkKcal } from "@/lib/dietCalc";
+import { calcBmr, calcDailyBase, dailyDeficitTarget, definedExerciseKcal, elapsedDayFraction, treadmillKcalPerMin, walkKcal } from "@/lib/dietCalc";
 import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 import { formatChange, useChangeUnit } from "@/components/diet/useChangeUnit";
 
@@ -108,8 +108,16 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
     : 0;
   const allowed = base != null ? base + dailyActivityKcal + exerciseKcal - dailyDeficitTarget(profile.weeklyLossKg) : null;
   const overKcal = allowed != null && intake > allowed ? intake - allowed : 0;
-  /** 오늘 예상 변화(kcal): 먹은 양 − 쓴 칼로리(기본 + 매일 활동 + 운동). 다이어트 페이지 "예상 변화"와 같은 값 */
-  const changeKcal = base != null ? intake - (base + dailyActivityKcal + exerciseKcal) : null;
+  /** 오늘 예상 변화(kcal), 실시간: 먹은 양 − 지금까지 쓴 칼로리(기본 + 매일 활동은 흐른 시간만큼 + 운동).
+   * 다이어트 페이지 "예상 변화"와 같은 값. 1분마다 다시 계산 */
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const todayKey = todayDateKey();
+  const changeKcal =
+    base != null ? intake - ((base + dailyActivityKcal) * elapsedDayFraction(todayKey, todayKey, nowMs) + exerciseKcal) : null;
 
   // 남은 운동량: 설정한 트레드밀로 몇 분, 또는 팔굽혀펴기 100회·풀업 30회 + 트레드밀 몇 분 (번갈아 표시)
   const exerciseGoal = profile.dailyExerciseGoalKcal;

@@ -81,6 +81,16 @@ export function walkKcal(weightKg: number, speedKmh: number, minutes: number): n
   return treadmillKcal(weightKg, speedKmh, 0, minutes);
 }
 
+/**
+ * 그 날짜에서 지금까지 흐른 하루의 비율 (0~1). 지난 날은 1, 오늘은 자정부터 지금까지.
+ * 기본 소비는 자는 동안에도 나가므로 24시간에 고르게 나눈다.
+ */
+export function elapsedDayFraction(dateKey: string, todayKey: string, nowMs: number): number {
+  if (dateKey !== todayKey) return 1;
+  const d = new Date(nowMs);
+  return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400;
+}
+
 /** 주당 감량 목표(kg) → 하루에 만들어야 할 칼로리 적자 */
 export function dailyDeficitTarget(weeklyLossKg: number): number {
   return (weeklyLossKg * KCAL_PER_KG) / 7;

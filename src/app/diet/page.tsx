@@ -39,6 +39,7 @@ import {
   calcBmr,
   calcDailyBase,
   dailyDeficitTarget,
+  elapsedDayFraction,
   definedExerciseKcal,
   treadmillKcal,
   treadmillKcalPerMin,
@@ -449,6 +450,19 @@ export default function DietPage() {
     : 0;
   const burn = base != null ? base + dailyActivityKcal + exerciseKcal : null;
   const balance = burn != null ? intake - burn : null;
+  // 예상 변화는 실시간: 오늘은 하루가 다 안 지났으니 기본 소비(기본 + 매일 활동)를 지금까지 흐른 시간만큼만 뺀다.
+  // 1분마다 다시 그려서 시간이 흐르면 조금씩 내려간다. 먹어도 되는 양·초과 계산은 하루 전체 기준 그대로.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const todayKey = todayDateKey();
+  /** 그 날짜에 지금까지 쓴 칼로리 (지난 날은 하루 전체) */
+  const burnedSoFar = (dateKey: string, exercise: number) =>
+    base != null ? (base + dailyActivityKcal) * elapsedDayFraction(dateKey, todayKey, nowMs) + exercise : null;
+  const burnNow = burnedSoFar(date, exerciseKcal);
+  const balanceNow = burnNow != null ? intake - burnNow : null;
   const deficitTarget = dailyDeficitTarget(profile.weeklyLossKg);
 
   /** 운동 안 하는 날 목표 섭취 = 기본 + 매일 활동 − 목표 적자 */
@@ -479,7 +493,8 @@ export default function DietPage() {
     .map((d) => {
       const intake = d.meals.reduce((s, m) => s + m.kcal, 0);
       const exercise = d.exercises.reduce((s, e) => s + e.kcal, 0);
-      const net = base != null && intake > 0 ? intake - (base + dailyActivityKcal + exercise) : null;
+      const soFar = burnedSoFar(d.date, exercise);
+      const net = soFar != null && intake > 0 ? intake - soFar : null;
       return {
         date: d.date,
         intake,
@@ -538,7 +553,7 @@ export default function DietPage() {
           sinceLabel: `${Number(loggedDays[0].date.slice(5, 7))}월 ${Number(loggedDays[0].date.slice(8, 10))}일`,
           kcal: loggedDays.reduce(
             (s, d) =>
-              s + d.meals.reduce((a, m) => a + m.kcal, 0) - (base + dailyActivityKcal + d.exercises.reduce((a, e) => a + e.kcal, 0)),
+              s + d.meals.reduce((a, m) => a + m.kcal, 0) - burnedSoFar(d.date, d.exercises.reduce((a, e) => a + e.kcal, 0))!,
             0
           ),
           planKcal: -deficitTarget * loggedDays.length,
@@ -782,7 +797,7 @@ export default function DietPage() {
               <div className="min-w-0 md:pl-6">
                 <p className="text-sm font-medium text-neutral-500">예상 변화</p>
                 {/* 먹은 양 − 쓴 칼로리. +면 찌는 쪽(빨강), −면 빠지는 쪽(초록) */}
-                {balance != null ? (
+                {balanceNow != null ? (
                   // 누르면 kcal ↔ kg (지방 1kg = 7,700kcal)
                   <button
                     type="button"
@@ -792,19 +807,20 @@ export default function DietPage() {
                   >
                     <span
                       className={`text-5xl font-extrabold tracking-tight md:text-6xl ${
-                        balance > 0 ? "text-red-500" : "text-emerald-600"
+                        balanceNow > 0 ? "text-red-500" : "text-emerald-600"
                       }`}
                     >
-                      {formatChange(balance, changeUnit)}
+                      {formatChange(balanceNow, changeUnit)}
                     </span>
                     <span className="ml-1.5 text-base text-neutral-400">{changeUnit}</span>
                   </button>
                 ) : (
                   <p className="mt-1 text-5xl font-extrabold tracking-tight text-neutral-300 md:text-6xl">–</p>
                 )}
-                {burn != null && (
+                {burnNow != null && (
                   <p className="mt-2 text-sm tabular-nums text-neutral-500">
-                    섭취 {fmt(intake)} − 소비 {fmt(burn)}
+                    섭취 {fmt(intake)} − 소비 {fmt(burnNow)}
+                    {date === todayKey && <span className="text-neutral-400"> (지금까지)</span>}
                   </p>
                 )}
               </div>
