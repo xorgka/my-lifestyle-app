@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Card } from "@/components/ui/Card";
 import {
   type BudgetEntry,
   type BudgetEntryDetail,
+  type CategoryId,
   type CategoryKeywords,
   type MonthExtraKeywords,
   type ParentGroup,
@@ -160,8 +162,16 @@ const BUCKETS: { id: Bucket; label: string; color: string }[] = [
   { id: "other", label: "그 외", color: "#737373" },
 ];
 
+/** 덩어리 글자를 눌렀을 때 모달에 보여줄 설명 */
+const BUCKET_NOTES: Record<Bucket, string> = {
+  basic: "고정비·세금·생활비를 합친 금액이에요. 이름에 그 카테고리 키워드가 들어가면 여기로 잡혀요.",
+  lecture: "이름이 \"강의\"로 시작하거나 \"3/12\" 같은 할부 표시가 있는 결제예요.",
+  business: "사업경비 키워드에 걸리는 결제예요 (AI 도구, 광고, 세무사 등).",
+  other: "필수 지출·강의·할부·사업경비 어디에도 안 들어가는 나머지예요.",
+};
+
 /**
- * 월별 브리핑: 쓴 돈(이번 달은 월말 예상도), 새로 생긴 지출, 할부, 구독, 전달과 비교.
+ * 월별 브리핑: 쓴 돈과 전달 대비, 새로 생긴 지출, 할부, 구독, 전달과 비교.
  * 좌우 버튼·연/월 선택으로 지난 달도 본다. 지난 달은 그 달 전체 기준.
  * 가계부 항목(카드출금은 세부내역)만으로 계산한다. 적금·IRP·ISA·주택청약은 지출에서 뺀다.
  */
@@ -181,6 +191,8 @@ export function SpendingBriefing({
   parentGroups: ParentGroup[];
 }) {
   const [expanded, setExpanded] = useState<SectionId | null>(null);
+  /** 내용을 보려고 누른 덩어리 (필수 지출·강의·할부·사업경비·그 외) */
+  const [bucketModal, setBucketModal] = useState<Bucket | null>(null);
   const toggle = (id: SectionId) => () => setExpanded((cur) => (cur === id ? null : id));
 
   /** 한 달 지출 목표(원). 기기 간 동기화되는 설정 */
@@ -284,27 +296,18 @@ export function SpendingBriefing({
       return map;
     };
 
-    // ── 지금까지 쓴 돈 / 월말 예상
-    // 월말 예상 = 카드값 + 카드 아닌 지출(지금까지 쓴 돈 + 지난 달들이 같은 날짜 이후에 쓴 돈의 가운데값).
-    // 카드값은 빠져나가는 날이 달마다 1~4일로 달라서 날짜로 자르면 두 번 세거나 빠진다 → 따로 계산:
-    // 이번 달 카드값이 이미 나갔으면(지난 달들의 절반 이상) 그 금액, 아직이면 지난 달들의 가운데값.
-    // 평균 대신 가운데값을 쓰는 이유: 자전거·세금처럼 한 번 크게 나간 달에 끌려가지 않게.
+    // ── 지금까지 쓴 돈 / 지난달과 비교 (월말 예상은 월초에 100만 원 넘게 빗나가서 뺐다)
     const curToDate = inMonth(cur).filter((l) => dayOf(l) <= day);
     const spent = sum(curToDate);
     const history = prevMonths.map((ym) => inMonth(ym)).filter((list) => list.length > 0);
     const lastMonthTotal = sum(inMonth(prevMonths[0]));
     const typicalTotal = history.length > 0 ? median(history.map(sum)) : null;
-    const cardNow = sum(curToDate.filter((l) => l.fromCard));
-    const cardTotal = cardNow;
-    let expected: { total: number; card: number; cardArrived: boolean; other: number } | null = null;
-    if (isCurrent && history.length > 0) {
-      const cardTypical = median(history.map((list) => sum(list.filter((l) => l.fromCard))));
-      const cardArrived = cardNow >= cardTypical * 0.5;
-      const card = cardArrived ? cardNow : cardTypical;
-      const otherNow = sum(curToDate.filter((l) => !l.fromCard));
-      const otherRest = median(history.map((list) => sum(list.filter((l) => !l.fromCard && dayOf(l) > day))));
-      expected = { total: card + otherNow + otherRest, card, cardArrived, other: otherNow + otherRest };
-    }
+    const cardTotal = sum(curToDate.filter((l) => l.fromCard));
+    // 지난달 비교 기준: 지난 달을 볼 땐 전달 전체, 이번 달은 전달의 같은 날짜까지.
+    // 카드값은 빠져나가는 날이 달마다 1~4일로 달라서 날짜로 자르지 않고 그 달 카드값 전체를 넣는다
+    const compareBase = isCurrent
+      ? sum(inMonth(prevMonths[0]).filter((l) => l.fromCard || dayOf(l) <= day))
+      : lastMonthTotal;
 
     // ── 목표와 비교용 덩어리: 필수 지출(고정비·세금·생활비) / 강의·할부 / 사업경비 / 그 외
     // 카테고리는 항목 이름으로 보고, 이름으로 안 걸리면 묶음 이름으로 한 번 더 본다
@@ -328,6 +331,25 @@ export function SpendingBriefing({
     // 앞 석 달 가운데값보다 많이 나간 항목. 강의·할부는 위 덩어리로 따로 말하니 뺀다.
     // 필수 지출 항목도 넣는다: 보험 재가입·강아지 수술처럼 한 번 크게 나간 것도 원인으로 알려준다
     const kwCur = getKeywordsForMonth(keywords, monthExtras, cur);
+    // 덩어리별로 무엇이 들어갔는지 (글자를 누르면 모달로 보여줌). 강의·할부는 묶음이 전부 "강의"라 원래 이름으로 나눈다
+    const bucketItems: Record<Bucket, { cat: CategoryId; name: string; amount: number; count: number }[]> = {
+      basic: [],
+      lecture: [],
+      business: [],
+      other: [],
+    };
+    curToDate.forEach((l) => {
+      const b = bucketOf(l, kwCur);
+      let cat = getCategoryForEntry(l.name, kwCur);
+      if (cat === "기타") cat = getCategoryForEntry(l.group, kwCur);
+      const name = b === "lecture" ? l.name : l.group;
+      const row = bucketItems[b].find((r) => r.name === name && r.cat === cat);
+      if (row) {
+        row.amount += l.amount;
+        row.count += 1;
+      } else bucketItems[b].push({ cat, name, amount: l.amount, count: 1 });
+    });
+    (Object.keys(bucketItems) as Bucket[]).forEach((b) => bucketItems[b].sort((x, y) => y.amount - x.amount));
     const causes: { name: string; amount: number; usual: number }[] = [];
     /** 필수 지출 안에서 평소보다 가장 많이 나간 항목 (세금·재계약처럼 한 번 크게 나간 것) */
     let basicCause: { name: string; amount: number; usual: number } | null = null;
@@ -431,13 +453,14 @@ export function SpendingBriefing({
       prevMonth: prevMonths[0],
       spent,
       buckets,
+      bucketItems,
       basicUsual,
       basicCause: basicCause as { name: string; amount: number; usual: number } | null,
       causes,
       cardTotal,
       lastMonthTotal,
       typicalTotal,
-      expected,
+      compareBase,
       billMonth,
       installments,
       installmentMonthly,
@@ -454,9 +477,6 @@ export function SpendingBriefing({
   }, [ym, entries, entryDetails, keywords, monthExtras, smsGroupRules, parentGroups]);
 
   if (entries.length === 0) return null;
-
-  const { expected } = data;
-  const diff = expected && data.typicalTotal != null ? expected.total - data.typicalTotal : null;
 
   // ── 목표와 비교한 한 줄 설명. 핵심(얼마 넘었는지·필수 지출·원인 항목)만 굵게, 이어 주는 말은 보통 굵기
   const over = data.spent - goal;
@@ -509,7 +529,14 @@ export function SpendingBriefing({
         <b className={`font-bold ${over > 0 ? "text-red-300" : "text-emerald-300"}`}>{headline[1]}</b>
       </span>
       <span className="block">
-        <b className={`font-bold ${basicPart.color}`}>{basicPart.core}</b>
+        <button
+          type="button"
+          onClick={() => setBucketModal("basic")}
+          className={`text-left font-bold underline-offset-4 hover:underline ${basicPart.color}`}
+          title="필수 지출에 뭐가 들어갔는지 보기"
+        >
+          {basicPart.core}
+        </button>
         {reasonParts.length === 0 ? basicPart.end : `${basicPart.tail},`}
       </span>
       {reasonParts.length > 0 && (
@@ -602,7 +629,7 @@ export function SpendingBriefing({
         </div>
       </div>
 
-      {/* 요약: 어두운 띠로 이 패널의 핵심 숫자가 먼저 보이게. 이번 달은 지금까지 쓴 돈 + 월말 예상, 지난 달은 그 달 전체 */}
+      {/* 요약: 어두운 띠로 이 패널의 핵심 숫자가 먼저 보이게. 왼쪽은 쓴 돈, 오른쪽은 지난달과 비교(이번 달은 같은 날짜까지끼리) */}
       <div className="mt-3 rounded-2xl bg-neutral-900 p-5 text-white md:p-6">
         <div className="grid gap-3 md:grid-cols-2 md:gap-6">
         <div>
@@ -617,40 +644,23 @@ export function SpendingBriefing({
             </p>
           )}
         </div>
-        {expected ? (
+        {data.compareBase > 0 && (
           <div className="md:border-l md:border-white/15 md:pl-6">
-            <p className="text-sm font-medium text-white/60">월말 예상</p>
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-2.5 tabular-nums">
-              <span className="text-2xl font-bold md:text-3xl">약 {man(expected.total)}</span>
-              {diff != null && Math.abs(diff) >= 10000 && (
-                <span className={`text-[15px] font-semibold ${diff > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                  보통보다 {diff > 0 ? "+" : "−"}
-                  {man(diff)}
-                </span>
-              )}
+            <p className="text-sm font-medium text-white/60">
+              {data.isCurrent ? `${monthLabel(data.prevMonth)} ${data.day}일까지와 비교` : `${monthLabel(data.prevMonth)}과 비교`}
+            </p>
+            <p
+              className={`mt-1 text-2xl font-bold tabular-nums md:text-3xl ${
+                data.spent > data.compareBase ? "text-red-400" : "text-emerald-400"
+              }`}
+            >
+              {data.spent > data.compareBase ? "+" : "−"}
+              {man(data.spent - data.compareBase)}
             </p>
             <p className="mt-1.5 text-sm tabular-nums text-white/60">
-              카드값 {man(expected.card)}{expected.cardArrived ? "" : "(예상)"} + 그 외 {man(expected.other)}(지난 달들처럼 쓸 때)
+              카드값 {man(data.cardTotal)} + 그 외 {man(data.spent - data.cardTotal)}
             </p>
           </div>
-        ) : (
-          !data.isCurrent &&
-          data.lastMonthTotal > 0 && (
-            <div className="md:border-l md:border-white/15 md:pl-6">
-              <p className="text-sm font-medium text-white/60">{monthLabel(data.prevMonth)}과 비교</p>
-              <p
-                className={`mt-1 text-2xl font-bold tabular-nums md:text-3xl ${
-                  data.spent > data.lastMonthTotal ? "text-red-400" : "text-emerald-400"
-                }`}
-              >
-                {data.spent > data.lastMonthTotal ? "+" : "−"}
-                {man(data.spent - data.lastMonthTotal)}
-              </p>
-              <p className="mt-1.5 text-sm tabular-nums text-white/60">
-                카드값 {man(data.cardTotal)} + 그 외 {man(data.spent - data.cardTotal)}
-              </p>
-            </div>
-          )
         )}
       </div>
 
@@ -673,11 +683,18 @@ export function SpendingBriefing({
             />
           </div>
           <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm tabular-nums text-white/70">
+            {/* 덩어리 글자를 누르면 그 달에 뭐가 들어갔는지 모달로 */}
             {BUCKETS.map((bk) => (
-              <span key={bk.id} className="flex items-center gap-1.5">
+              <button
+                key={bk.id}
+                type="button"
+                onClick={() => setBucketModal(bk.id)}
+                className="flex items-center gap-1.5 underline-offset-4 transition hover:text-white hover:underline"
+                title={`${bk.label}에 뭐가 들어갔는지 보기`}
+              >
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: bk.color }} aria-hidden />
                 {bk.label} <b className="font-semibold text-white">{man(data.buckets[bk.id])}</b>
-              </span>
+              </button>
             ))}
             <span className="ml-auto flex items-center gap-1.5">
               {goalInput == null ? (
@@ -811,6 +828,81 @@ export function SpendingBriefing({
         />
       </div>
       <p className="mt-3 text-xs text-neutral-400">필수 지출 = 고정비·세금·생활비. 적금·IRP·ISA·주택청약은 지출에서 뺀 금액이에요.</p>
+      {bucketModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex min-h-screen min-w-full items-center justify-center overflow-y-auto bg-black/65 p-4"
+            onClick={() => setBucketModal(null)}
+          >
+            <div
+              className="my-auto max-h-[85vh] w-full max-w-md shrink-0 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {(() => {
+                const bk = BUCKETS.find((b) => b.id === bucketModal)!;
+                const items = data.bucketItems[bucketModal];
+                // 필수 지출은 고정비·세금·생활비로 나눠서, 나머지는 한 목록으로
+                const sections: { title: string | null; rows: typeof items }[] =
+                  bucketModal === "basic"
+                    ? (["고정비", "세금", "생활비"] as const)
+                        .map((cat) => ({ title: cat as string, rows: items.filter((r) => r.cat === cat) }))
+                        .filter((sec) => sec.rows.length > 0)
+                    : [{ title: null, rows: items }];
+                return (
+                  <>
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      {monthLabel(data.cur)} {bk.label}
+                      {data.isCurrent && <span className="ml-1.5 text-sm font-normal text-neutral-500">({data.day}일까지)</span>}
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">{BUCKET_NOTES[bucketModal]}</p>
+                    <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
+                      <span className="text-sm font-medium text-neutral-600">합계</span>
+                      <span className="ml-2 text-xl font-semibold tabular-nums text-neutral-900">{won(data.buckets[bucketModal])}</span>
+                    </div>
+                    {items.length === 0 ? (
+                      <p className="mt-4 text-sm text-neutral-400">이 달에는 해당하는 지출이 없어요.</p>
+                    ) : (
+                      sections.map((sec) => (
+                        <div key={sec.title ?? "all"} className="mt-4">
+                          {sec.title && (
+                            <div className="flex items-baseline justify-between border-b border-neutral-200 pb-1.5">
+                              <h4 className="text-sm font-bold text-neutral-900">{sec.title}</h4>
+                              <span className="text-sm font-semibold tabular-nums text-neutral-600">
+                                {won(sec.rows.reduce((sum, r) => sum + r.amount, 0))}
+                              </span>
+                            </div>
+                          )}
+                          <ul className="text-[15px]">
+                            {sec.rows.map((r) => (
+                              <li key={`${r.cat}-${r.name}`} className={rowClass}>
+                                <span className="min-w-0 truncate text-neutral-800">
+                                  {r.name}
+                                  {r.count > 1 && <span className="ml-1.5 text-xs tabular-nums text-neutral-400">{r.count}건</span>}
+                                </span>
+                                <span className="shrink-0 font-medium tabular-nums text-neutral-900">{won(r.amount)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))
+                    )}
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setBucketModal(null)}
+                        className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-300"
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>,
+          document.body
+        )}
     </Card>
   );
 }
