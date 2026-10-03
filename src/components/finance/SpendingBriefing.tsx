@@ -325,7 +325,8 @@ export function SpendingBriefing({
     const historyMonths = prevMonths.filter((m) => inMonth(m).length > 0);
     const usualMonths = yearMonths.filter((m) => inMonth(m).length > 0);
     const basicUsual = usualMonths.length > 0 ? median(usualMonths.map((m) => bucketSums(inMonth(m), m).basic)) : null;
-    // 앞 석 달 가운데값보다 많이 나간 항목. 필수 지출과 강의·할부는 위 덩어리로 따로 말하니 뺀다
+    // 앞 석 달 가운데값보다 많이 나간 항목. 강의·할부는 위 덩어리로 따로 말하니 뺀다.
+    // 필수 지출 항목도 넣는다: 보험 재가입·강아지 수술처럼 한 번 크게 나간 것도 원인으로 알려준다
     const kwCur = getKeywordsForMonth(keywords, monthExtras, cur);
     const causes: { name: string; amount: number; usual: number }[] = [];
     /** 필수 지출 안에서 평소보다 가장 많이 나간 항목 (세금·재계약처럼 한 번 크게 나간 것) */
@@ -341,9 +342,9 @@ export function SpendingBriefing({
         if (b === "lecture" || name === "카드 미분류") return;
         const usual = median(pastGroups.map((g) => g.get(name)?.amount ?? 0));
         if (v.amount - usual < 100000) return;
-        if (b === "basic") {
-          if (!basicCause || v.amount - usual > basicCause.amount - basicCause.usual) basicCause = { name, amount: v.amount, usual };
-        } else causes.push({ name, amount: v.amount, usual });
+        if (b === "basic" && (!basicCause || v.amount - usual > basicCause.amount - basicCause.usual))
+          basicCause = { name, amount: v.amount, usual };
+        causes.push({ name, amount: v.amount, usual });
       });
       causes.sort((a, b) => b.amount - b.usual - (a.amount - a.usual));
     }
@@ -489,9 +490,15 @@ export function SpendingBriefing({
         : basic < data.basicUsual * 0.85
           ? { core: `${basicHead} ${man(basic)}으로 평소(${man(data.basicUsual)})보다 적은 편`, tail: "인데", end: "이에요.", color: "text-emerald-300" }
           : { core: `${basicHead} ${man(basic)}으로 평소 수준`, tail: "인데", end: "이에요.", color: "text-amber-200" };
+  // 필수 지출 줄 괄호에 이미 나온 항목은 원인 줄에서 빼고, 평소보다 많이 나간 순으로 최대 4개
+  const basicOverUsual = !data.isCurrent && data.basicUsual != null && basic > data.basicUsual * 1.15;
+  const basicCauseShown = basicOverUsual ? data.basicCause?.name : undefined;
   const reasonParts = [
     ...(data.buckets.lecture >= 100000 ? [`강의·할부 ${man(data.buckets.lecture)}`] : []),
-    ...data.causes.slice(0, 3).map((c) => `${c.name} ${man(c.amount)}`),
+    ...data.causes
+      .filter((c) => c.name !== basicCauseShown)
+      .slice(0, 4)
+      .map((c) => `${c.name} ${man(c.amount)}`),
   ];
   const strong = "font-bold text-white";
   const sentence = (
