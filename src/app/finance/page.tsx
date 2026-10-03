@@ -5,7 +5,13 @@ import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Card } from "@/components/ui/Card";
 import { SpendingBriefing } from "@/components/finance/SpendingBriefing";
-import { ChildGroupRows, GroupedDetailList, nestByParentGroup } from "@/components/finance/GroupedDetailList";
+import {
+  ChildGroupRows,
+  GroupedDetailList,
+  nestByParentGroup,
+  type DetailEntry,
+  type EntryEditHandlers,
+} from "@/components/finance/GroupedDetailList";
 import { AmountToggle, formatAmountShort } from "@/components/ui/AmountToggle";
 import {
   type BudgetEntry,
@@ -78,8 +84,6 @@ function formatDateLabelShort(dateStr: string): string {
   const week = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
   return `${m}/${day}(${week})`;
 }
-
-type DetailEntry = { date: string; amount: number; item: string };
 
 /** "강아지 (병원)", "강아지 (사료)" → "강아지"로 묶어 total·entries 합침. entries에는 항목명(item) 유지 */
 function groupByBaseName(detail: Record<string, { total: number; entries: DetailEntry[] }>): Record<string, { total: number; entries: DetailEntry[] }> {
@@ -587,7 +591,12 @@ export default function FinancePage() {
           const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
           if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
           out[cat][itemKey].total += d.amount;
-          out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
+          out[cat][itemKey].entries.push({
+            date: e.date,
+            amount: d.amount,
+            item: rawItem,
+            ref: { kind: "detail", id: d.id, parentId: e.id },
+          });
         });
         const unclassified = e.amount - detailSum;
         if (unclassified > 0 && looksLikeCardBulkSettlementItem(e.item)) {
@@ -610,7 +619,7 @@ export default function FinancePage() {
         const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
         if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
         out[cat][itemKey].total += e.amount;
-        out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem });
+        out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem, ref: { kind: "entry", id: e.id } });
       }
     });
     (Object.keys(out) as DisplayCategoryId[]).forEach((cat) => {
@@ -713,6 +722,45 @@ export default function FinancePage() {
         alert("수정 저장에 실패했어요: " + (err?.message ?? String(err)) + "\nF12 콘솔도 확인해 주세요.");
         load();
       });
+  };
+
+  /** 카테고리 상세에서 날짜별 내역을 더블클릭해 고치기: 일반 내역은 그 내역을, 세부는 그 세부 한 줄만 */
+  const detailEdit: EntryEditHandlers = {
+    onSave: (ref, next) => {
+      if (ref.kind === "entry") {
+        updateEntry(ref.id, next.item, next.amount);
+        return;
+      }
+      const list = entryDetails
+        .filter((d) => d.parentId === ref.parentId)
+        .map((d) => (d.id === ref.id ? { id: d.id, item: next.item, amount: next.amount } : { id: d.id, item: d.item, amount: d.amount }));
+      replaceEntryDetailsForParent(ref.parentId, list)
+        .then((saved) => setEntryDetails((prev) => [...prev.filter((d) => d.parentId !== ref.parentId), ...saved]))
+        .catch((err) => {
+          console.error("[finance] 세부 수정 저장 실패", err);
+          alert("수정 저장에 실패했어요: " + (err?.message ?? String(err)));
+          load();
+        });
+    },
+    onDelete: (ref) => {
+      if (ref.kind === "entry") {
+        removeEntry(ref.id);
+        return;
+      }
+      const target = entryDetails.find((d) => d.id === ref.id);
+      const label = target ? `"${target.item}" (${formatNum(target.amount)}원)` : "이 세부내역";
+      if (!window.confirm(`${label}을(를) 삭제할까요? 되돌릴 수 없습니다.`)) return;
+      const list = entryDetails
+        .filter((d) => d.parentId === ref.parentId && d.id !== ref.id)
+        .map((d) => ({ id: d.id, item: d.item, amount: d.amount }));
+      replaceEntryDetailsForParent(ref.parentId, list)
+        .then((saved) => setEntryDetails((prev) => [...prev.filter((d) => d.parentId !== ref.parentId), ...saved]))
+        .catch((err) => {
+          console.error("[finance] 세부 삭제 실패", err);
+          alert("삭제에 실패했어요: " + (err?.message ?? String(err)));
+          load();
+        });
+    },
   };
 
   /** 세부 입력 모달이 카드출금이 아닌 내역(쿠팡·이마트 등)을 쓴 곳별로 나누는 중인지 */
@@ -1187,7 +1235,12 @@ export default function FinancePage() {
           const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
           if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
           out[cat][itemKey].total += d.amount;
-          out[cat][itemKey].entries.push({ date: e.date, amount: d.amount, item: rawItem });
+          out[cat][itemKey].entries.push({
+            date: e.date,
+            amount: d.amount,
+            item: rawItem,
+            ref: { kind: "detail", id: d.id, parentId: e.id },
+          });
         });
         const unclassified = e.amount - detailSum;
         if (unclassified > 0 && looksLikeCardBulkSettlementItem(e.item)) {
@@ -1211,7 +1264,7 @@ export default function FinancePage() {
         const itemKey = applySmsGroupRulesToItem(canonicalizeBudgetItemName(rawItem), smsGroupRules);
         if (!out[cat][itemKey]) out[cat][itemKey] = { total: 0, entries: [] };
         out[cat][itemKey].total += e.amount;
-        out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem });
+        out[cat][itemKey].entries.push({ date: e.date, amount: e.amount, item: rawItem, ref: { kind: "entry", id: e.id } });
       }
     });
     (Object.keys(out) as DisplayCategoryId[]).forEach((cat) => {
@@ -2822,7 +2875,7 @@ placeholder="항목"
               {CATEGORY_LABELS[categoryDetailModal]} · {yearMonthForView} 상세
             </h3>
             <p className="mt-1 text-sm text-neutral-500">
-              항목별 내역이에요. 날짜별 세부는 펼쳐서 볼 수 있어요.
+              항목별 내역이에요. 날짜별 세부는 펼쳐서 볼 수 있고, 더블클릭하면 고칠 수 있어요.
             </p>
             <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
               <span className="text-sm font-medium text-neutral-600">총합</span>
@@ -2834,6 +2887,7 @@ placeholder="항목"
               <GroupedDetailList
                 grouped={groupByBaseName(viewMonthByCategoryDetail[categoryDetailModal])}
                 parentGroups={parentGroups}
+                edit={detailEdit}
                 expanded={expandedDetailItems}
                 onToggle={(key) =>
                   setExpandedDetailItems((prev) => {
@@ -3594,7 +3648,7 @@ placeholder="항목"
                 {CATEGORY_LABELS[spendingCategoryModal]} · {analysisYear}년 상세
               </h3>
               <p className="mt-1 text-sm text-neutral-500">
-                항목별 내역이에요. 날짜별 세부는 펼쳐서 볼 수 있어요.
+                항목별 내역이에요. 날짜별 세부는 펼쳐서 볼 수 있고, 더블클릭하면 고칠 수 있어요.
               </p>
               <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3">
                 <span className="text-sm font-medium text-neutral-600">총합</span>
@@ -3606,6 +3660,7 @@ placeholder="항목"
                 <GroupedDetailList
                   grouped={groupByBaseName(yearByCategoryDetail[spendingCategoryModal])}
                   parentGroups={parentGroups}
+                  edit={detailEdit}
                   expanded={spendingExpandedItems}
                   onToggle={(key) =>
                     setSpendingExpandedItems((prev) => {
