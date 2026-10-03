@@ -321,6 +321,15 @@ export default function FinancePage() {
     if (categoryDetailModal) setExpandedDetailItems(new Set());
   }, [categoryDetailModal]);
 
+  // 키워드 관리 창을 열 때 최신 키워드·묶음 규칙을 다시 읽는다 (다른 기기에서 바꾼 내용이 보이게)
+  useEffect(() => {
+    if (!showKeywordModal) return;
+    loadKeywords().then(setKeywords).catch(console.error);
+    loadSmsGroupRules()
+      .then((rules) => setSmsGroupRules(Array.isArray(rules) ? rules : []))
+      .catch(console.error);
+  }, [showKeywordModal]);
+
   useEffect(() => {
     if (spendingCategoryModal) setSpendingExpandedItems(new Set());
   }, [spendingCategoryModal]);
@@ -948,6 +957,21 @@ export default function FinancePage() {
     setTimeout(() => lastDetailItemRef.current?.focus(), 50);
   };
 
+  /**
+   * 키워드 고치기: 저장 직전에 최신 목록을 다시 읽어 그 위에 고친다.
+   * 열어 둔 창의 옛 목록으로 통째로 저장하면 다른 기기나 다른 창에서 바꾼 키워드가 되돌아가기 때문.
+   */
+  const changeKeywords = (change: (latest: CategoryKeywords) => CategoryKeywords) => {
+    loadKeywords()
+      .catch(() => keywords)
+      .then((latest) => {
+        const next = change(latest);
+        setKeywords(next);
+        return saveKeywords(next);
+      })
+      .catch(console.error);
+  };
+
   const addKeywordToCategory = (cat: CategoryId, word: string) => {
     const w = word.trim();
     if (!w) return;
@@ -961,14 +985,14 @@ export default function FinancePage() {
       return;
     }
     // 한 키워드는 한 카테고리에만 속하도록: 다른 카테고리에서는 제거 (고정비↔세금 이동 등)
-    const categoryIds = Object.keys(keywords) as CategoryId[];
-    const nextKeywords: CategoryKeywords = { ...keywords };
-    for (const c of categoryIds) {
-      if (c === cat) nextKeywords[c] = [...(nextKeywords[c] ?? []), w];
-      else nextKeywords[c] = (nextKeywords[c] ?? []).filter((x) => x !== w);
-    }
-    setKeywords(nextKeywords);
-    saveKeywords(nextKeywords).catch(console.error);
+    changeKeywords((latest) => {
+      const nextKeywords: CategoryKeywords = { ...latest };
+      for (const c of Object.keys(latest) as CategoryId[]) {
+        if (c === cat) nextKeywords[c] = (nextKeywords[c] ?? []).includes(w) ? nextKeywords[c] : [...(nextKeywords[c] ?? []), w];
+        else nextKeywords[c] = (nextKeywords[c] ?? []).filter((x) => x !== w);
+      }
+      return nextKeywords;
+    });
     setAddKeywordCategory(null);
     setAddKeywordValue("");
   };
@@ -990,12 +1014,7 @@ export default function FinancePage() {
       setMonthExtras(nextExtras);
       saveMonthExtras(nextExtras).catch(console.error);
     } else {
-      const next: CategoryKeywords = {
-        ...keywords,
-        [cat]: keywords[cat].filter((x) => x !== word),
-      };
-      setKeywords(next);
-      saveKeywords(next).catch(console.error);
+      changeKeywords((latest) => ({ ...latest, [cat]: (latest[cat] ?? []).filter((x) => x !== word) }));
     }
   };
 
@@ -1005,31 +1024,54 @@ export default function FinancePage() {
     return { base, extra, all: [...base, ...extra] };
   };
 
-  const persistSmsGroupRules = useCallback((next: SmsGroupRule[]) => {
-    const ordered = next.map((r, i) => ({ ...r, sortOrder: i }));
-    setSmsGroupRules(ordered);
-    saveSmsGroupRules(ordered).catch((err) => console.error("[finance] saveSmsGroupRules", err));
-  }, []);
+  /**
+   * 묶음 규칙 고치기: 저장 직전에 최신 목록을 다시 읽어 그 위에 고친다 (키워드와 같은 이유).
+   * 화면의 줄은 옛 목록 기준이라, 최신 목록에서는 내용(포함 문구·묶음 이름)으로 그 줄을 찾는다.
+   */
+  const changeSmsGroupRules = useCallback(
+    (change: (latest: SmsGroupRule[]) => SmsGroupRule[]) => {
+      loadSmsGroupRules()
+        .catch(() => smsGroupRules)
+        .then((latest) => {
+          const ordered = change(latest).map((r, i) => ({ ...r, sortOrder: i }));
+          setSmsGroupRules(ordered);
+          return saveSmsGroupRules(ordered);
+        })
+        .catch((err) => console.error("[finance] saveSmsGroupRules", err));
+    },
+    [smsGroupRules]
+  );
+  const sameRule = (a: SmsGroupRule, b: SmsGroupRule) => a.match === b.match && a.groupLabel === b.groupLabel;
 
   const addSmsGroupRule = () => {
     const m = smsRuleMatch.trim();
     const g = smsRuleLabel.trim();
     if (!m || !g) return;
-    persistSmsGroupRules([...smsGroupRules, { match: m, groupLabel: g, sortOrder: smsGroupRules.length }]);
+    changeSmsGroupRules((latest) => [...latest, { match: m, groupLabel: g, sortOrder: latest.length }]);
     setSmsRuleMatch("");
     setSmsRuleLabel("");
   };
 
   const removeSmsGroupRule = (index: number) => {
-    persistSmsGroupRules(smsGroupRules.filter((_, i) => i !== index));
+    const target = smsGroupRules[index];
+    if (!target) return;
+    changeSmsGroupRules((latest) => {
+      const i = latest.findIndex((r) => sameRule(r, target));
+      return i < 0 ? latest : latest.filter((_, k) => k !== i);
+    });
   };
 
   const moveSmsGroupRule = (index: number, dir: -1 | 1) => {
-    const j = index + dir;
-    if (j < 0 || j >= smsGroupRules.length) return;
-    const next = [...smsGroupRules];
-    [next[index], next[j]] = [next[j], next[index]];
-    persistSmsGroupRules(next);
+    const target = smsGroupRules[index];
+    if (!target) return;
+    changeSmsGroupRules((latest) => {
+      const i = latest.findIndex((r) => sameRule(r, target));
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= latest.length) return latest;
+      const next = [...latest];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
   };
 
   const persistParentGroups = (next: ParentGroup[]) => {
