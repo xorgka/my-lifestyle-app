@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { syncExerciseFromItem } from "@/lib/exerciseLink";
 import { loadJournalEntries } from "@/lib/journal";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
 import { loadSleepData } from "@/lib/sleepDb";
@@ -237,6 +238,8 @@ export function useHomeWidgetData() {
     const next = { ...dayTimetable, completedIds: completedIdsNext };
     setDayTimetable(next);
     await saveTimetableForDate(getTodayKey(), next);
+    // 항목 이름이 운동이면 그날 다이어트 운동에도 반영
+    if (itemText) void syncExerciseFromItem(getTodayKey(), itemText, !isCompleted, itemId);
     const routineId = getRoutineIdByTimetableId(routineLinks, itemId, slotTime, itemText, templateLinks);
     if (routineId != null) {
       toggleRoutineCompletion(getTodayKey(), routineId, !isCompleted).catch(() => {});

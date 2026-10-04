@@ -34,6 +34,7 @@ import {
   copyLinksForCopiedDay,
 } from "@/lib/timetableRoutineLinks";
 import { loadRoutineItems, toggleRoutineCompletion } from "@/lib/routineDb";
+import { syncExerciseFromItem } from "@/lib/exerciseLink";
 import type { RoutineItem } from "@/lib/routineDb";
 import { TimetableTemplateLibraryModal } from "./TimetableTemplateLibraryModal";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -331,6 +332,8 @@ export default function TimetablePage() {
       const isNowCompleted = completed.has(itemId);
       persist(next).then(() => {
         const st = getSlotTimeAndText(day, itemId);
+        // 항목 이름이 운동이면 그날 다이어트 운동에도 반영
+        if (st?.text) void syncExerciseFromItem(dateKey, st.text, isNowCompleted, itemId);
         const routineId = getRoutineIdByTimetableId(
           routineLinks,
           itemId,

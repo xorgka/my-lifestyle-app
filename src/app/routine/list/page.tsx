@@ -14,6 +14,7 @@ import {
 } from "@/lib/routineDb";
 import { loadTimetableRoutineLinks, loadTimetableTemplateLinks, getTimetableItemIdsForRoutineInDay } from "@/lib/timetableRoutineLinks";
 import { loadTimetableForDate, saveTimetableForDate } from "@/lib/timetableDb";
+import { syncExerciseFromItem } from "@/lib/exerciseLink";
 
 const defaultItems: RoutineItem[] = [
   { id: 1, title: "아침 물 한 잔", isImportant: false },
@@ -204,6 +205,8 @@ export default function RoutinePage() {
       toggleRoutineCompletion(dateKey, id, newCompleted).catch(console.error);
       if (!isCompleted && dateKey === todayKey) fireConfetti();
       const routineTitle = items.find((i) => i.id === id)?.title;
+      // 제목이 운동이면 그날 다이어트 운동에도 반영
+      if (routineTitle) void syncExerciseFromItem(dateKey, routineTitle, newCompleted, String(id));
       loadTimetableForDate(dateKey).then((result) => {
           const day = result.day;
           const timetableIds = getTimetableItemIdsForRoutineInDay(day, routineLinks, templateLinks, id, routineTitle);
