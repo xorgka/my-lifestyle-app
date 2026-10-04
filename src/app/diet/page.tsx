@@ -444,15 +444,9 @@ export default function DietPage() {
   const exercises = day?.exercises ?? [];
   const intake = meals.reduce((s, m) => s + m.kcal, 0);
   const exerciseKcal = exercises.reduce((s, e) => s + e.kcal, 0);
-  /** 산책을 직접 적은 날은 그 값을 쓰고, 안 적은 날만 설정한 매일 활동(기본 30분)을 자동으로 더한다 */
-  const loggedWalk = exercises.some((e) => e.type === "walk");
-  const dailyActivityKcal =
-    weightNow && !loggedWalk
-      ? profile.dailyActivities.reduce((s, a) => s + walkKcal(weightNow, a.speedKmh, a.minutes), 0)
-      : 0;
-  /** 운동 목표에 쓰는 값: 기록한 운동 + 자동 산책 */
-  const exerciseTotalKcal = exerciseKcal + dailyActivityKcal;
-  const burn = base != null ? base + dailyActivityKcal + exerciseKcal : null;
+  /** 산책도 체크해서 기록한 날만 반영한다 (자동으로 매일 더하지 않음) */
+  const exerciseTotalKcal = exerciseKcal;
+  const burn = base != null ? base + exerciseKcal : null;
   const balance = burn != null ? intake - burn : null;
   // 예상 변화는 실시간: 오늘은 하루가 다 안 지났으니 기본 소비(기본 + 매일 활동)를 지금까지 흐른 시간만큼만 뺀다.
   // 1분마다 다시 그려서 시간이 흐르면 조금씩 내려간다. 먹어도 되는 양·초과 계산은 하루 전체 기준 그대로.
@@ -464,13 +458,13 @@ export default function DietPage() {
   const todayKey = todayDateKey();
   /** 그 날짜에 지금까지 쓴 칼로리 (지난 날은 하루 전체) */
   const burnedSoFar = (dateKey: string, exercise: number) =>
-    base != null ? (base + dailyActivityKcal) * elapsedDayFraction(dateKey, todayKey, nowMs) + exercise : null;
+    base != null ? base * elapsedDayFraction(dateKey, todayKey, nowMs) + exercise : null;
   const burnNow = burnedSoFar(date, exerciseKcal);
   const balanceNow = burnNow != null ? intake - burnNow : null;
   const deficitTarget = dailyDeficitTarget(profile.weeklyLossKg);
 
-  /** 운동 안 하는 날 목표 섭취 = 기본 + 매일 활동 − 목표 적자 */
-  const targetIntake = base != null ? base + dailyActivityKcal - deficitTarget : null;
+  /** 운동 안 하는 날 목표 섭취 = 기본 − 목표 적자 */
+  const targetIntake = base != null ? base - deficitTarget : null;
 
   // 기록 탭: 날짜별 먹은 칼로리·운동 칼로리
   const intakeByDate: Record<string, number> = {};
@@ -523,18 +517,11 @@ export default function DietPage() {
       .map((x) => x.f);
   }, [foods, recent]);
 
-  // 운동 목표: 날짜별 운동 칼로리로 연속 달성·최근 7일 계산. 산책을 안 적은 날은 자동 산책을 더한다
+  // 운동 목표: 날짜별 기록한 운동 칼로리로 연속 달성·최근 7일 계산
   const today = todayDateKey();
   const exerciseKcalOn = (dateKey: string) => {
     const d = dateKey === date && day ? day : recent.find((x) => x.date === dateKey);
-    if (!d) return 0;
-    const logged = d.exercises.reduce((s, e) => s + e.kcal, 0);
-    const hasWalk = d.exercises.some((e) => e.type === "walk");
-    const auto =
-      weightNow && !hasWalk
-        ? profile.dailyActivities.reduce((s, a) => s + walkKcal(weightNow, a.speedKmh, a.minutes), 0)
-        : 0;
-    return logged + auto;
+    return d ? d.exercises.reduce((s, e) => s + e.kcal, 0) : 0;
   };
   const exerciseGoal = profile.dailyExerciseGoalKcal;
   const achievedOn = (dateKey: string) => exerciseGoal > 0 && exerciseKcalOn(dateKey) >= exerciseGoal;
@@ -550,7 +537,7 @@ export default function DietPage() {
     base != null && paceDays.length >= 3
       ? paceDays.reduce(
           (s, d) =>
-            s + base + dailyActivityKcal + d.exercises.reduce((a, e) => a + e.kcal, 0) - d.meals.reduce((a, m) => a + m.kcal, 0),
+            s + base + d.exercises.reduce((a, e) => a + e.kcal, 0) - d.meals.reduce((a, m) => a + m.kcal, 0),
           0
         ) / paceDays.length
       : null;

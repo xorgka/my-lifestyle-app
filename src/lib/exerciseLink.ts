@@ -6,7 +6,7 @@
  * 체크를 풀면 이 기능으로 들어간 항목만 지운다(직접 적은 건 안 건드림).
  */
 
-import { definedExerciseKcal, walkKcal } from "./dietCalc";
+import { definedExerciseKcal, treadmillKcal, walkKcal } from "./dietCalc";
 import { loadRoutineItems } from "./routineDb";
 import {
   genDietId,
@@ -128,16 +128,24 @@ export async function syncExerciseFromItem(dateKey: string, title: string, compl
   if (!weightKg) return; // 몸무게를 한 번도 안 적었으면 칼로리를 못 구함
 
   // 산책은 매일 30분이 기본이라 프리셋 첫 값(20분) 대신 30분으로 둔다
-  const fallback = ex.id === "walk" ? 30 : ex.presets[0] ?? null;
+  const fallback = ex.id === "walk" || ex.id === "treadmill" ? 30 : ex.presets[0] ?? null;
   const amount = amountInTitle(title, ex.unit) ?? (await lastLoggedAmount(ex, dateKey)) ?? fallback;
   if (!amount) return;
 
+  const isTreadmill = ex.id === "treadmill";
+  const incline = profile.treadmillIncline;
+  const speed = profile.treadmillSpeed;
   const entry: ExerciseEntry = {
     id: linkedId,
     type: ex.id,
     name: ex.name,
-    kcal: Math.round(kcalFor(ex, weightKg, amount, profile.dailyActivities[0]?.speedKmh ?? 3.5)),
+    kcal: Math.round(
+      isTreadmill
+        ? treadmillKcal(weightKg, speed, incline, amount)
+        : kcalFor(ex, weightKg, amount, profile.dailyActivities[0]?.speedKmh ?? 3.5)
+    ),
     ...(ex.unit === "reps" ? { reps: amount } : { minutes: amount }),
+    ...(isTreadmill ? { incline, speed } : {}),
   };
   await saveDietDay({ ...day, exercises: [...day.exercises, entry] });
 }
