@@ -523,11 +523,18 @@ export default function DietPage() {
       .map((x) => x.f);
   }, [foods, recent]);
 
-  // 운동 목표: 날짜별 운동 칼로리(매일 활동 제외)로 연속 달성·최근 7일 계산
+  // 운동 목표: 날짜별 운동 칼로리로 연속 달성·최근 7일 계산. 산책을 안 적은 날은 자동 산책을 더한다
   const today = todayDateKey();
   const exerciseKcalOn = (dateKey: string) => {
     const d = dateKey === date && day ? day : recent.find((x) => x.date === dateKey);
-    return d ? d.exercises.reduce((s, e) => s + e.kcal, 0) : 0;
+    if (!d) return 0;
+    const logged = d.exercises.reduce((s, e) => s + e.kcal, 0);
+    const hasWalk = d.exercises.some((e) => e.type === "walk");
+    const auto =
+      weightNow && !hasWalk
+        ? profile.dailyActivities.reduce((s, a) => s + walkKcal(weightNow, a.speedKmh, a.minutes), 0)
+        : 0;
+    return logged + auto;
   };
   const exerciseGoal = profile.dailyExerciseGoalKcal;
   const achievedOn = (dateKey: string) => exerciseGoal > 0 && exerciseKcalOn(dateKey) >= exerciseGoal;
@@ -806,7 +813,7 @@ export default function DietPage() {
               <div className="min-w-0 md:px-6">
                 <p className="text-sm font-medium text-neutral-500">운동</p>
                 <p className="mt-1 tabular-nums">
-                  <span className="text-4xl font-bold text-neutral-900 md:text-5xl">{fmt(exerciseKcal)}</span>
+                  <span className="text-4xl font-bold text-neutral-900 md:text-5xl">{fmt(exerciseTotalKcal)}</span>
                   {exerciseGoal > 0 && <span className="ml-1.5 text-base text-neutral-400">/ {fmt(exerciseGoal)}</span>}
                 </p>
                 {exerciseGoal > 0 && (
