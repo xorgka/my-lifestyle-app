@@ -7,6 +7,7 @@
  */
 
 import { definedExerciseKcal, walkKcal } from "./dietCalc";
+import { loadRoutineItems } from "./routineDb";
 import {
   genDietId,
   getDietExercises,
@@ -139,6 +140,14 @@ export async function syncExerciseFromItem(dateKey: string, title: string, compl
     ...(ex.unit === "reps" ? { reps: amount } : { minutes: amount }),
   };
   await saveDietDay({ ...day, exercises: [...day.exercises, entry] });
+}
+
+/** 루틴 id 로 부르는 판(알림 팝업처럼 제목을 안 들고 있는 곳에서 씀) */
+export async function syncExerciseFromRoutineId(dateKey: string, routineId: number, completed: boolean): Promise<void> {
+  const items = await loadRoutineItems();
+  const title = items.find((i) => i.id === routineId)?.title;
+  if (!title) return;
+  await syncExerciseFromItem(dateKey, title, completed, String(routineId));
 }
 
 export { genDietId };

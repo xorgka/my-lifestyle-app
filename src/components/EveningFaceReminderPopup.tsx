@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
+import { syncExerciseFromRoutineId } from "@/lib/exerciseLink";
 import { getReminderLastShown, setReminderLastShown } from "@/lib/reminderLastShown";
 import { dispatchReminderOpen, subscribeReminderOpen, REMINDER_POPUP_Z_INDEX, REMINDER_BACKDROP_OPACITY } from "@/lib/reminderPopupChannel";
 import { getPopupConfig, isInTimeWindow } from "@/lib/popupReminderConfig";
@@ -103,6 +104,8 @@ export function EveningFaceReminderPopup({ forceShow }: EveningFaceReminderPopup
   const handleYes = useCallback(async () => {
     if (itemId === null) return;
     await toggleRoutineCompletion(todayStr(), itemId, true);
+    // 제목이 운동이면 그날 다이어트 운동에도 반영
+    void syncExerciseFromRoutineId(todayStr(), itemId, true);
     setShowConfetti(true);
     setTimeout(() => {
       setShowConfetti(false);

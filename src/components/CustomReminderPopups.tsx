@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadRoutineItems, loadRoutineCompletions, toggleRoutineCompletion } from "@/lib/routineDb";
+import { syncExerciseFromRoutineId } from "@/lib/exerciseLink";
 import {
   loadCustomPopupIds,
   getPopupConfig,
@@ -90,6 +91,8 @@ export function CustomReminderPopups() {
   const handleYes = useCallback(async () => {
     if (itemId === null) return;
     await toggleRoutineCompletion(todayStr(), itemId, true);
+    // 제목이 운동이면 그날 다이어트 운동에도 반영
+    void syncExerciseFromRoutineId(todayStr(), itemId, true);
     setOpen(false);
     setPopupId(null);
     setConfig(null);
