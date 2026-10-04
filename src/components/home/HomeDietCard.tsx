@@ -11,6 +11,7 @@ import {
   type DietProfile,
   getDietExercises,
   getDietProfile,
+  DIET_DAY_CHANGED_EVENT,
   loadDietDay,
   loadWeightLog,
   todayDateKey,
@@ -89,10 +90,12 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
     const onFocus = () => load();
     window.addEventListener("focus", onFocus);
     window.addEventListener(DIET_SETTINGS_CHANGED_EVENT, load);
+    window.addEventListener(DIET_DAY_CHANGED_EVENT, load);
     window.addEventListener(USER_SETTINGS_SYNC_EVENT, load);
     return () => {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener(DIET_SETTINGS_CHANGED_EVENT, load);
+      window.removeEventListener(DIET_DAY_CHANGED_EVENT, load);
       window.removeEventListener(USER_SETTINGS_SYNC_EVENT, load);
     };
   }, [load]);

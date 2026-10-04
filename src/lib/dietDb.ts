@@ -145,6 +145,9 @@ export const DEFAULT_DIET_FOODS: DietFood[] = [RICE, GIM, ...Object.values(DEFAU
 
 export const DIET_SETTINGS_CHANGED_EVENT = "diet-settings-changed";
 
+/** 그날 기록(식사·운동·몸무게)이 저장됐을 때. 홈 카드가 다시 읽는 용도 */
+export const DIET_DAY_CHANGED_EVENT = "diet-day-changed";
+
 export function genDietId(): string {
   return `d-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -272,6 +275,7 @@ export async function loadDietDay(date: string): Promise<{ day: DietDay; source:
 /** 하루 기록 전체 저장 (먹은 것·운동·몸무게) */
 export async function saveDietDay(day: DietDay): Promise<void> {
   saveLocal(day);
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_DAY_CHANGED_EVENT));
   if (!supabase) return;
   const { error } = await supabase.from("diet_days").upsert(
     {
