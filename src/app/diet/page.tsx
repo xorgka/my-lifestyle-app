@@ -444,10 +444,14 @@ export default function DietPage() {
   const exercises = day?.exercises ?? [];
   const intake = meals.reduce((s, m) => s + m.kcal, 0);
   const exerciseKcal = exercises.reduce((s, e) => s + e.kcal, 0);
-  /** 매일 하는 활동(강아지 산책 등): 날마다 항상 포함 */
-  const dailyActivityKcal = weightNow
-    ? profile.dailyActivities.reduce((s, a) => s + walkKcal(weightNow, a.speedKmh, a.minutes), 0)
-    : 0;
+  /** 산책을 직접 적은 날은 그 값을 쓰고, 안 적은 날만 설정한 매일 활동(기본 30분)을 자동으로 더한다 */
+  const loggedWalk = exercises.some((e) => e.type === "walk");
+  const dailyActivityKcal =
+    weightNow && !loggedWalk
+      ? profile.dailyActivities.reduce((s, a) => s + walkKcal(weightNow, a.speedKmh, a.minutes), 0)
+      : 0;
+  /** 운동 목표에 쓰는 값: 기록한 운동 + 자동 산책 */
+  const exerciseTotalKcal = exerciseKcal + dailyActivityKcal;
   const burn = base != null ? base + dailyActivityKcal + exerciseKcal : null;
   const balance = burn != null ? intake - burn : null;
   // 예상 변화는 실시간: 오늘은 하루가 다 안 지났으니 기본 소비(기본 + 매일 활동)를 지금까지 흐른 시간만큼만 뺀다.
@@ -608,19 +612,37 @@ export default function DietPage() {
   const tmMin = Number(tmMinutes) || 0;
   const tmPreview = weightNow && speed > 0 && tmMin > 0 ? treadmillKcal(weightNow, speed, incline, tmMin) : null;
   /** 운동 탭 툴팁: 이 운동을 하면 몸이 어떻게 바뀌는지 짧게 (설정에서 고침) */
+  /** 매일 하는 산책. 운동 칸 맨 앞에 두고, 안 적은 날은 30분 한 걸로 친다 */
+  const walkSpeedKmh = profile.dailyActivities[0]?.speedKmh ?? 3.5;
+  const WALK_DEF: DietExercise = {
+    id: "walk",
+    name: "산책",
+    unit: "minutes",
+    presets: [20, 30, 40, 50, 60],
+    met: 3,
+    tips: [],
+  };
+  const exerciseDefsAll = [WALK_DEF, ...exerciseDefs.filter((x) => x.id !== WALK_DEF.id)];
+
   const exerciseTips: Record<ExerciseTab, string[]> = {
     treadmill: profile.treadmillTips,
-    ...Object.fromEntries(exerciseDefs.map((x) => [x.id, x.tips])),
+    ...Object.fromEntries(exerciseDefsAll.map((x) => [x.id, x.tips])),
   };
   /** 지운 운동의 탭이 열려 있으면 트레드밀로 */
-  const activeTab = exTab === "treadmill" || exTab === "custom" || exerciseDefs.some((x) => x.id === exTab) ? exTab : "treadmill";
+  const activeTab = exTab === "treadmill" || exTab === "custom" || exerciseDefsAll.some((x) => x.id === exTab) ? exTab : "treadmill";
 
   /** 설정에서 만든 운동 입력 폼 (횟수·분 → 칼로리) */
   const renderDefinedForm = (ex: DietExercise) => {
     const unitLabel = ex.unit === "reps" ? "회" : "분";
-    const value = amountInput[ex.id] ?? String(ex.presets[0] ?? "");
+    // 산책은 매일 30분이 기본이라 처음부터 30으로 둔다
+    const value = amountInput[ex.id] ?? (ex.id === "walk" ? "30" : String(ex.presets[0] ?? ""));
     const n = Number(value) || 0;
-    const preview = weightNow && n > 0 ? definedExerciseKcal(ex, weightNow, n) : null;
+    const preview =
+      weightNow && n > 0
+        ? ex.id === "walk"
+          ? walkKcal(weightNow, walkSpeedKmh, n)
+          : definedExerciseKcal(ex, weightNow, n)
+        : null;
     const setValue = (v: string) => setAmountInput((r) => ({ ...r, [ex.id]: v }));
     return (
       <div className="space-y-3">
@@ -754,8 +776,8 @@ export default function DietPage() {
           const allowed = burn != null ? burn - deficitTarget : null;
           const over = needMore != null && needMore > 0;
           const pct = allowed != null && allowed > 0 ? Math.min(100, (intake / allowed) * 100) : 0;
-          const exercisePct = exerciseGoal > 0 ? Math.min(100, (exerciseKcal / exerciseGoal) * 100) : 0;
-          const exerciseLeft = Math.max(0, exerciseGoal - exerciseKcal);
+          const exercisePct = exerciseGoal > 0 ? Math.min(100, (exerciseTotalKcal / exerciseGoal) * 100) : 0;
+          const exerciseLeft = Math.max(0, exerciseGoal - exerciseTotalKcal);
           const dayAchieved = achievedOn(date);
           return (
             <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-neutral-200">
@@ -875,14 +897,14 @@ export default function DietPage() {
       <section className={cardClass}>
         <div className="flex items-baseline justify-between">
           <h2 className="text-lg font-bold text-neutral-900">운동</h2>
-          <span className="text-sm tabular-nums text-neutral-500">{fmt(dailyActivityKcal + exerciseKcal)}kcal 소모</span>
+          <span className="text-sm tabular-nums text-neutral-500">{fmt(exerciseTotalKcal)}kcal 소모</span>
         </div>
 
 
         {/* relative: 폰에서 툴팁을 버튼 줄 기준으로 펼침 */}
         <div className="relative mt-4 flex flex-wrap gap-1.5">
           {(
-            [["treadmill", "트레드밀"], ...exerciseDefs.map((x) => [x.id, x.name]), ["custom", "기타"]] as [string, string][]
+            [[WALK_DEF.id, WALK_DEF.name], ["treadmill", "트레드밀"], ...exerciseDefs.filter((x) => x.id !== WALK_DEF.id).map((x) => [x.id, x.name]), ["custom", "기타"]] as [string, string][]
           ).map(([id, label], i) => {
             const tip = exerciseTips[id]?.length ? exerciseTips[id] : null;
             return (
@@ -968,7 +990,7 @@ export default function DietPage() {
             </div>
           )}
 
-          {exerciseDefs.filter((x) => x.id === activeTab).map((x) => (
+          {exerciseDefsAll.filter((x) => x.id === activeTab).map((x) => (
             <div key={x.id}>{renderDefinedForm(x)}</div>
           ))}
 
@@ -1003,7 +1025,7 @@ export default function DietPage() {
                     : e.type === "custom"
                       ? e.name
                       : // 설정에서 만든 운동: 지금 이름으로 (지운 운동은 기록할 때의 이름)
-                        `${exerciseDefs.find((x) => x.id === e.type)?.name ?? e.name} ${e.reps != null ? `${e.reps}회` : `${e.minutes ?? 0}분`}`}
+                        `${exerciseDefsAll.find((x) => x.id === e.type)?.name ?? e.name} ${e.reps != null ? `${e.reps}회` : `${e.minutes ?? 0}분`}`}
                 </span>
                 <span className="shrink-0 text-sm tabular-nums text-neutral-500">{fmt(e.kcal)}kcal</span>
                 <button
