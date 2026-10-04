@@ -88,14 +88,20 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
     load();
     // 다이어트 페이지에서 기록하고 돌아오거나 다른 기기 설정이 동기화되면 다시 읽기
     const onFocus = () => load();
+    // 그날 기록이 저장되면(일과에서 산책 체크 등) 바로 반영한다.
+    // 이 시점엔 서버 저장이 아직 안 끝났을 수 있어서, 다시 읽지 않고 함께 온 기록을 그대로 쓴다
+    const onDayChanged = (e: Event) => {
+      const saved = (e as CustomEvent<DietDay>).detail;
+      if (saved && saved.date === todayDateKey()) setDay(saved);
+    };
     window.addEventListener("focus", onFocus);
     window.addEventListener(DIET_SETTINGS_CHANGED_EVENT, load);
-    window.addEventListener(DIET_DAY_CHANGED_EVENT, load);
+    window.addEventListener(DIET_DAY_CHANGED_EVENT, onDayChanged);
     window.addEventListener(USER_SETTINGS_SYNC_EVENT, load);
     return () => {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener(DIET_SETTINGS_CHANGED_EVENT, load);
-      window.removeEventListener(DIET_DAY_CHANGED_EVENT, load);
+      window.removeEventListener(DIET_DAY_CHANGED_EVENT, onDayChanged);
       window.removeEventListener(USER_SETTINGS_SYNC_EVENT, load);
     };
   }, [load]);
