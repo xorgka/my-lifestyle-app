@@ -102,12 +102,10 @@ function kcalFor(ex: DietExercise, weightKg: number, amount: number, walkSpeedKm
  * 운동으로 알아볼 수 없는 제목이면 아무것도 안 한다.
  */
 export async function syncExerciseFromItem(dateKey: string, title: string, completed: boolean, itemId: string): Promise<void> {
-  const ex = matchExercise(title);
-  if (!ex) return;
-
   const { day } = await loadDietDay(dateKey);
   const linkedId = `link-${itemId}`;
 
+  // 지우는 건 이름과 무관하게 처리한다 (항목 이름을 바꿔도 체크를 풀면 지워지도록)
   if (!completed) {
     const next = day.exercises.filter((e) => e.id !== linkedId);
     if (next.length === day.exercises.length) return;
@@ -115,6 +113,8 @@ export async function syncExerciseFromItem(dateKey: string, title: string, compl
     return;
   }
 
+  const ex = matchExercise(title);
+  if (!ex) return;
   if (day.exercises.some((e) => e.id === linkedId)) return; // 이미 들어가 있음
 
   const profile = getDietProfile();
