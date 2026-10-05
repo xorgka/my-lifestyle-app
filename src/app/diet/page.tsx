@@ -342,6 +342,8 @@ export default function DietPage() {
   const [amountInput, setAmountInput] = useState<Record<string, string>>({});
   const [customName, setCustomName] = useState("");
   const [customKcal, setCustomKcal] = useState("");
+  /** 고치는 중인 운동 기록 (줄을 더블클릭하면 열림). 기타는 이름·kcal, 나머지는 분·횟수 */
+  const [exEdit, setExEdit] = useState<{ id: string; name: string; amount: string; kcal: string } | null>(null);
 
   // 설정(키·목표·음식·조합): 이 기기에서 바꿀 때·다른 기기에서 동기화될 때 다시 읽기
   useEffect(() => {
@@ -617,6 +619,38 @@ export default function DietPage() {
     tips: [],
   };
   const exerciseDefsAll = [WALK_DEF, ...exerciseDefs.filter((x) => x.id !== WALK_DEF.id)];
+
+  const startExEdit = (e: ExerciseEntry) =>
+    setExEdit({ id: e.id, name: e.name, amount: String(e.reps ?? e.minutes ?? ""), kcal: String(e.kcal) });
+
+  /** 고친 분량으로 칼로리를 다시 계산해 저장. id 는 그대로라 일과 체크와의 연결이 유지된다 */
+  const saveExEdit = () => {
+    if (!day || !exEdit) return;
+    const target = day.exercises.find((x) => x.id === exEdit.id);
+    setExEdit(null);
+    if (!target) return;
+    let next: ExerciseEntry;
+    if (target.type === "custom") {
+      const name = exEdit.name.trim();
+      const k = Number(exEdit.kcal);
+      if (!name || !(k > 0)) return;
+      next = { ...target, name, kcal: Math.round(k) };
+    } else {
+      const n = Number(exEdit.amount);
+      const before = target.reps ?? target.minutes ?? 0;
+      if (!(n > 0) || n === before) return;
+      const def = exerciseDefsAll.find((x) => x.id === target.type);
+      // 몸무게를 모르거나 지운 운동이면 원래 칼로리를 분량에 비례해 바꾼다
+      let kcal = before > 0 ? (target.kcal * n) / before : target.kcal;
+      if (weightNow) {
+        if (target.type === "treadmill") kcal = treadmillKcal(weightNow, target.speed ?? speed, target.incline ?? incline, n);
+        else if (target.type === "walk") kcal = walkKcal(weightNow, walkSpeedKmh, n);
+        else if (def) kcal = definedExerciseKcal(def, weightNow, n);
+      }
+      next = { ...target, kcal: Math.round(kcal), ...(target.reps != null ? { reps: n } : { minutes: n }) };
+    }
+    update({ ...day, exercises: day.exercises.map((x) => (x.id === next.id ? next : x)) });
+  };
 
   const exerciseTips: Record<ExerciseTab, string[]> = {
     treadmill: profile.treadmillTips,
@@ -1011,8 +1045,65 @@ export default function DietPage() {
 
         {exercises.length > 0 && (
           <ul className="mt-3 divide-y divide-neutral-100">
-            {exercises.map((e) => (
-              <li key={e.id} className="flex items-center gap-2 py-2">
+            {exercises.map((e) =>
+              exEdit?.id === e.id ? (
+                <li key={e.id}>
+                  <form
+                    className="flex items-center gap-2 py-1.5"
+                    onSubmit={(ev) => {
+                      ev.preventDefault();
+                      saveExEdit();
+                    }}
+                    onKeyDown={(ev) => ev.key === "Escape" && setExEdit(null)}
+                  >
+                    {e.type === "custom" ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={exEdit.name}
+                          onChange={(ev) => setExEdit({ ...exEdit, name: ev.target.value })}
+                          className={`${inputClass} flex-1 py-1.5`}
+                        />
+                        <input
+                          inputMode="numeric"
+                          value={exEdit.kcal}
+                          onChange={(ev) => setExEdit({ ...exEdit, kcal: ev.target.value })}
+                          className={`${inputClass} w-16 py-1.5 text-right`}
+                        />
+                        <span className="shrink-0 text-sm text-neutral-500">kcal</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">
+                          {e.type === "treadmill"
+                            ? `트레드밀 ${e.incline}% · ${e.speed}km/h`
+                            : exerciseDefsAll.find((x) => x.id === e.type)?.name ?? e.name}
+                        </span>
+                        <input
+                          autoFocus
+                          inputMode="decimal"
+                          value={exEdit.amount}
+                          onChange={(ev) => setExEdit({ ...exEdit, amount: ev.target.value })}
+                          onFocus={(ev) => ev.target.select()}
+                          className={`${inputClass} w-16 py-1.5 text-right`}
+                        />
+                        <span className="shrink-0 text-sm text-neutral-500">{e.reps != null ? "회" : "분"}</span>
+                      </>
+                    )}
+                    <button type="submit" className="shrink-0 rounded-lg bg-neutral-900 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-neutral-700">
+                      저장
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExEdit(null)}
+                      className="shrink-0 rounded-lg px-1.5 py-1.5 text-sm text-neutral-500 hover:text-neutral-800"
+                    >
+                      취소
+                    </button>
+                  </form>
+                </li>
+              ) : (
+              <li key={e.id} className="flex items-center gap-2 py-2" onDoubleClick={() => startExEdit(e)} title="더블클릭하면 고칠 수 있어요">
                 <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">
                   {e.type === "treadmill"
                     ? `트레드밀 ${e.incline}% · ${e.speed}km/h · ${e.minutes}분`
@@ -1031,7 +1122,8 @@ export default function DietPage() {
                   ×
                 </button>
               </li>
-            ))}
+              )
+            )}
           </ul>
         )}
       </section>
