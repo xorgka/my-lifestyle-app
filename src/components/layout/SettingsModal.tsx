@@ -116,7 +116,9 @@ import {
   SIDEBAR_MENU_ITEMS,
   ALWAYS_VISIBLE_MENU_HREF,
   getHiddenSidebarMenus,
+  getHiddenSubMenus,
   setSidebarMenuVisible,
+  setSubMenuVisible,
 } from "@/lib/sidebarMenu";
 import type { WeatherThemeId } from "@/lib/weather";
 
@@ -302,9 +304,13 @@ export function SettingsModal({ onClose }: Props) {
 
   // 사이드바 탭: 메뉴별 표시 여부
   const [hiddenSidebarMenus, setHiddenSidebarMenus] = useState<string[]>([]);
+  const [hiddenSubMenus, setHiddenSubMenus] = useState<string[]>([]);
 
   useEffect(() => {
-    if (activeTab === "sidebar") setHiddenSidebarMenus(getHiddenSidebarMenus());
+    if (activeTab === "sidebar") {
+      setHiddenSidebarMenus(getHiddenSidebarMenus());
+      setHiddenSubMenus(getHiddenSubMenus());
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -736,30 +742,66 @@ export function SettingsModal({ onClose }: Props) {
       return (
         <section className="space-y-4">
           <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">사이드바 메뉴</h3>
-          <p className="text-sm text-neutral-500">끈 메뉴는 사이드바에서 빠져요. 주소로 들어가면 페이지는 그대로 열려요. 홈은 끌 수 없어요.</p>
+          <p className="text-sm text-neutral-500">
+            끈 메뉴는 사이드바에서 빠져요. 주소로 들어가면 페이지는 그대로 열려요. 홈은 끌 수 없어요. 메뉴 안의 하위 메뉴도 하나씩 끌 수
+            있고, 끄면 페이지 제목 옆 링크에서 빠져요.
+          </p>
           <div className="space-y-2">
             {SIDEBAR_MENU_ITEMS.map((item) => {
               const locked = item.href === ALWAYS_VISIBLE_MENU_HREF;
               const visible = !hiddenSidebarMenus.includes(item.href);
+              const children = item.children ?? [];
+              const visibleChildCount = children.filter((c) => !hiddenSubMenus.includes(c.href)).length;
               return (
-                <label
-                  key={item.href}
-                  className={`flex items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-white p-4 transition ${
-                    locked ? "cursor-default opacity-60" : "cursor-pointer hover:bg-neutral-50"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-neutral-800">{item.label}</p>
-                  <input
-                    type="checkbox"
-                    checked={visible}
-                    disabled={locked}
-                    onChange={(e) => {
-                      setSidebarMenuVisible(item.href, e.target.checked);
-                      setHiddenSidebarMenus(getHiddenSidebarMenus());
-                    }}
-                    className="h-5 w-5 shrink-0 rounded border-neutral-300 text-neutral-800"
-                  />
-                </label>
+                <div key={item.href} className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                  <label
+                    className={`flex items-center justify-between gap-4 p-4 transition ${
+                      locked ? "cursor-default opacity-60" : "cursor-pointer hover:bg-neutral-50"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-neutral-800">{item.label}</p>
+                    <input
+                      type="checkbox"
+                      checked={visible}
+                      disabled={locked}
+                      onChange={(e) => {
+                        setSidebarMenuVisible(item.href, e.target.checked);
+                        setHiddenSidebarMenus(getHiddenSidebarMenus());
+                      }}
+                      className="h-5 w-5 shrink-0 rounded border-neutral-300 text-neutral-800"
+                    />
+                  </label>
+                  {/* 하위 메뉴: 메뉴를 껐으면 흐리게, 마지막 하나는 끌 수 없게 */}
+                  {children.length > 0 && (
+                    <div className={`border-t border-neutral-100 bg-neutral-50/60 py-1 ${visible ? "" : "opacity-50"}`}>
+                      {children.map((child) => {
+                        const childVisible = !hiddenSubMenus.includes(child.href);
+                        const lastOne = childVisible && visibleChildCount === 1;
+                        return (
+                          <label
+                            key={child.href}
+                            className={`flex items-center justify-between gap-4 py-2 pl-8 pr-4 transition ${
+                              lastOne ? "cursor-default" : "cursor-pointer hover:bg-neutral-100/70"
+                            }`}
+                            title={lastOne ? "하위 메뉴는 하나 이상 켜져 있어야 해요" : undefined}
+                          >
+                            <p className="text-sm text-neutral-600">{child.label}</p>
+                            <input
+                              type="checkbox"
+                              checked={childVisible}
+                              disabled={lastOne}
+                              onChange={(e) => {
+                                setSubMenuVisible(child.href, e.target.checked);
+                                setHiddenSubMenus(getHiddenSubMenus());
+                              }}
+                              className="h-4 w-4 shrink-0 rounded border-neutral-300 text-neutral-800 disabled:opacity-40"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

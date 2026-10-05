@@ -10,7 +10,13 @@ import { SnippetsModal } from "./SnippetsModal";
 import { YoutubePlayerBar } from "./YoutubePlayerBar";
 import { ClockWidget } from "./ClockWidget";
 import { loadScheduleEntries, getTodayCount } from "@/lib/scheduleDb";
-import { SIDEBAR_MENU_ITEMS, SIDEBAR_MENU_CHANGED_EVENT, getHiddenSidebarMenus } from "@/lib/sidebarMenu";
+import {
+  SIDEBAR_MENU_ITEMS,
+  SIDEBAR_MENU_CHANGED_EVENT,
+  getHiddenSidebarMenus,
+  getHiddenSubMenus,
+  sidebarMenuTarget,
+} from "@/lib/sidebarMenu";
 import { USER_SETTINGS_SYNC_EVENT } from "@/lib/userSettings";
 
 const MENU_ICONS: Record<string, LucideIcon> = {
@@ -36,10 +42,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const [snippetsOpen, setSnippetsOpen] = useState(false);
   const [scheduleBadge, setScheduleBadge] = useState(0);
   const [hiddenMenus, setHiddenMenus] = useState<string[]>([]);
+  /** 꺼 둔 하위 메뉴. 메뉴를 누르면 켜져 있는 첫 하위 메뉴로 간다 */
+  const [hiddenSubMenus, setHiddenSubMenus] = useState<string[]>([]);
 
   // 설정에서 끈 메뉴는 목록에서 뺌
   useEffect(() => {
-    const sync = () => setHiddenMenus(getHiddenSidebarMenus());
+    const sync = () => {
+      setHiddenMenus(getHiddenSidebarMenus());
+      setHiddenSubMenus(getHiddenSubMenus());
+    };
     sync();
     window.addEventListener(SIDEBAR_MENU_CHANGED_EVENT, sync);
     window.addEventListener(USER_SETTINGS_SYNC_EVENT, sync);
@@ -82,7 +93,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={sidebarMenuTarget(item, hiddenSubMenus)}
               onClick={onNavigate}
               className={clsx(
                 "group flex min-h-[44px] items-center gap-2 rounded-2xl px-5 py-3 text-[17px] font-medium tracking-tight transition-all sm:min-h-0 sm:px-6 md:max-xl:rounded-xl md:max-xl:pl-3 md:max-xl:pr-1 md:max-xl:py-2 md:max-xl:text-[15px]",
