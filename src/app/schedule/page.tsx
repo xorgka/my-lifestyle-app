@@ -165,7 +165,7 @@ function applyScheduleOrder(
 export default function SchedulePage() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("today");
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [addOpen, setAddOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
@@ -338,8 +338,6 @@ export default function SchedulePage() {
       <div className="flex flex-wrap items-center gap-3">
         {(
           [
-            { mode: "today" as ViewMode, label: "오늘" },
-            { mode: "week" as ViewMode, label: "이번 주" },
             { mode: "month" as ViewMode, label: "이번 달" },
           ] as const
         ).map(({ mode, label }) => (
