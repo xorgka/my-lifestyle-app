@@ -15,8 +15,6 @@ import { ScheduleFormModal } from "@/components/schedule/ScheduleFormModal";
 import { localDateStr, todayStr } from "@/lib/dateUtil";
 
 const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
-/** 일정이 이 개수를 넘으면 (개수-1)개만 보이고 나머지는 +N */
-const MAX_ITEMS_PER_CELL = 2;
 
 /** 해당 월을 채우는 달력 셀 (일~토, 필요한 주 수만큼) */
 function buildCells(year: number, month: number) {
@@ -64,12 +62,42 @@ function dotClass(item: ScheduleItem): string {
   return "bg-neutral-500";
 }
 
-/** 홈용 월간 달력: 날짜별 일정을 한눈에. 칸을 누르면 스케줄 페이지로 이동 */
-export function HomeCalendarCard({ className = "" }: { className?: string }) {
+/**
+ * 월간 달력: 날짜별 일정을 한눈에. 홈과 스케줄 페이지가 같이 쓴다.
+ * 스케줄 페이지는 entries·onItemClick·onAddClick을 넘겨 일정 목록과 수정·추가를 페이지 쪽에서 다룬다.
+ */
+export function HomeCalendarCard({
+  className = "",
+  initialYear,
+  initialMonth,
+  entries: entriesProp,
+  builtinVersion = 0,
+  onItemClick,
+  onAddClick,
+  linkTitle = true,
+  maxItemsPerCell = 2,
+}: {
+  className?: string;
+  initialYear?: number;
+  initialMonth?: number;
+  /** 넘기면 직접 불러오지 않고 이 목록을 쓴다 */
+  entries?: ScheduleEntry[];
+  /** 기본 일정(생일 등)을 지웠을 때 다시 계산하도록 바꿔 주는 값 */
+  builtinVersion?: number;
+  /** 넘기면 일정을 눌렀을 때 호출 (수정·삭제용) */
+  onItemClick?: (item: ScheduleItem, dateStr: string) => void;
+  /** 넘기면 + 버튼이 자체 추가 폼 대신 이걸 호출 */
+  onAddClick?: () => void;
+  /** 제목을 눌러 스케줄 페이지로 이동할지 */
+  linkTitle?: boolean;
+  /** 일정이 이 개수를 넘으면 (개수-1)개만 보이고 나머지는 +N */
+  maxItemsPerCell?: number;
+}) {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [entries, setEntries] = useState<ScheduleEntry[]>([]);
+  const [year, setYear] = useState(initialYear ?? now.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? now.getMonth() + 1);
+  const [loadedEntries, setEntries] = useState<ScheduleEntry[]>([]);
+  const entries = entriesProp ?? loadedEntries;
   /** 일정 목록 모달로 보고 있는 날짜 (YYYY-MM-DD) */
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   /** 스케줄 추가 폼 모달 */
@@ -102,10 +130,11 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
   }, []);
 
   useEffect(() => {
+    if (entriesProp) return;
     refresh();
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
-  }, [refresh]);
+  }, [refresh, entriesProp != null]);
 
   const { cells, rows } = useMemo(
     () => (isMobile ? buildWeekCells(weekStart) : buildCells(year, month)),
@@ -123,18 +152,18 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
 
   const itemsByDate = useMemo(() => {
     const map: Record<string, ScheduleItem[]> = {};
-    const items = getScheduleItemsInRange(cells[0].dateStr, cells[cells.length - 1].dateStr, entries, 0);
+    const items = getScheduleItemsInRange(cells[0].dateStr, cells[cells.length - 1].dateStr, entries, builtinVersion);
     for (const item of items) (map[item.date] ??= []).push(item);
     Object.values(map).forEach((list) =>
       list.sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99"))
     );
     return map;
-  }, [cells, entries]);
+  }, [cells, entries, builtinVersion]);
 
   const selectedItems = useMemo(() => {
-    const list = getScheduleItemsInRange(selectedDate, selectedDate, entries, 0);
+    const list = getScheduleItemsInRange(selectedDate, selectedDate, entries, builtinVersion);
     return list.sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99"));
-  }, [selectedDate, entries]);
+  }, [selectedDate, entries, builtinVersion]);
 
   /** 데스크톱은 일정 있는 날짜에 모달, 모바일은 아래 목록 선택 */
   const handleCellClick = (dateStr: string, hasItems: boolean) => {
@@ -179,13 +208,19 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
             </svg>
           </button>
           {/* 누르면 스케줄 페이지 '이번 달' 보기로 이 달을 열기 */}
-          <Link
-            href={`/schedule?view=month&y=${titleYear}&m=${titleMonth}`}
-            className="min-w-[6.5rem] rounded-lg text-center text-xl font-semibold text-neutral-800 underline-offset-4 transition hover:underline"
-            title="스케줄에서 이 달 보기"
-          >
-            {titleYear}년 {titleMonth}월
-          </Link>
+          {linkTitle ? (
+            <Link
+              href={`/schedule?view=month&y=${titleYear}&m=${titleMonth}`}
+              className="min-w-[6.5rem] whitespace-nowrap rounded-lg text-center text-xl font-semibold text-neutral-800 underline-offset-4 transition hover:underline"
+              title="스케줄에서 이 달 보기"
+            >
+              {titleYear}년 {titleMonth}월
+            </Link>
+          ) : (
+            <span className="min-w-[6.5rem] whitespace-nowrap text-center text-xl font-semibold text-neutral-800">
+              {titleYear}년 {titleMonth}월
+            </span>
+          )}
           <button type="button" onClick={() => shift(1)} className={navButton} aria-label={isMobile ? "다음 주" : "다음 달"}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -201,7 +236,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
         </div>
         <button
           type="button"
-          onClick={() => setAddOpen(true)}
+          onClick={() => (onAddClick ? onAddClick() : setAddOpen(true))}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-white transition hover:bg-neutral-700"
           aria-label="스케줄 추가"
           title="스케줄 추가"
@@ -251,7 +286,7 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
           /** 시스템 일정(공휴일·생일·기타)은 날짜 숫자 오른쪽에 작게, 내 일정만 아래 목록에 */
           const systemItems = items.filter((it) => it.type !== "user");
           const userItems = items.filter((it) => it.type === "user");
-          const visibleItems = userItems.length > MAX_ITEMS_PER_CELL ? userItems.slice(0, MAX_ITEMS_PER_CELL - 1) : userItems;
+          const visibleItems = userItems.length > maxItemsPerCell ? userItems.slice(0, maxItemsPerCell - 1) : userItems;
           const extra = userItems.length - visibleItems.length;
           return (
             <div
@@ -311,7 +346,15 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
                 {visibleItems.map((item, i) => (
                   <li
                     key={i}
-                    className={`truncate rounded px-1 py-0 text-[15px] md:max-xl:text-[14px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"}`}
+                    onClick={
+                      onItemClick
+                        ? (e) => {
+                            e.stopPropagation();
+                            onItemClick(item, cell.dateStr);
+                          }
+                        : undefined
+                    }
+                    className={`truncate rounded px-1 py-0 text-[15px] md:max-xl:text-[14px] font-semibold leading-tight ${chipClass(item)} ${cell.isCurrentMonth ? "" : "opacity-50"} ${onItemClick ? "cursor-pointer hover:brightness-95" : ""}`}
                     title={item.time ? `${item.time} ${item.title}` : item.title}
                   >
                     {item.time && <span className="mr-1 font-medium text-neutral-400">{formatScheduleTime(item.time)}</span>}
@@ -338,7 +381,11 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
         ) : (
           <ul className="space-y-1.5">
             {selectedItems.map((item, i) => (
-              <li key={i} className={`rounded-xl px-3 py-2 text-[15px] font-semibold ${chipClass(item)}`}>
+              <li
+                key={i}
+                onClick={onItemClick ? () => onItemClick(item, selectedDate) : undefined}
+                className={`rounded-xl px-3 py-2 text-[15px] font-semibold ${chipClass(item)} ${onItemClick ? "cursor-pointer" : ""}`}
+              >
                 {item.time && <span className="mr-2 font-medium opacity-60">{formatScheduleTime(item.time)}</span>}
                 {item.title}
               </li>
@@ -394,7 +441,19 @@ export function HomeCalendarCard({ className = "" }: { className?: string }) {
               </div>
               <ul className="space-y-2">
                 {(itemsByDate[dayModalDate] ?? []).map((item, i) => (
-                  <li key={i} className={`rounded-xl px-3 py-2 text-base font-semibold ${chipClass(item)}`}>
+                  <li
+                    key={i}
+                    onClick={
+                      onItemClick
+                        ? () => {
+                            const d = dayModalDate;
+                            setDayModalDate(null);
+                            onItemClick(item, d);
+                          }
+                        : undefined
+                    }
+                    className={`rounded-xl px-3 py-2 text-base font-semibold ${chipClass(item)} ${onItemClick ? "cursor-pointer hover:brightness-95" : ""}`}
+                  >
                     {item.time && <span className="mr-2 font-medium opacity-70">{formatScheduleTime(item.time)}</span>}
                     {item.title}
                   </li>

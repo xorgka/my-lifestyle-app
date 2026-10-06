@@ -37,6 +37,7 @@ import {
 import { getHolidaysOn } from "@/lib/scheduleHolidays";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { ScheduleFormModal, type FormPayload } from "@/components/schedule/ScheduleFormModal";
+import { HomeCalendarCard } from "@/components/home/HomeCalendarCard";
 
 type ViewMode = "today" | "week" | "month" | "search";
 
@@ -951,177 +952,18 @@ export default function SchedulePage() {
         )}
 
       {!loading && viewMode === "month" && (
-        <Card className="min-w-0 hover:translate-y-0 hover:shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (calendarMonth <= 1) {
-                  setCalendarMonth(12);
-                  setCalendarYear(calendarYear - 1);
-                } else setCalendarMonth(calendarMonth - 1);
-              }}
-              className="rounded-xl px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-            >
-              <span aria-hidden>←</span><span className="hidden md:inline md:ml-0.5">이전 달</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMonthPickerOpen((o) => !o)}
-              className="rounded-xl px-4 py-2 text-xl font-semibold text-neutral-800 hover:bg-neutral-100"
-            >
-              {calendarYear}년 {calendarMonth}월
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (calendarMonth >= 12) {
-                  setCalendarMonth(1);
-                  setCalendarYear(calendarYear + 1);
-                } else setCalendarMonth(calendarMonth + 1);
-              }}
-              className="rounded-xl px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-            >
-              <span className="hidden md:inline md:mr-0.5">다음 달</span><span aria-hidden>→</span>
-            </button>
-          </div>
-          {monthPickerOpen && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-              <span className="w-full text-xs text-neutral-500">연도</span>
-              <select
-                value={calendarYear}
-                onChange={(e) => setCalendarYear(Number(e.target.value))}
-                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-              >
-                {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map((y) => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
-              <span className="w-full text-xs text-neutral-500 mt-2">월</span>
-              <div className="flex flex-wrap gap-1">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => {
-                      setCalendarMonth(m);
-                      setMonthPickerOpen(false);
-                    }}
-                    className={`rounded-xl px-3 py-2 text-sm font-medium ${
-                      calendarMonth === m ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-100"
-                    }`}
-                  >
-                    {m}월
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-7 gap-px rounded-xl border border-neutral-200/80 bg-neutral-200/80 overflow-hidden">
-            {WEEKDAY_NAMES.map((w, i) => (
-              <div
-                key={w}
-                className={`bg-neutral-700 py-2 text-center text-xs font-semibold md:py-2.5 md:text-base ${
-                  i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-white"
-                }`}
-              >
-                {w}
-              </div>
-            ))}
-            {getCalendarCells(calendarYear, calendarMonth).map((cell, idx) => {
-              const isHoliday = getHolidaysOn(cell.dateStr).length > 0;
-              const isToday = cell.isCurrentMonth && cell.dateStr === todayStr();
-              const cellItems = itemsByDate[cell.dateStr] ?? [];
-              /** 시스템 일정(공휴일·생일·기타)은 날짜 숫자 오른쪽에 작게, 내 일정만 아래 목록에 */
-              const systemItems = cellItems.filter((it) => it.type !== "user");
-              const userItems = cellItems.filter((it) => it.type === "user");
-              return (
-                <div
-                  key={idx}
-                  className={`flex min-h-[72px] flex-col overflow-hidden p-1.5 md:min-h-[80px] md:overflow-y-auto md:p-2 ${
-                    cell.isCurrentMonth ? "bg-white" : "bg-neutral-50"
-                  } ${isToday ? "ring-2 ring-neutral-800 ring-inset" : ""}`}
-                >
-                  <div className="flex min-w-0 items-baseline justify-between gap-1">
-                    <span
-                      className={`shrink-0 text-xs font-medium md:text-sm ${
-                        cell.isCurrentMonth
-                          ? isHoliday
-                            ? "text-red-600"
-                            : "text-neutral-800"
-                          : "text-neutral-400"
-                      }`}
-                    >
-                      {cell.dayNum}
-                    </span>
-                    {systemItems.length > 0 && (
-                      <span className={`hidden min-w-0 items-baseline justify-end gap-1 truncate md:flex ${cell.isCurrentMonth ? "" : "opacity-50"}`}>
-                        {systemItems.map((item, i) => (
-                          <button
-                            key={`${cell.dateStr}-sys-${i}`}
-                            type="button"
-                            onClick={() => setWeekItemModal({ ...item, dateStr: cell.dateStr })}
-                            className={`truncate text-[11px] font-semibold leading-tight hover:underline ${
-                              item.type === "holiday"
-                                ? "text-red-500"
-                                : item.builtinKind === "birthday"
-                                  ? "text-violet-500"
-                                  : "text-slate-400"
-                            }`}
-                            title={item.title}
-                          >
-                            {item.title}
-                          </button>
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                  {/* 모바일: 개수만 표시, 클릭 시 해당 날짜 스케줄 모달 */}
-                  {cellItems.length > 0 ? (
-                    <div className="mt-1.5 flex flex-1 items-center justify-center md:hidden">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setDayModalDate(cell.dateStr)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setDayModalDate(cell.dateStr);
-                          }
-                        }}
-                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700"
-                      >
-                        {cellItems.length}
-                      </div>
-                    </div>
-                  ) : null}
-                  {/* 데스크톱: 스케줄 목록 */}
-                  <ul className="mt-1.5 hidden space-y-1 md:block">
-                    {userItems.map((item, i) => (
-                      <li
-                        key={item.type === "user" ? item.entryId! : `${cell.dateStr}-${item.title}-${i}`}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setWeekItemModal({ ...item, dateStr: cell.dateStr })}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setWeekItemModal({ ...item, dateStr: cell.dateStr });
-                          }
-                        }}
-                        className={`cursor-pointer truncate rounded border px-2 py-1 text-[13px] transition ${getSystemCategoryCardClass(item, { calendar: true })}`}
-                        title={getScheduleItemDisplayTitle(item)}
-                      >
-                        {item.time && <span className="mr-1 font-medium text-neutral-400">{formatScheduleTime(item.time)}</span>}
-                        {item.title}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+        <HomeCalendarCard
+          key={`${calendarYear}-${calendarMonth}`}
+          className="md:h-[760px]"
+          initialYear={calendarYear}
+          initialMonth={calendarMonth}
+          entries={entries}
+          builtinVersion={builtinDeletedVersion}
+          onItemClick={(item, dateStr) => setWeekItemModal({ ...item, dateStr })}
+          onAddClick={() => setAddOpen(true)}
+          linkTitle={false}
+          maxItemsPerCell={4}
+        />
       )}
 
 {addOpen &&
