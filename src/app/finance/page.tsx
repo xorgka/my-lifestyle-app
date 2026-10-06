@@ -1892,7 +1892,7 @@ placeholder="항목"
           <button
             type="button"
             onClick={() => setShowMemoModal(true)}
-            className="relative flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 text-[15px] font-medium text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
+            className="relative flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 text-[15px] font-[560] text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
             title={`${memoMonthLabel} 메모`}
             aria-label={`${memoMonthLabel} 메모`}
           >
