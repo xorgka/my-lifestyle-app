@@ -1892,7 +1892,7 @@ placeholder="항목"
           <button
             type="button"
             onClick={() => setShowMemoModal(true)}
-            className="relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
+            className="relative flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 text-[15px] font-medium text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-900"
             title={`${memoMonthLabel} 메모`}
             aria-label={`${memoMonthLabel} 메모`}
           >
@@ -1904,7 +1904,7 @@ placeholder="항목"
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-[18px] w-[18px]"
+              className="h-5 w-5"
             >
               <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z" />
               <path d="M8 8h8M8 12h8M8 16h5" />
@@ -2337,7 +2337,7 @@ placeholder="항목"
             onClick={closeMemoModal}
           >
             <div
-              className="my-auto w-full max-w-md shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+              className="my-auto w-full max-w-3xl shrink-0 rounded-2xl bg-white p-6 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-2">
@@ -2359,7 +2359,7 @@ placeholder="항목"
                 value={currentMonthMemo}
                 onChange={(e) => onMonthMemoChange(e.target.value)}
                 placeholder="메모를 입력하세요…"
-                className="mt-4 h-48 w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-neutral-800 outline-none focus:border-neutral-400"
+                className="mt-4 h-[60vh] min-h-[16rem] w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-neutral-800 outline-none focus:border-neutral-400"
               />
             </div>
           </div>,
