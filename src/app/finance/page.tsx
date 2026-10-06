@@ -2337,7 +2337,7 @@ placeholder="항목"
             onClick={closeMemoModal}
           >
             <div
-              className="my-auto w-full max-w-3xl shrink-0 rounded-2xl bg-white p-6 shadow-xl"
+              className="my-auto w-full max-w-[614px] shrink-0 rounded-2xl bg-white p-6 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-2">
@@ -2359,7 +2359,7 @@ placeholder="항목"
                 value={currentMonthMemo}
                 onChange={(e) => onMonthMemoChange(e.target.value)}
                 placeholder="메모를 입력하세요…"
-                className="mt-4 h-[60vh] min-h-[16rem] w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-neutral-800 outline-none focus:border-neutral-400"
+                className="mt-4 h-[36vh] min-h-[9.6rem] w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-neutral-800 outline-none focus:border-neutral-400"
               />
             </div>
           </div>,
