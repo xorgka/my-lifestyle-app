@@ -24,6 +24,7 @@ import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
 import { syncAlertBarSettingsFromSupabase } from "@/lib/alertBarSettings";
 import { syncUserSettingsFromSupabase } from "@/lib/userSettings";
+import { fixSamgyeopTo100g } from "@/lib/dietDb";
 import { syncInsightBgFromSupabase } from "@/lib/insightBg";
 import { syncWeatherBgFromSupabase } from "@/lib/weatherBg";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -65,7 +66,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       syncWeatherBgFromSupabase(),
       syncInsightBgFromSupabase(),
       syncUserSettingsFromSupabase(),
-    ]).then(() => setPopupConfigVersion((v) => v + 1));
+    ]).then(() => {
+      setPopupConfigVersion((v) => v + 1);
+      // 설정이 서버 값으로 맞춰진 뒤에 삼겹살 150g → 100g 보정 (한 번만)
+      void fixSamgyeopTo100g().catch(() => {});
+    });
   }, []);
 
   return (

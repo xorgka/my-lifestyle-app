@@ -120,7 +120,7 @@ export const DEFAULT_DIET_EXERCISES: DietExercise[] = [
 const RICE: DietFood = { name: "작은 햇반 (130g)", kcal: 195 };
 const GIM: DietFood = { name: "김 (도시락김 1봉)", kcal: 30 };
 const DEFAULT_COMBO_FOODS = {
-  samgyeop: { name: "삼겹살 (150g)", kcal: 500 },
+  samgyeop: { name: "삼겹살 (100g)", kcal: 333 },
   sauce: { name: "기름장·쌈장", kcal: 60 },
   greens: { name: "양상추·배추 (쌈 채소)", kcal: 15 },
   chicken: { name: "닭가슴살 (100g)", kcal: 110 },
@@ -323,4 +323,72 @@ export async function loadWeightLog(): Promise<{ date: string; weightKg: number 
     .filter((d) => d.weightKg != null)
     .map((d) => ({ date: d.date, weightKg: Number(d.weightKg) }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ---------- 일회성 보정 ----------
+
+const SAMGYEOP_OLD = "삼겹살 (150g)";
+const SAMGYEOP_NEW = "삼겹살 (100g)";
+const SAMGYEOP_FIX_DONE_KEY = "diet-fix-samgyeop-100g";
+
+/** 150g 기준 칼로리를 100g으로 (예: 500 → 333) */
+function samgyeopKcal(kcal: number): number {
+  return Math.round((kcal * 100) / 150);
+}
+
+/**
+ * 삼겹살은 실제로 100g이었다: 지난 기록·음식 목록·조합의 "삼겹살 (150g)"을 전부 "삼겹살 (100g)"으로 바꾸고 칼로리도 100/150로 줄인다.
+ * 이름이 정확히 같은 항목만 바꾸므로 여러 번 돌아도 안전하다. 설정 동기화가 끝난 뒤에 불러야 서버 값을 덮어쓰지 않는다.
+ */
+export async function fixSamgyeopTo100g(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(SAMGYEOP_FIX_DONE_KEY)) return;
+  } catch {}
+
+  // 서버 기록을 못 읽으면(오프라인 등) 다음에 다시 시도한다
+  let days: DietDay[];
+  if (supabase) {
+    const { data, error } = await supabase.from("diet_days").select("*");
+    if (error) return;
+    days = (data ?? []).map(rowToDay);
+  } else {
+    days = Object.values(loadAllLocal()).map((d) => ({ ...emptyDay(d.date), ...d }));
+  }
+
+  const fixFood = (f: DietFood): DietFood => (f.name === SAMGYEOP_OLD ? { name: SAMGYEOP_NEW, kcal: samgyeopKcal(f.kcal) } : f);
+
+  const foods = getDietFoods();
+  if (foods.some((f) => f.name === SAMGYEOP_OLD)) {
+    // 이미 100g 항목이 있으면 겹치지 않게 150g 항목은 빼기만 한다
+    const hasNew = foods.some((f) => f.name === SAMGYEOP_NEW);
+    saveDietFoods(hasNew ? foods.filter((f) => f.name !== SAMGYEOP_OLD) : foods.map(fixFood));
+  }
+  const combos = getDietCombos();
+  if (combos.some((c) => c.items.some((i) => i.name === SAMGYEOP_OLD))) {
+    saveDietCombos(combos.map((c) => ({ ...c, items: c.items.map(fixFood) })));
+  }
+
+  let failed = false;
+  for (const day of days) {
+    if (!day.meals.some((m) => m.name === SAMGYEOP_OLD)) continue;
+    const fixed: DietDay = {
+      ...day,
+      meals: day.meals.map((m) => (m.name === SAMGYEOP_OLD ? { ...m, name: SAMGYEOP_NEW, kcal: samgyeopKcal(m.kcal) } : m)),
+    };
+    saveLocal(fixed);
+    window.dispatchEvent(new CustomEvent<DietDay>(DIET_DAY_CHANGED_EVENT, { detail: fixed }));
+    if (supabase) {
+      const { error } = await supabase
+        .from("diet_days")
+        .update({ meals: fixed.meals, updated_at: new Date().toISOString() })
+        .eq("date", fixed.date);
+      if (error) failed = true;
+    }
+  }
+  if (failed) return;
+
+  try {
+    window.localStorage.setItem(SAMGYEOP_FIX_DONE_KEY, "1");
+  } catch {}
 }
