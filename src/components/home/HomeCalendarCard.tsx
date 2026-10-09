@@ -86,8 +86,8 @@ export function HomeCalendarCard({
   builtinVersion?: number;
   /** 넘기면 일정을 눌렀을 때 호출 (수정·삭제용) */
   onItemClick?: (item: ScheduleItem, dateStr: string) => void;
-  /** 넘기면 + 버튼이 자체 추가 폼 대신 이걸 호출 */
-  onAddClick?: () => void;
+  /** 넘기면 + 버튼·날짜 클릭이 자체 추가 폼 대신 이걸 호출 (날짜를 눌렀으면 그 날짜) */
+  onAddClick?: (dateStr?: string) => void;
   /** 제목을 눌러 스케줄 페이지로 이동할지 */
   linkTitle?: boolean;
   /** 일정이 이 개수를 넘으면 (개수-1)개만 보이고 나머지는 +N */
@@ -102,6 +102,8 @@ export function HomeCalendarCard({
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   /** 스케줄 추가 폼 모달 */
   const [addOpen, setAddOpen] = useState(false);
+  /** 날짜를 눌러 추가할 때 폼에 미리 채울 날짜 */
+  const [addDate, setAddDate] = useState<string | undefined>(undefined);
   /** 모바일: 누른 날짜의 일정을 달력 아래에 펼쳐 보여줌 */
   const [selectedDate, setSelectedDate] = useState(() => todayStr());
   /** 모바일은 한 주만 보여줌 (화살표로 주 이동) */
@@ -165,10 +167,20 @@ export function HomeCalendarCard({
     return list.sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99"));
   }, [selectedDate, entries, builtinVersion]);
 
-  /** 데스크톱은 일정 있는 날짜에 모달, 모바일은 아래 목록 선택 */
+  const openAdd = (dateStr?: string) => {
+    if (onAddClick) {
+      onAddClick(dateStr);
+      return;
+    }
+    setAddDate(dateStr);
+    setAddOpen(true);
+  };
+
+  /** 데스크톱: 일정 있는 날짜는 일정 모달(거기서 추가 가능), 빈 날짜는 바로 추가. 모바일은 아래 목록 선택 */
   const handleCellClick = (dateStr: string, hasItems: boolean) => {
     if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
       if (hasItems) setDayModalDate(dateStr);
+      else openAdd(dateStr);
       return;
     }
     setSelectedDate(dateStr);
@@ -236,7 +248,7 @@ export function HomeCalendarCard({
         </div>
         <button
           type="button"
-          onClick={() => (onAddClick ? onAddClick() : setAddOpen(true))}
+          onClick={() => openAdd()}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-white transition hover:bg-neutral-700"
           aria-label="스케줄 추가"
           title="스케줄 추가"
@@ -301,7 +313,7 @@ export function HomeCalendarCard({
                 }
               }}
               className={`flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition md:p-1 ${
-                items.length > 0 ? "md:hover:bg-neutral-50" : "md:cursor-default"
+                "md:hover:bg-neutral-50"
               } ${
                 cell.dateStr === selectedDate
                   ? cell.isCurrentMonth
@@ -370,11 +382,20 @@ export function HomeCalendarCard({
 
       {/* 모바일: 선택한 날짜의 일정 목록 */}
       <div className="mt-3 md:hidden">
-        <div className="mb-1.5 text-sm font-semibold text-neutral-800">
-          {(() => {
-            const d = new Date(selectedDate + "T12:00:00");
-            return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY_NAMES[d.getDay()]})`;
-          })()}
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-neutral-800">
+            {(() => {
+              const d = new Date(selectedDate + "T12:00:00");
+              return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY_NAMES[d.getDay()]})`;
+            })()}
+          </span>
+          <button
+            type="button"
+            onClick={() => openAdd(selectedDate)}
+            className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-medium text-neutral-600 transition hover:bg-neutral-200"
+          >
+            + 일정 추가
+          </button>
         </div>
         {selectedItems.length === 0 ? (
           <p className="py-2 text-sm text-neutral-400">일정이 없어요</p>
@@ -399,6 +420,7 @@ export function HomeCalendarCard({
         createPortal(
           <ScheduleFormModal
             modalTitle="스케줄 추가"
+            initialDate={addDate}
             onClose={() => setAddOpen(false)}
             onSubmit={async (payload) => {
               await addScheduleEntry(payload);
@@ -459,6 +481,17 @@ export function HomeCalendarCard({
                   </li>
                 ))}
               </ul>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = dayModalDate;
+                  setDayModalDate(null);
+                  openAdd(d);
+                }}
+                className="mt-3 w-full rounded-xl border border-dashed border-neutral-300 px-3 py-2.5 text-[15px] font-semibold text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-800"
+              >
+                + 이 날 일정 추가
+              </button>
             </div>
           </div>,
           document.body
