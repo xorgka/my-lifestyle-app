@@ -24,24 +24,28 @@ export function ScheduleFormModal({
   onDelete,
   modalTitle,
   initial,
+  initialDate,
 }: {
   onClose: () => void;
   onSubmit: (p: FormPayload) => Promise<void>;
   onDelete?: () => void | Promise<void>;
   modalTitle: string;
   initial?: ScheduleEntry;
+  /** 새로 추가할 때 미리 채울 날짜 (YYYY-MM-DD). 달력에서 날짜를 눌러 열 때 */
+  initialDate?: string;
 }) {
+  const startDate = initialDate ? new Date(initialDate + "T12:00:00") : null;
   const [title, setTitle] = useState(initial?.title ?? "");
   const [scheduleType, setScheduleType] = useState<ScheduleType>(
     initial?.scheduleType ?? "once"
   );
   const [onceDate, setOnceDate] = useState(
-    initial?.onceDate ?? todayStr()
+    initial?.onceDate ?? initialDate ?? todayStr()
   );
-  const [monthlyDay, setMonthlyDay] = useState(initial?.monthlyDay ?? 15);
-  const [yearlyMonth, setYearlyMonth] = useState(initial?.yearlyMonth ?? 1);
-  const [yearlyDay, setYearlyDay] = useState(initial?.yearlyDay ?? 1);
-  const [weeklyDay, setWeeklyDay] = useState(initial?.weeklyDay ?? 1);
+  const [monthlyDay, setMonthlyDay] = useState(initial?.monthlyDay ?? startDate?.getDate() ?? 15);
+  const [yearlyMonth, setYearlyMonth] = useState(initial?.yearlyMonth ?? (startDate ? startDate.getMonth() + 1 : 1));
+  const [yearlyDay, setYearlyDay] = useState(initial?.yearlyDay ?? startDate?.getDate() ?? 1);
+  const [weeklyDay, setWeeklyDay] = useState(initial?.weeklyDay ?? startDate?.getDay() ?? 1);
   const [time, setTime] = useState(initial?.time ?? "");
   const [important, setImportant] = useState(initial?.important ?? false);
   const [saving, setSaving] = useState(false);

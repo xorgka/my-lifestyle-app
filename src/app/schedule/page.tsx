@@ -168,6 +168,8 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [addOpen, setAddOpen] = useState(false);
+  /** 달력에서 날짜를 눌러 추가할 때 미리 채울 날짜 */
+  const [addDate, setAddDate] = useState<string | undefined>(undefined);
   const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth() + 1);
@@ -901,7 +903,10 @@ export default function SchedulePage() {
           entries={entries}
           builtinVersion={builtinDeletedVersion}
           onItemClick={(item, dateStr) => setWeekItemModal({ ...item, dateStr })}
-          onAddClick={() => setAddOpen(true)}
+          onAddClick={(dateStr) => {
+            setAddDate(dateStr);
+            setAddOpen(true);
+          }}
           linkTitle={false}
           maxItemsPerCell={4}
         />
@@ -911,6 +916,7 @@ export default function SchedulePage() {
         typeof document !== "undefined" &&
         createPortal(
           <ScheduleFormModal
+            initialDate={addDate}
             onClose={() => setAddOpen(false)}
             onSubmit={handleAdd}
             modalTitle="스케줄 추가"
