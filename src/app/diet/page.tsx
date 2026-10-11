@@ -11,6 +11,11 @@ import { Settings } from "lucide-react";
 import {
   DEFAULT_DIET_PROFILE,
   DIET_SETTINGS_CHANGED_EVENT,
+  estimateMissingProtein,
+  getFoodProtein,
+  proteinFor,
+  setFoodProtein,
+  type FoodProteinMap,
   MEAL_TYPES,
   type DietCombo,
   type DietDay,
@@ -108,6 +113,8 @@ function MealBlock({
   onAdd,
   onRemove,
   onSaveCombo,
+  proteinMap,
+  onEditProtein,
 }: {
   meal: MealType;
   label: string;
@@ -117,6 +124,8 @@ function MealBlock({
   onAdd: (items: DietFood[]) => void;
   onRemove: (id: string) => void;
   onSaveCombo: (name: string, items: DietFood[]) => void;
+  proteinMap: FoodProteinMap;
+  onEditProtein: (entry: MealEntry) => void;
 }) {
   const [name, setName] = useState("");
   const [kcal, setKcal] = useState("");
@@ -152,6 +161,20 @@ function MealBlock({
           {entries.map((e) => (
             <li key={e.id} className="flex items-center gap-2 py-1.5">
               <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">{e.name}</span>
+              {(() => {
+                const p = proteinFor(proteinMap, e.name, e.kcal);
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onEditProtein(e)}
+                    title="단백질 (눌러서 고치기)"
+                    aria-label={`${e.name} 단백질 고치기`}
+                    className="shrink-0 rounded-md px-1 text-xs tabular-nums text-emerald-600 transition hover:bg-emerald-50"
+                  >
+                    {p == null ? "?g" : `${Math.round(p)}g`}
+                  </button>
+                );
+              })()}
               <span className="shrink-0 text-sm tabular-nums text-neutral-500">{fmt(e.kcal)}kcal</span>
               <button
                 type="button"
@@ -311,6 +334,8 @@ export default function DietPage() {
   const [weights, setWeights] = useState<{ date: string; weightKg: number }[]>([]);
   const [profile, setProfile] = useState<DietProfile>(DEFAULT_DIET_PROFILE);
   const [foods, setFoods] = useState<DietFood[]>([]);
+  /** 음식별 단백질 (아는 음식은 저장된 값, 처음 보는 음식만 AI가 추정해 저장) */
+  const [proteinMap, setProteinMap] = useState<FoodProteinMap>({});
   const [combos, setCombos] = useState<DietCombo[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** 예상 변화 단위: 숫자를 누르면 kcal ↔ kg */
@@ -353,6 +378,7 @@ export default function DietPage() {
       setTmIncline((v) => v || String(p.treadmillIncline));
       setTmSpeed((v) => v || String(p.treadmillSpeed));
       setFoods(getDietFoods());
+      setProteinMap(getFoodProtein());
       setCombos(getDietCombos());
       setExerciseDefs(getDietExercises());
     };
@@ -576,6 +602,26 @@ export default function DietPage() {
 
   /** 오늘 목표 적자까지 더 써야 하는 칼로리 (음수면 이미 달성) */
   const needMore = balance != null ? balance + deficitTarget : null;
+
+  /** 그날 먹은 단백질: 저장된 음식별 값을 칼로리에 비례해 더한다 */
+  const dayProtein = meals.reduce((s, m) => s + (proteinFor(proteinMap, m.name, m.kcal) ?? 0), 0);
+  const unknownProteinCount = meals.filter((m) => proteinFor(proteinMap, m.name, m.kcal) == null).length;
+
+  // 처음 보는 음식이 있으면 AI에게 한 번만 물어 저장 (아는 음식은 안 물음)
+  useEffect(() => {
+    if (unknownProteinCount === 0) return;
+    void estimateMissingProtein(meals.map((m) => ({ name: m.name, kcal: m.kcal })));
+  }, [meals, unknownProteinCount]);
+
+  /** 단백질 직접 고치기: 이 기록의 칼로리 기준으로 저장해서 같은 음식 전부에 쓴다 */
+  const editProtein = (entry: MealEntry) => {
+    const cur = proteinFor(proteinMap, entry.name, entry.kcal);
+    const input = window.prompt(`${entry.name} (${fmt(entry.kcal)}kcal)의 단백질(g)`, cur != null ? String(Math.round(cur * 10) / 10) : "");
+    if (input == null) return;
+    const g = Number(input.trim());
+    if (input.trim() === "" || !Number.isFinite(g) || g < 0) return;
+    setFoodProtein(entry.name, g, entry.kcal);
+  };
 
   const addMealItems = (meal: MealType, items: DietFood[]) => {
     if (!day) return;
@@ -811,7 +857,14 @@ export default function DietPage() {
           return (
             <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-neutral-200">
               <div className="min-w-0 md:pr-6">
-                <p className="text-sm font-medium text-neutral-500">먹은 양</p>
+                <p className="flex items-baseline justify-between gap-2 text-sm font-medium text-neutral-500">
+                  <span>먹은 양</span>
+                  {meals.length > 0 && (
+                    <span className="tabular-nums text-emerald-600">
+                      단백질 약 {Math.round(dayProtein)}g{unknownProteinCount > 0 ? ` (+${unknownProteinCount}개 모름)` : ""}
+                    </span>
+                  )}
+                </p>
                 <p className="mt-1 tabular-nums">
                   <span className={`text-4xl font-bold md:text-5xl ${over ? "text-red-500" : "text-neutral-900"}`}>{fmt(intake)}</span>
                   <span className="ml-1.5 text-base text-neutral-400">{allowed != null ? `/ ${fmt(allowed)}` : "kcal"}</span>
@@ -905,6 +958,8 @@ export default function DietPage() {
           {MEAL_TYPES.filter((m) => m.id !== "breakfast" || meals.some((e) => e.meal === "breakfast")).map((m) => (
             <MealBlock
               key={m.id}
+              proteinMap={proteinMap}
+              onEditProtein={editProtein}
               meal={m.id}
               label={m.label}
               entries={meals.filter((e) => e.meal === m.id)}

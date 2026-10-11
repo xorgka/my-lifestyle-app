@@ -224,6 +224,71 @@ export function saveDietExercises(exercises: DietExercise[]): void {
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
 }
 
+// ---------- 음식별 단백질 ----------
+
+/** 음식 이름 → 그 칼로리(kcal)일 때 단백질(g). 양을 늘려 칼로리를 더 적으면 비례해서 늘린다 */
+export type FoodProteinMap = Record<string, { protein: number; kcal: number }>;
+
+export function getFoodProtein(): FoodProteinMap {
+  const v = loadSetting<unknown>("diet-food-protein", {});
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const out: FoodProteinMap = {};
+  for (const [name, ref] of Object.entries(v as Record<string, unknown>)) {
+    const r = ref as { protein?: unknown; kcal?: unknown };
+    if (typeof r?.protein === "number" && typeof r?.kcal === "number") out[name] = { protein: r.protein, kcal: r.kcal };
+  }
+  return out;
+}
+
+export function setFoodProtein(name: string, protein: number, kcal: number): void {
+  saveSetting("diet-food-protein", { ...getFoodProtein(), [name]: { protein, kcal } });
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
+}
+
+/** 이 칼로리로 먹었을 때 단백질(g). 모르는 음식이면 null */
+export function proteinFor(map: FoodProteinMap, name: string, kcal: number): number | null {
+  const ref = map[name];
+  if (!ref) return null;
+  if (ref.kcal <= 0) return ref.protein;
+  return (ref.protein * kcal) / ref.kcal;
+}
+
+/** 이번 접속에서 이미 물어본 이름 (실패해도 같은 음식을 계속 묻지 않게) */
+const askedProteinNames = new Set<string>();
+
+/** 처음 보는 음식만 AI(Gemini)에게 단백질을 물어 저장한다. 이미 아는 음식은 안 묻는다 */
+export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
+  const known = getFoodProtein();
+  const missing = new Map<string, number>();
+  for (const f of foods) {
+    const name = f.name.trim();
+    if (!name || known[name] || askedProteinNames.has(name) || missing.has(name)) continue;
+    missing.set(name, f.kcal);
+  }
+  if (missing.size === 0) return;
+  const batch = Array.from(missing, ([name, kcal]) => ({ name, kcal })).slice(0, 30);
+  batch.forEach((f) => askedProteinNames.add(f.name));
+  try {
+    const res = await fetch("/api/diet/protein", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ foods: batch }),
+    });
+    if (!res.ok) return;
+    const { protein } = (await res.json()) as { protein?: Record<string, number> };
+    if (!protein) return;
+    const next = { ...getFoodProtein() };
+    for (const f of batch) {
+      const g = protein[f.name];
+      if (typeof g === "number" && !next[f.name]) next[f.name] = { protein: g, kcal: f.kcal };
+    }
+    saveSetting("diet-food-protein", next);
+    window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
+  } catch {
+    // 오프라인 등: 다음 접속 때 다시 묻는다
+  }
+}
+
 // ---------- 날짜별 기록 (diet_days) ----------
 
 const STORAGE_KEY = "diet-days";
