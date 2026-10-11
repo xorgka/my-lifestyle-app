@@ -15,6 +15,7 @@ import {
   estimateMissingProtein,
   getFoodProtein,
   getProteinError,
+  isProteinPending,
   resetProteinAttempts,
   proteinFor,
   setFoodProtein,
@@ -106,17 +107,30 @@ function summarizeExercises(entries: ExerciseEntry[], defs: DietExercise[], incl
   return out;
 }
 
+/** 같은 끼니에 같은 음식(이름·칼로리 같음)을 여러 번 적었으면 한 줄로 묶는다 */
+function groupSameFood(entries: MealEntry[]): { entry: MealEntry; count: number }[] {
+  const groups: { entry: MealEntry; count: number }[] = [];
+  for (const e of entries) {
+    const g = groups.find((x) => x.entry.name === e.name && x.entry.kcal === e.kcal);
+    if (g) g.count++;
+    else groups.push({ entry: e, count: 1 });
+  }
+  return groups;
+}
+
 /** 그날 음식별 단백질 (세로 목록). 숫자를 눌러 고치면 같은 음식 전부에 쓰인다 */
 function ProteinModal({
   meals,
   proteinMap,
   error,
+  pending,
   onRetry,
   onClose,
 }: {
   meals: MealEntry[];
   proteinMap: FoodProteinMap;
   error: string | null;
+  pending: boolean;
   onRetry: () => void;
   onClose: () => void;
 }) {
@@ -148,7 +162,9 @@ function ProteinModal({
             ✕
           </button>
         </div>
-        <p className="mt-1 text-sm text-neutral-500">숫자를 누르면 고칠 수 있어요. 같은 음식에 모두 적용돼요.</p>
+        <p className="mt-1 text-sm text-neutral-500">
+          {pending ? "처음 보는 음식의 단백질을 계산하고 있어요…" : "숫자를 누르면 고칠 수 있어요. 같은 음식에 모두 적용돼요."}
+        </p>
         {error && (
           <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
             <p className="break-words">AI 추정 실패: {error}</p>
@@ -162,48 +178,51 @@ function ProteinModal({
             <div key={t.id} className="mb-3">
               <p className="mb-1 text-xs font-semibold text-neutral-400">{t.label}</p>
               <ul className="divide-y divide-neutral-100">
-                {meals
-                  .filter((m) => m.meal === t.id)
-                  .map((m) => {
-                    const p = proteinFor(proteinMap, m.name, m.kcal);
-                    return (
-                      <li key={m.id} className="flex items-center gap-3 py-2">
-                        <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">{m.name}</span>
-                        <span className="shrink-0 text-xs tabular-nums text-neutral-400">{fmt(m.kcal)}kcal</span>
-                        {editingId === m.id ? (
-                          <form
-                            className="flex shrink-0 items-center gap-1"
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              save(m);
-                            }}
-                          >
-                            <input
-                              autoFocus
-                              inputMode="decimal"
-                              value={draft}
-                              onChange={(e) => setDraft(e.target.value)}
-                              onBlur={() => save(m)}
-                              className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-right text-[15px] tabular-nums focus:border-neutral-500 focus:outline-none"
-                              aria-label={`${m.name} 단백질(g)`}
-                            />
-                            <span className="text-sm text-neutral-500">g</span>
-                          </form>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingId(m.id);
-                              setDraft(p != null ? String(Math.round(p * 10) / 10) : "");
-                            }}
-                            className="w-16 shrink-0 rounded-lg px-2 py-1 text-right text-[15px] font-semibold tabular-nums text-emerald-600 hover:bg-emerald-50"
-                          >
-                            {p == null ? "?" : `${Math.round(p)}g`}
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
+                {groupSameFood(meals.filter((m) => m.meal === t.id)).map(({ entry: m, count }) => {
+                  const p = proteinFor(proteinMap, m.name, m.kcal);
+                  return (
+                    <li key={m.id} className="flex items-center gap-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">
+                        {m.name}
+                        {count > 1 && <span className="ml-1 text-sm font-semibold text-neutral-400">×{count}</span>}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-neutral-400">{fmt(m.kcal * count)}kcal</span>
+                      {editingId === m.id ? (
+                        <form
+                          className="flex shrink-0 items-center gap-1"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            save(m);
+                          }}
+                        >
+                          {count > 1 && <span className="text-xs text-neutral-400">1개당</span>}
+                          <input
+                            autoFocus
+                            inputMode="decimal"
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onBlur={() => save(m)}
+                            className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-right text-[15px] tabular-nums focus:border-neutral-500 focus:outline-none"
+                            aria-label={`${m.name} 단백질(g)`}
+                          />
+                          <span className="text-sm text-neutral-500">g</span>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(m.id);
+                            setDraft(p != null ? String(Math.round(p * 10) / 10) : "");
+                          }}
+                          title={count > 1 && p != null ? `1개당 ${Math.round(p)}g` : undefined}
+                          className="w-16 shrink-0 rounded-lg px-2 py-1 text-right text-[15px] font-semibold tabular-nums text-emerald-600 hover:bg-emerald-50"
+                        >
+                          {p == null ? (pending ? "…" : "?") : `${Math.round(p * count)}g`}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -477,6 +496,7 @@ export default function DietPage() {
       setFoods(getDietFoods());
       setProteinMap(getFoodProtein());
       setProteinError(getProteinError());
+      setProteinPending(isProteinPending());
       setCombos(getDietCombos());
       setExerciseDefs(getDietExercises());
     };
@@ -713,6 +733,7 @@ export default function DietPage() {
 
   const [proteinModalOpen, setProteinModalOpen] = useState(false);
   const [proteinError, setProteinError] = useState<string | null>(null);
+  const [proteinPending, setProteinPending] = useState(false);
 
   const addMealItems = (meal: MealType, items: DietFood[]) => {
     if (!day) return;
@@ -1036,6 +1057,7 @@ export default function DietPage() {
           meals={meals}
           proteinMap={proteinMap}
           error={proteinError}
+          pending={proteinPending}
           onRetry={() => {
             resetProteinAttempts();
             setProteinError(null);
@@ -1060,7 +1082,9 @@ export default function DietPage() {
                   className="font-semibold text-emerald-600 underline-offset-4 hover:underline"
                   title="음식별 단백질 보기"
                 >
-                  단백질 {Math.round(dayProtein)}g{unknownProteinCount > 0 ? "+" : ""}
+                  {proteinPending && unknownProteinCount > 0
+                    ? "단백질 계산 중…"
+                    : `단백질 ${Math.round(dayProtein)}g${unknownProteinCount > 0 ? "+" : ""}`}
                 </button>
               </>
             )}
