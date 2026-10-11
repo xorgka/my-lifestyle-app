@@ -392,3 +392,56 @@ export async function fixSamgyeopTo100g(): Promise<void> {
     window.localStorage.setItem(SAMGYEOP_FIX_DONE_KEY, "1");
   } catch {}
 }
+
+const WEIGHT_OLD = 80;
+const WEIGHT_NEW = 81;
+const WEIGHT_FIX_DONE_KEY = "diet-fix-weight-80-81";
+
+/**
+ * 몸무게는 80이 아니라 81이었다: 80으로 적힌 날을 81로 바꾸고,
+ * 그 몸무게(그날 또는 그 전 마지막 기록)로 계산된 운동 칼로리도 81/80만큼 올린다.
+ * 칼로리를 직접 적은 운동(custom)은 그대로. 실패하면 다음에 다시 시도한다.
+ */
+export async function fixWeight80To81(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(WEIGHT_FIX_DONE_KEY)) return;
+  } catch {}
+
+  let days: DietDay[];
+  if (supabase) {
+    const { data, error } = await supabase.from("diet_days").select("*");
+    if (error) return;
+    days = (data ?? []).map(rowToDay);
+  } else {
+    days = Object.values(loadAllLocal()).map((d) => ({ ...emptyDay(d.date), ...d }));
+  }
+  days.sort((a, b) => a.date.localeCompare(b.date));
+
+  let failed = false;
+  let lastWeight: number | null = null;
+  for (const day of days) {
+    if (day.weightKg != null) lastWeight = day.weightKg;
+    if (lastWeight !== WEIGHT_OLD) continue;
+    const exercises = day.exercises.map((e) =>
+      e.type === "custom" ? e : { ...e, kcal: Math.round((e.kcal * WEIGHT_NEW) / WEIGHT_OLD) }
+    );
+    const weightKg = day.weightKg === WEIGHT_OLD ? WEIGHT_NEW : day.weightKg;
+    if (weightKg === day.weightKg && exercises.every((e, i) => e.kcal === day.exercises[i].kcal)) continue;
+    const fixed: DietDay = { ...day, weightKg, exercises };
+    saveLocal(fixed);
+    window.dispatchEvent(new CustomEvent<DietDay>(DIET_DAY_CHANGED_EVENT, { detail: fixed }));
+    if (supabase) {
+      const { error } = await supabase
+        .from("diet_days")
+        .update({ weight_kg: fixed.weightKg, exercises: fixed.exercises, updated_at: new Date().toISOString() })
+        .eq("date", fixed.date);
+      if (error) failed = true;
+    }
+  }
+  if (failed) return;
+
+  try {
+    window.localStorage.setItem(WEIGHT_FIX_DONE_KEY, "1");
+  } catch {}
+}
