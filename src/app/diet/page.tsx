@@ -900,9 +900,9 @@ export default function DietPage() {
           <h2 className="text-lg font-bold text-neutral-900">먹은 것</h2>
           <span className="text-sm tabular-nums text-neutral-500">하루 {fmt(intake)}kcal</span>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {/* 아침 칸은 숨김. 예전에 아침으로 적은 날만 보여줘서 합계에 들어간 칼로리가 안 보이는 일이 없게 */}
-          {MEAL_TYPES.filter((m) => m.id !== "breakfast" || meals.some((e) => e.meal === "breakfast")).map((m) => (
+        {/* 아침·점심·저녁·간식: PC는 2×2, 폰은 한 줄에 하나 */}
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {MEAL_TYPES.map((m) => (
             <MealBlock
               key={m.id}
               meal={m.id}
