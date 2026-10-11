@@ -109,6 +109,14 @@ const DEFAULT_CONFIGS: Record<ReminderPopupId, PopupConfig> = {
     timeEnd: 13,
     throttleMinutes: 0,
   },
+  weight: {
+    title: "오늘 아침 몸무게는?",
+    benefits: [],
+    enabled: true,
+    timeStart: 5,
+    timeEnd: 14,
+    throttleMinutes: 0,
+  },
 };
 
 export const SYSTEM_POPUP_IDS: ReminderPopupId[] = [
@@ -117,6 +125,7 @@ export const SYSTEM_POPUP_IDS: ReminderPopupId[] = [
   "gym",
   "youtube",
   "wake",
+  "weight",
 ];
 
 export const SYSTEM_POPUP_LABELS: Record<ReminderPopupId, string> = {
@@ -125,6 +134,7 @@ export const SYSTEM_POPUP_LABELS: Record<ReminderPopupId, string> = {
   gym: "헬스장",
   youtube: "유튜브 업로드",
   wake: "기상 시간",
+  weight: "아침 몸무게",
 };
 
 function loadJson<T>(key: string, fallback: T): T {

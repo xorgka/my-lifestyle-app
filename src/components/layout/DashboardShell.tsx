@@ -19,12 +19,13 @@ import { EveningFaceReminderPopup } from "@/components/EveningFaceReminderPopup"
 import { GymReminderPopup } from "@/components/GymReminderPopup";
 import { MorningFaceReminderPopup } from "@/components/MorningFaceReminderPopup";
 import { WakeTimePopup } from "@/components/WakeTimePopup";
+import { WeightPopup } from "@/components/WeightPopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
 import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
 import { syncAlertBarSettingsFromSupabase } from "@/lib/alertBarSettings";
 import { syncUserSettingsFromSupabase } from "@/lib/userSettings";
-import { fixSamgyeopTo100g } from "@/lib/dietDb";
+import { fixSamgyeopTo100g, fixWeight80To81 } from "@/lib/dietDb";
 import { syncInsightBgFromSupabase } from "@/lib/insightBg";
 import { syncWeatherBgFromSupabase } from "@/lib/weatherBg";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -69,7 +70,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
     ]).then(() => {
       setPopupConfigVersion((v) => v + 1);
       // 설정이 서버 값으로 맞춰진 뒤에 삼겹살 150g → 100g 보정 (한 번만)
-      void fixSamgyeopTo100g().catch(() => {});
+      void fixSamgyeopTo100g()
+        .catch(() => {})
+        // 몸무게 80 → 81 보정 (한 번만)
+        .then(() => fixWeight80To81())
+        .catch(() => {});
     });
   }, []);
 
@@ -80,6 +85,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <GymReminderPopup />
       <YoutubeUploadReminderPopup />
       <WakeTimePopup forceShow={forceShowWakePopup} />
+      <WeightPopup />
       <CustomReminderPopups />
       {/* 모바일: 상단 바 (홈 + 메뉴), safe-area·터치 영역 44px */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-2 md:hidden [padding-top:max(0.5rem,env(safe-area-inset-top))] [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
