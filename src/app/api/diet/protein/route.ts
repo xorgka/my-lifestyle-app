@@ -16,8 +16,23 @@ const RequestSchema = z.object({
 });
 
 const EstimateSchema = z.object({
-  items: z.array(z.object({ name: z.string(), protein_g: z.number() })),
+  items: z.array(z.object({ index: z.number(), name: z.string().optional(), protein_g: z.number() })),
 });
+
+/** 연결 확인용: 브라우저에서 /api/diet/protein 을 열면 키 설정 여부와 시험 추정 결과를 보여준다 */
+export async function GET(req: Request) {
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ ok: false, keyConfigured: false, error: "GEMINI_API_KEY가 설정되지 않았어요" });
+  }
+  const test = new Request(req.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ foods: [{ name: "닭가슴살 100g", kcal: 110 }] }),
+  });
+  const res = await POST(test);
+  const body = await res.json();
+  return NextResponse.json({ ok: res.ok, keyConfigured: true, test: "닭가슴살 100g (110kcal)", result: body });
+}
 
 export async function POST(req: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -27,10 +42,10 @@ export async function POST(req: Request) {
   const parsed = RequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
 
-  const list = parsed.data.foods.map((f) => `- ${f.name} (${f.kcal}kcal)`).join("\n");
+  const list = parsed.data.foods.map((f, i) => `${i + 1}. ${f.name} (${f.kcal}kcal)`).join("\n");
   const prompt =
     "한국 식단 기록 앱의 영양 추정기다. 음식 이름(양이 적혀 있으면 그 양)과 칼로리를 보고 단백질 그램을 추정한다. " +
-    "양이 없으면 칼로리를 1인분 크기의 단서로 쓴다. 각 음식에 대해 입력한 이름을 그대로 name에 넣고, protein_g는 소수점 한 자리까지의 숫자로 준다.\n\n" +
+    "양이 없으면 칼로리를 1인분 크기의 단서로 쓴다. 목록의 모든 음식에 대해 하나씩, 목록 번호를 index에, 이름을 name에 넣고, protein_g는 소수점 한 자리까지의 숫자로 준다.\n\n" +
     `다음 음식들의 단백질(g)을 추정해 줘.\n${list}`;
 
   // 모델 이름이 바뀌어 없어졌으면(404) 다음 후보로
@@ -55,8 +70,8 @@ export async function POST(req: Request) {
                   type: "ARRAY",
                   items: {
                     type: "OBJECT",
-                    properties: { name: { type: "STRING" }, protein_g: { type: "NUMBER" } },
-                    required: ["name", "protein_g"],
+                    properties: { index: { type: "INTEGER" }, name: { type: "STRING" }, protein_g: { type: "NUMBER" } },
+                    required: ["index", "protein_g"],
                   },
                 },
               },
@@ -85,12 +100,18 @@ export async function POST(req: Request) {
   }
   if (!estimate) return NextResponse.json({ error: lastError || "추정하지 못했어요" }, { status: 502 });
 
-  const wanted = new Set(parsed.data.foods.map((f) => f.name));
+  // 이름은 AI가 조금 바꿔 적을 수 있어서 목록 번호로 맞춘다 (번호가 이상하면 이름으로)
+  const foods = parsed.data.foods;
   const protein: Record<string, number> = {};
   for (const item of estimate.items) {
-    if (wanted.has(item.name) && Number.isFinite(item.protein_g) && item.protein_g >= 0) {
-      protein[item.name] = Math.round(item.protein_g * 10) / 10;
+    const byIndex = Number.isInteger(item.index) ? foods[item.index - 1] : undefined;
+    const food = byIndex ?? foods.find((f) => f.name.replace(/\s/g, "") === (item.name ?? "").replace(/\s/g, ""));
+    if (food && Number.isFinite(item.protein_g) && item.protein_g >= 0) {
+      protein[food.name] = Math.round(item.protein_g * 10) / 10;
     }
+  }
+  if (Object.keys(protein).length === 0) {
+    return NextResponse.json({ error: "AI가 단백질 값을 주지 않았어요" }, { status: 502 });
   }
   return NextResponse.json({ protein });
 }

@@ -290,8 +290,9 @@ export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
       window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
       return;
     }
-    lastProteinError = null;
     const protein = body.protein;
+    const missed = batch.filter((f) => typeof protein[f.name] !== "number").length;
+    lastProteinError = missed > 0 ? `${missed}개 음식은 AI가 값을 주지 않았어요` : null;
     const next = { ...getFoodProtein() };
     for (const f of batch) {
       const g = protein[f.name];
