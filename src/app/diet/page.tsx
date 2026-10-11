@@ -430,11 +430,12 @@ export default function DietPage() {
     });
   };
 
-  /** 이 날짜 기준 몸무게: 그날 기록, 없으면 그 전 가장 최근 기록 */
+  /** 이 날짜 기준 몸무게: 그날 기록, 없으면 그 전 가장 최근 기록, 그것도 없으면 그 뒤 첫 기록 */
   const weightNow = useMemo(() => {
     if (day?.weightKg != null) return day.weightKg;
     const before = weights.filter((w) => w.date <= date);
-    return before.length > 0 ? before[before.length - 1].weightKg : null;
+    if (before.length > 0) return before[before.length - 1].weightKg;
+    return weights.find((w) => w.date > date)?.weightKg ?? null;
   }, [day?.weightKg, weights, date]);
 
   const ready = !!(profile.sex && profile.age && profile.heightCm && weightNow);
