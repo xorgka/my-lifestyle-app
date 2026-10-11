@@ -227,22 +227,36 @@ export function saveDietExercises(exercises: DietExercise[]): void {
 // ---------- 음식별 단백질 ----------
 
 /** 음식 이름 → 그 칼로리(kcal)일 때 단백질(g). 양을 늘려 칼로리를 더 적으면 비례해서 늘린다 */
-export type FoodProteinMap = Record<string, { protein: number; kcal: number }>;
+export type FoodProteinMap = Record<string, { protein: number; kcal: number; byUser?: boolean }>;
 
 export function getFoodProtein(): FoodProteinMap {
   const v = loadSetting<unknown>("diet-food-protein", {});
   if (!v || typeof v !== "object" || Array.isArray(v)) return {};
   const out: FoodProteinMap = {};
   for (const [name, ref] of Object.entries(v as Record<string, unknown>)) {
-    const r = ref as { protein?: unknown; kcal?: unknown };
-    if (typeof r?.protein === "number" && typeof r?.kcal === "number") out[name] = { protein: r.protein, kcal: r.kcal };
+    const r = ref as { protein?: unknown; kcal?: unknown; byUser?: unknown };
+    if (typeof r?.protein === "number" && typeof r?.kcal === "number")
+      out[name] = { protein: r.protein, kcal: r.kcal, ...(r.byUser === true ? { byUser: true } : {}) };
   }
   return out;
 }
 
 export function setFoodProtein(name: string, protein: number, kcal: number): void {
-  saveSetting("diet-food-protein", { ...getFoodProtein(), [name]: { protein, kcal } });
+  // 직접 고친 값은 표시해 두고 "AI 값 다시 계산" 때 지우지 않는다
+  saveSetting("diet-food-protein", { ...getFoodProtein(), [name]: { protein, kcal, byUser: true } });
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
+}
+
+/** 이 음식들의 AI 추정값만 지우고 다시 묻는다 (직접 고친 값은 그대로) */
+export async function reestimateProtein(foods: DietFood[]): Promise<void> {
+  const map = getFoodProtein();
+  const names = new Set(foods.map((f) => f.name.trim()));
+  const next: FoodProteinMap = {};
+  for (const [name, ref] of Object.entries(map)) if (ref.byUser || !names.has(name)) next[name] = ref;
+  saveSetting("diet-food-protein", next);
+  resetProteinAttempts();
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
+  await estimateMissingProtein(foods);
 }
 
 /** 이 칼로리로 먹었을 때 단백질(g). 모르는 음식이면 null */
