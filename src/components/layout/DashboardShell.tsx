@@ -19,6 +19,7 @@ import { EveningFaceReminderPopup } from "@/components/EveningFaceReminderPopup"
 import { GymReminderPopup } from "@/components/GymReminderPopup";
 import { MorningFaceReminderPopup } from "@/components/MorningFaceReminderPopup";
 import { WakeTimePopup } from "@/components/WakeTimePopup";
+import { WeightPopup } from "@/components/WeightPopup";
 import { YoutubeUploadReminderPopup } from "@/components/YoutubeUploadReminderPopup";
 import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
@@ -84,6 +85,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <GymReminderPopup />
       <YoutubeUploadReminderPopup />
       <WakeTimePopup forceShow={forceShowWakePopup} />
+      <WeightPopup />
       <CustomReminderPopups />
       {/* 모바일: 상단 바 (홈 + 메뉴), safe-area·터치 영역 44px */}
       <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 px-4 py-2 md:hidden [padding-top:max(0.5rem,env(safe-area-inset-top))] [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
