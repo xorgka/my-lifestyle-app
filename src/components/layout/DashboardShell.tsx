@@ -25,7 +25,7 @@ import { CustomReminderPopups } from "@/components/CustomReminderPopups";
 import { syncPopupConfigFromSupabase } from "@/lib/popupReminderConfig";
 import { syncAlertBarSettingsFromSupabase } from "@/lib/alertBarSettings";
 import { syncUserSettingsFromSupabase } from "@/lib/userSettings";
-import { fixSamgyeopTo100g, fixWeight80To81 } from "@/lib/dietDb";
+import { clearWeightsBefore1012, fixSamgyeopTo100g, fixWeight80To81 } from "@/lib/dietDb";
 import { syncInsightBgFromSupabase } from "@/lib/insightBg";
 import { syncWeatherBgFromSupabase } from "@/lib/weatherBg";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -74,6 +74,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
         .catch(() => {})
         // 몸무게 80 → 81 보정 (한 번만)
         .then(() => fixWeight80To81())
+        .catch(() => {})
+        // 10월 12일 이전 몸무게 지우기 (한 번만, 80→81 보정 다음에)
+        .then(() => clearWeightsBefore1012())
         .catch(() => {});
     });
   }, []);
