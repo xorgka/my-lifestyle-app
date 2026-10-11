@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { DietSettingsModal } from "@/components/diet/DietSettingsModal";
 import { WeightChart } from "@/components/diet/WeightChart";
@@ -13,6 +14,8 @@ import {
   DIET_SETTINGS_CHANGED_EVENT,
   estimateMissingProtein,
   getFoodProtein,
+  getProteinError,
+  resetProteinAttempts,
   proteinFor,
   setFoodProtein,
   type FoodProteinMap,
@@ -104,7 +107,19 @@ function summarizeExercises(entries: ExerciseEntry[], defs: DietExercise[], incl
 }
 
 /** 그날 음식별 단백질 (세로 목록). 숫자를 눌러 고치면 같은 음식 전부에 쓰인다 */
-function ProteinModal({ meals, proteinMap, onClose }: { meals: MealEntry[]; proteinMap: FoodProteinMap; onClose: () => void }) {
+function ProteinModal({
+  meals,
+  proteinMap,
+  error,
+  onRetry,
+  onClose,
+}: {
+  meals: MealEntry[];
+  proteinMap: FoodProteinMap;
+  error: string | null;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   useEffect(() => {
@@ -122,8 +137,10 @@ function ProteinModal({ meals, proteinMap, onClose }: { meals: MealEntry[]; prot
     setEditingId(null);
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" onClick={onClose}>
+  // body에 그린다: 페이지 카드의 transform 안에 있으면 fixed가 카드 기준이 돼 화면 아래·한쪽만 어두워짐
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-baseline justify-between">
           <h3 className="text-lg font-bold text-neutral-900">오늘 먹은 단백질</h3>
@@ -132,6 +149,14 @@ function ProteinModal({ meals, proteinMap, onClose }: { meals: MealEntry[]; prot
           </button>
         </div>
         <p className="mt-1 text-sm text-neutral-500">숫자를 누르면 고칠 수 있어요. 같은 음식에 모두 적용돼요.</p>
+        {error && (
+          <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="break-words">AI 추정 실패: {error}</p>
+            <button type="button" onClick={onRetry} className="mt-1 font-semibold underline underline-offset-2">
+              다시 시도
+            </button>
+          </div>
+        )}
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
           {MEAL_TYPES.filter((t) => meals.some((m) => m.meal === t.id)).map((t) => (
             <div key={t.id} className="mb-3">
@@ -188,7 +213,8 @@ function ProteinModal({ meals, proteinMap, onClose }: { meals: MealEntry[]; prot
           <span className="text-xl font-bold tabular-nums text-emerald-600">{Math.round(total)}g</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -450,6 +476,7 @@ export default function DietPage() {
       setTmSpeed((v) => v || String(p.treadmillSpeed));
       setFoods(getDietFoods());
       setProteinMap(getFoodProtein());
+      setProteinError(getProteinError());
       setCombos(getDietCombos());
       setExerciseDefs(getDietExercises());
     };
@@ -685,6 +712,7 @@ export default function DietPage() {
   }, [meals, unknownProteinCount]);
 
   const [proteinModalOpen, setProteinModalOpen] = useState(false);
+  const [proteinError, setProteinError] = useState<string | null>(null);
 
   const addMealItems = (meal: MealType, items: DietFood[]) => {
     if (!day) return;
@@ -1007,6 +1035,12 @@ export default function DietPage() {
         <ProteinModal
           meals={meals}
           proteinMap={proteinMap}
+          error={proteinError}
+          onRetry={() => {
+            resetProteinAttempts();
+            setProteinError(null);
+            void estimateMissingProtein(meals.map((m) => ({ name: m.name, kcal: m.kcal })));
+          }}
           onClose={() => setProteinModalOpen(false)}
         />
       )}
