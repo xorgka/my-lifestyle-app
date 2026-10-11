@@ -103,6 +103,95 @@ function summarizeExercises(entries: ExerciseEntry[], defs: DietExercise[], incl
   return out;
 }
 
+/** 그날 음식별 단백질 (세로 목록). 숫자를 눌러 고치면 같은 음식 전부에 쓰인다 */
+function ProteinModal({ meals, proteinMap, onClose }: { meals: MealEntry[]; proteinMap: FoodProteinMap; onClose: () => void }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const total = meals.reduce((s, m) => s + (proteinFor(proteinMap, m.name, m.kcal) ?? 0), 0);
+  const save = (entry: MealEntry) => {
+    const g = Number(draft.trim());
+    if (draft.trim() !== "" && Number.isFinite(g) && g >= 0) setFoodProtein(entry.name, g, entry.kcal);
+    setEditingId(null);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-baseline justify-between">
+          <h3 className="text-lg font-bold text-neutral-900">오늘 먹은 단백질</h3>
+          <button type="button" onClick={onClose} className="rounded-lg px-1.5 text-neutral-400 hover:text-neutral-700" aria-label="닫기">
+            ✕
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-neutral-500">숫자를 누르면 고칠 수 있어요. 같은 음식에 모두 적용돼요.</p>
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          {MEAL_TYPES.filter((t) => meals.some((m) => m.meal === t.id)).map((t) => (
+            <div key={t.id} className="mb-3">
+              <p className="mb-1 text-xs font-semibold text-neutral-400">{t.label}</p>
+              <ul className="divide-y divide-neutral-100">
+                {meals
+                  .filter((m) => m.meal === t.id)
+                  .map((m) => {
+                    const p = proteinFor(proteinMap, m.name, m.kcal);
+                    return (
+                      <li key={m.id} className="flex items-center gap-3 py-2">
+                        <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">{m.name}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-neutral-400">{fmt(m.kcal)}kcal</span>
+                        {editingId === m.id ? (
+                          <form
+                            className="flex shrink-0 items-center gap-1"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              save(m);
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              inputMode="decimal"
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              onBlur={() => save(m)}
+                              className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-right text-[15px] tabular-nums focus:border-neutral-500 focus:outline-none"
+                              aria-label={`${m.name} 단백질(g)`}
+                            />
+                            <span className="text-sm text-neutral-500">g</span>
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(m.id);
+                              setDraft(p != null ? String(Math.round(p * 10) / 10) : "");
+                            }}
+                            className="w-16 shrink-0 rounded-lg px-2 py-1 text-right text-[15px] font-semibold tabular-nums text-emerald-600 hover:bg-emerald-50"
+                          >
+                            {p == null ? "?" : `${Math.round(p)}g`}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-baseline justify-between border-t border-neutral-200 pt-3">
+          <span className="text-[15px] font-semibold text-neutral-700">합계</span>
+          <span className="text-xl font-bold tabular-nums text-emerald-600">{Math.round(total)}g</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 한 끼: 음식 목록·합계, 음식 추가(이름 치면 저장된 칼로리 자동 채움), 조합 불러오기/저장 */
 function MealBlock({
   meal,
@@ -113,8 +202,6 @@ function MealBlock({
   onAdd,
   onRemove,
   onSaveCombo,
-  proteinMap,
-  onEditProtein,
 }: {
   meal: MealType;
   label: string;
@@ -124,8 +211,6 @@ function MealBlock({
   onAdd: (items: DietFood[]) => void;
   onRemove: (id: string) => void;
   onSaveCombo: (name: string, items: DietFood[]) => void;
-  proteinMap: FoodProteinMap;
-  onEditProtein: (entry: MealEntry) => void;
 }) {
   const [name, setName] = useState("");
   const [kcal, setKcal] = useState("");
@@ -161,20 +246,6 @@ function MealBlock({
           {entries.map((e) => (
             <li key={e.id} className="flex items-center gap-2 py-1.5">
               <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-800">{e.name}</span>
-              {(() => {
-                const p = proteinFor(proteinMap, e.name, e.kcal);
-                return (
-                  <button
-                    type="button"
-                    onClick={() => onEditProtein(e)}
-                    title="단백질 (눌러서 고치기)"
-                    aria-label={`${e.name} 단백질 고치기`}
-                    className="shrink-0 rounded-md px-1 text-xs tabular-nums text-emerald-600 transition hover:bg-emerald-50"
-                  >
-                    {p == null ? "?g" : `${Math.round(p)}g`}
-                  </button>
-                );
-              })()}
               <span className="shrink-0 text-sm tabular-nums text-neutral-500">{fmt(e.kcal)}kcal</span>
               <button
                 type="button"
@@ -613,15 +684,7 @@ export default function DietPage() {
     void estimateMissingProtein(meals.map((m) => ({ name: m.name, kcal: m.kcal })));
   }, [meals, unknownProteinCount]);
 
-  /** 단백질 직접 고치기: 이 기록의 칼로리 기준으로 저장해서 같은 음식 전부에 쓴다 */
-  const editProtein = (entry: MealEntry) => {
-    const cur = proteinFor(proteinMap, entry.name, entry.kcal);
-    const input = window.prompt(`${entry.name} (${fmt(entry.kcal)}kcal)의 단백질(g)`, cur != null ? String(Math.round(cur * 10) / 10) : "");
-    if (input == null) return;
-    const g = Number(input.trim());
-    if (input.trim() === "" || !Number.isFinite(g) || g < 0) return;
-    setFoodProtein(entry.name, g, entry.kcal);
-  };
+  const [proteinModalOpen, setProteinModalOpen] = useState(false);
 
   const addMealItems = (meal: MealType, items: DietFood[]) => {
     if (!day) return;
@@ -857,14 +920,7 @@ export default function DietPage() {
           return (
             <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-neutral-200">
               <div className="min-w-0 md:pr-6">
-                <p className="flex items-baseline justify-between gap-2 text-sm font-medium text-neutral-500">
-                  <span>먹은 양</span>
-                  {meals.length > 0 && (
-                    <span className="tabular-nums text-emerald-600">
-                      단백질 약 {Math.round(dayProtein)}g{unknownProteinCount > 0 ? ` (+${unknownProteinCount}개 모름)` : ""}
-                    </span>
-                  )}
-                </p>
+                <p className="text-sm font-medium text-neutral-500">먹은 양</p>
                 <p className="mt-1 tabular-nums">
                   <span className={`text-4xl font-bold md:text-5xl ${over ? "text-red-500" : "text-neutral-900"}`}>{fmt(intake)}</span>
                   <span className="ml-1.5 text-base text-neutral-400">{allowed != null ? `/ ${fmt(allowed)}` : "kcal"}</span>
@@ -947,19 +1003,40 @@ export default function DietPage() {
         })()}
       </section>
 
+      {proteinModalOpen && (
+        <ProteinModal
+          meals={meals}
+          proteinMap={proteinMap}
+          onClose={() => setProteinModalOpen(false)}
+        />
+      )}
+
       {/* 먹은 것 */}
       <section className={cardClass}>
         <div className="flex items-baseline justify-between">
           <h2 className="text-lg font-bold text-neutral-900">먹은 것</h2>
-          <span className="text-sm tabular-nums text-neutral-500">하루 {fmt(intake)}kcal</span>
+          <span className="flex items-baseline gap-2 text-sm tabular-nums text-neutral-500">
+            <span>하루 {fmt(intake)}kcal</span>
+            {meals.length > 0 && (
+              <>
+                <span className="text-neutral-300">|</span>
+                <button
+                  type="button"
+                  onClick={() => setProteinModalOpen(true)}
+                  className="font-semibold text-emerald-600 underline-offset-4 hover:underline"
+                  title="음식별 단백질 보기"
+                >
+                  단백질 {Math.round(dayProtein)}g{unknownProteinCount > 0 ? "+" : ""}
+                </button>
+              </>
+            )}
+          </span>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {/* 아침 칸은 숨김. 예전에 아침으로 적은 날만 보여줘서 합계에 들어간 칼로리가 안 보이는 일이 없게 */}
           {MEAL_TYPES.filter((m) => m.id !== "breakfast" || meals.some((e) => e.meal === "breakfast")).map((m) => (
             <MealBlock
               key={m.id}
-              proteinMap={proteinMap}
-              onEditProtein={editProtein}
               meal={m.id}
               label={m.label}
               entries={meals.filter((e) => e.meal === m.id)}
