@@ -80,7 +80,8 @@ export function HomeDietCard({ className = "" }: { className?: string }) {
     loadDietDay(today).then(({ day: d }) => setDay(d));
     loadWeightLog().then((list) => {
       const before = list.filter((w) => w.date <= today);
-      setWeightNow(before.length > 0 ? before[before.length - 1].weightKg : null);
+      // 오늘까지 기록이 없으면 그 뒤 첫 기록 (다이어트 페이지와 같은 기준)
+      setWeightNow(before.length > 0 ? before[before.length - 1].weightKg : list.find((w) => w.date > today)?.weightKg ?? null);
     });
   }, []);
 
