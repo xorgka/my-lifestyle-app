@@ -45,7 +45,9 @@ export async function POST(req: Request) {
   const list = parsed.data.foods.map((f, i) => `${i + 1}. ${f.name} (${f.kcal}kcal)`).join("\n");
   const prompt =
     "한국 식단 기록 앱의 영양 추정기다. 음식 이름(양이 적혀 있으면 그 양)과 칼로리를 보고 단백질 그램을 추정한다. " +
-    "양이 없으면 칼로리를 1인분 크기의 단서로 쓴다. 목록의 모든 음식에 대해 하나씩, 목록 번호를 index에, 이름을 name에 넣고, protein_g는 소수점 한 자리까지의 숫자로 준다.\n\n" +
+    "양이 없으면 1개·1인분 기준으로 보고, 칼로리는 크기를 짐작하는 참고로만 쓴다. 애매하면 낮은 쪽으로 잡는다. " +
+    "기준값: 계란 1개(후라이 포함) 약 6g, 작은 햇반 130g 약 4g, 닭가슴살 100g 약 23g, 삼겹살 100g 약 17g, 두부 100g 약 8g, 우유 200ml 약 6g, 김치 50g 약 1g, 라면 1봉 약 10g. " +
+    "목록의 모든 음식에 대해 하나씩, 목록 번호를 index에, 이름을 name에 넣고, protein_g는 소수점 한 자리까지의 숫자로 준다.\n\n" +
     `다음 음식들의 단백질(g)을 추정해 줘.\n${list}`;
 
   // 모델 이름이 바뀌어 없어졌으면(404) 다음 후보로
@@ -62,6 +64,8 @@ export async function POST(req: Request) {
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0,
+            // 단순 추정이라 "생각" 단계를 끄면 훨씬 빠르다 (2.5 계열만 이 설정을 받음)
+            ...(model.startsWith("gemini-2.5") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
             responseMimeType: "application/json",
             responseSchema: {
               type: "OBJECT",

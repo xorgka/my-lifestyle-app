@@ -260,6 +260,11 @@ let lastProteinError: string | null = null;
 export function getProteinError(): string | null {
   return lastProteinError;
 }
+/** AI에게 묻는 중인지 ("단백질 계산 중…" 표시용) */
+let proteinPending = 0;
+export function isProteinPending(): boolean {
+  return proteinPending > 0;
+}
 /** "다시 시도": 실패했던 음식도 다시 묻게 한다 */
 export function resetProteinAttempts(): void {
   askedProteinNames.clear();
@@ -278,6 +283,8 @@ export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
   if (missing.size === 0) return;
   const batch = Array.from(missing, ([name, kcal]) => ({ name, kcal })).slice(0, 30);
   batch.forEach((f) => askedProteinNames.add(f.name));
+  proteinPending++;
+  window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
   try {
     const res = await fetch("/api/diet/protein", {
       method: "POST",
@@ -303,6 +310,8 @@ export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
   } catch {
     // 오프라인 등: 다음 접속 때 다시 묻는다
     lastProteinError = "인터넷 연결을 확인해 주세요";
+  } finally {
+    proteinPending--;
     window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
   }
 }
