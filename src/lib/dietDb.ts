@@ -255,6 +255,16 @@ export function proteinFor(map: FoodProteinMap, name: string, kcal: number): num
 
 /** 이번 접속에서 이미 물어본 이름 (실패해도 같은 음식을 계속 묻지 않게) */
 const askedProteinNames = new Set<string>();
+/** 마지막 AI 추정 실패 이유 (성공하면 비움). 단백질 모달에 보여준다 */
+let lastProteinError: string | null = null;
+export function getProteinError(): string | null {
+  return lastProteinError;
+}
+/** "다시 시도": 실패했던 음식도 다시 묻게 한다 */
+export function resetProteinAttempts(): void {
+  askedProteinNames.clear();
+  lastProteinError = null;
+}
 
 /** 처음 보는 음식만 AI(Gemini)에게 단백질을 물어 저장한다. 이미 아는 음식은 안 묻는다 */
 export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
@@ -274,9 +284,14 @@ export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ foods: batch }),
     });
-    if (!res.ok) return;
-    const { protein } = (await res.json()) as { protein?: Record<string, number> };
-    if (!protein) return;
+    const body = (await res.json().catch(() => null)) as { protein?: Record<string, number>; error?: string } | null;
+    if (!res.ok || !body?.protein) {
+      lastProteinError = body?.error ?? `요청 실패 (${res.status})`;
+      window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
+      return;
+    }
+    lastProteinError = null;
+    const protein = body.protein;
     const next = { ...getFoodProtein() };
     for (const f of batch) {
       const g = protein[f.name];
@@ -286,6 +301,8 @@ export async function estimateMissingProtein(foods: DietFood[]): Promise<void> {
     window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
   } catch {
     // 오프라인 등: 다음 접속 때 다시 묻는다
+    lastProteinError = "인터넷 연결을 확인해 주세요";
+    window.dispatchEvent(new CustomEvent(DIET_SETTINGS_CHANGED_EVENT));
   }
 }
 
