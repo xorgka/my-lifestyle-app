@@ -46,6 +46,7 @@ export async function POST(req: Request) {
   const prompt =
     "한국 식단 기록 앱의 영양 추정기다. 음식 이름(양이 적혀 있으면 그 양)과 칼로리를 보고 단백질 그램을 추정한다. " +
     "양이 없으면 1개·1인분 기준으로 보고, 칼로리는 크기를 짐작하는 참고로만 쓴다. 애매하면 낮은 쪽으로 잡는다. " +
+    "보통 단백질 칼로리(1g=4kcal)는 면·밥·빵·떡·과자·고구마 위주 음식이 전체의 8~12%, 고기·생선이 주재료인 요리가 20~30%, 일반 한식 반찬·찌개가 15~20% 정도다. 재료가 확실하지 않으면 이 범위의 낮은 쪽을 쓴다. " +
     "기준값: 계란 1개(후라이 포함) 약 6g, 작은 햇반 130g 약 4g, 닭가슴살 100g 약 23g, 삼겹살 100g 약 17g, 두부 100g 약 8g, 우유 200ml 약 6g, 김치 50g 약 1g, 라면 1봉 약 10g. " +
     "목록의 모든 음식에 대해 하나씩, 목록 번호를 index에, 이름을 name에 넣고, protein_g는 소수점 한 자리까지의 숫자로 준다.\n\n" +
     `다음 음식들의 단백질(g)을 추정해 줘.\n${list}`;
@@ -111,7 +112,11 @@ export async function POST(req: Request) {
     const byIndex = Number.isInteger(item.index) ? foods[item.index - 1] : undefined;
     const food = byIndex ?? foods.find((f) => f.name.replace(/\s/g, "") === (item.name ?? "").replace(/\s/g, ""));
     if (food && Number.isFinite(item.protein_g) && item.protein_g >= 0) {
-      protein[food.name] = Math.round(item.protein_g * 10) / 10;
+      // AI가 단백질을 과하게 잡는 경우가 있어, 단백질 칼로리(1g=4kcal)가 전체의 35%를 넘으면 자른다.
+      // 닭가슴살·참치·두부·프로틴처럼 원래 단백질 비중이 높은 음식은 예외
+      const highProtein = /닭가슴|가슴살|참치|두부|프로틴|단백질|계란흰자|흰자|오징어|새우|연어|육포|그릭/.test(food.name);
+      const cap = highProtein || food.kcal <= 0 ? Infinity : (food.kcal * 0.35) / 4;
+      protein[food.name] = Math.round(Math.min(item.protein_g, cap) * 10) / 10;
     }
   }
   if (Object.keys(protein).length === 0) {

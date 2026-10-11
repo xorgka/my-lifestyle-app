@@ -16,6 +16,7 @@ import {
   getFoodProtein,
   getProteinError,
   isProteinPending,
+  reestimateProtein,
   resetProteinAttempts,
   proteinFor,
   setFoodProtein,
@@ -125,6 +126,7 @@ function ProteinModal({
   error,
   pending,
   onRetry,
+  onReestimate,
   onClose,
 }: {
   meals: MealEntry[];
@@ -132,6 +134,7 @@ function ProteinModal({
   error: string | null;
   pending: boolean;
   onRetry: () => void;
+  onReestimate: () => void;
   onClose: () => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -228,7 +231,18 @@ function ProteinModal({
           ))}
         </div>
         <div className="mt-2 flex items-baseline justify-between border-t border-neutral-200 pt-3">
-          <span className="text-[15px] font-semibold text-neutral-700">합계</span>
+          <span className="flex items-baseline gap-3">
+            <span className="text-[15px] font-semibold text-neutral-700">합계</span>
+            <button
+              type="button"
+              onClick={onReestimate}
+              disabled={pending}
+              className="text-xs text-neutral-400 underline underline-offset-2 hover:text-neutral-700 disabled:opacity-40"
+              title="오늘 음식 중 AI가 추정한 값만 다시 계산 (직접 고친 값은 그대로)"
+            >
+              AI 값 다시 계산
+            </button>
+          </span>
           <span className="text-xl font-bold tabular-nums text-emerald-600">{Math.round(total)}g</span>
         </div>
       </div>
@@ -1062,6 +1076,10 @@ export default function DietPage() {
             resetProteinAttempts();
             setProteinError(null);
             void estimateMissingProtein(meals.map((m) => ({ name: m.name, kcal: m.kcal })));
+          }}
+          onReestimate={() => {
+            setProteinError(null);
+            void reestimateProtein(meals.map((m) => ({ name: m.name, kcal: m.kcal })));
           }}
           onClose={() => setProteinModalOpen(false)}
         />
