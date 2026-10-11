@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { DietSettingsModal } from "@/components/diet/DietSettingsModal";
 import { WeightChart } from "@/components/diet/WeightChart";
@@ -136,8 +137,10 @@ function ProteinModal({
     setEditingId(null);
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" onClick={onClose}>
+  // body에 그린다: 페이지 카드의 transform 안에 있으면 fixed가 카드 기준이 돼 화면 아래·한쪽만 어두워짐
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-baseline justify-between">
           <h3 className="text-lg font-bold text-neutral-900">오늘 먹은 단백질</h3>
@@ -210,7 +213,8 @@ function ProteinModal({
           <span className="text-xl font-bold tabular-nums text-emerald-600">{Math.round(total)}g</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
