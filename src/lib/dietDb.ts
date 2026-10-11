@@ -445,3 +445,55 @@ export async function fixWeight80To81(): Promise<void> {
     window.localStorage.setItem(WEIGHT_FIX_DONE_KEY, "1");
   } catch {}
 }
+
+const CLEAR_WEIGHTS_BEFORE = "2026-10-12";
+const CLEAR_WEIGHTS_DONE_KEY = "diet-fix-clear-weights-before-1012";
+/** 지운 몸무게 백업 { 날짜: kg } — 되돌려야 할 때 쓴다 */
+const CLEAR_WEIGHTS_BACKUP_KEY = "diet-weights-backup-before-1012";
+
+/**
+ * 10월 12일 이전 몸무게 기록을 지운다 (식사·운동은 그대로). 한 번만, 실패하면 다음에 다시.
+ * 지우기 전 값은 이 기기 localStorage에 백업해 둔다.
+ */
+export async function clearWeightsBefore1012(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(CLEAR_WEIGHTS_DONE_KEY)) return;
+  } catch {}
+
+  let days: DietDay[];
+  if (supabase) {
+    const { data, error } = await supabase.from("diet_days").select("*").lt("date", CLEAR_WEIGHTS_BEFORE).not("weight_kg", "is", null);
+    if (error) return;
+    days = (data ?? []).map(rowToDay);
+  } else {
+    days = Object.values(loadAllLocal())
+      .map((d) => ({ ...emptyDay(d.date), ...d }))
+      .filter((d) => d.date < CLEAR_WEIGHTS_BEFORE && d.weightKg != null);
+  }
+
+  try {
+    const prev = JSON.parse(window.localStorage.getItem(CLEAR_WEIGHTS_BACKUP_KEY) ?? "{}") as Record<string, number>;
+    for (const d of days) if (d.weightKg != null) prev[d.date] = d.weightKg;
+    window.localStorage.setItem(CLEAR_WEIGHTS_BACKUP_KEY, JSON.stringify(prev));
+  } catch {}
+
+  let failed = false;
+  for (const day of days) {
+    const cleared: DietDay = { ...day, weightKg: null };
+    saveLocal(cleared);
+    window.dispatchEvent(new CustomEvent<DietDay>(DIET_DAY_CHANGED_EVENT, { detail: cleared }));
+    if (supabase) {
+      const { error } = await supabase
+        .from("diet_days")
+        .update({ weight_kg: null, updated_at: new Date().toISOString() })
+        .eq("date", day.date);
+      if (error) failed = true;
+    }
+  }
+  if (failed) return;
+
+  try {
+    window.localStorage.setItem(CLEAR_WEIGHTS_DONE_KEY, "1");
+  } catch {}
+}
