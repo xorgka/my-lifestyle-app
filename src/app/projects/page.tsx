@@ -28,7 +28,6 @@ import {
   loadAllProductionRequests,
   loadDistinctYearMonths,
   loadProductionRequests,
-  syncProductionRequestToSheet,
   updateProductionRequest,
 } from "@/lib/productionRequestsDb";
 import {
@@ -127,18 +126,6 @@ function StatusDot({
 
 type ViewMode = "month" | "stats";
 
-/** 구글 시트 오류를 알아보기 쉬운 말로 */
-function explainSheetError(error: string): string {
-  const tab = error.match(/Unable to parse range: '?([^'!]+)'?!/)?.[1];
-  if (tab) return `시트에 '${tab}' 탭이 없어요`;
-  if (/google_sheets_not_configured/.test(error)) return "Vercel에 구글시트 설정(GOOGLE_SHEETS_…)이 없어요";
-  if (/PERMISSION_DENIED|caller does not have permission/i.test(error)) return "시트가 서비스 계정 이메일에 공유되지 않았어요";
-  if (/google_sheets_token_failed|invalid_grant|private key|DECODER|PEM/i.test(error)) return "구글 서비스 계정 키 오류";
-  if (/not_found/.test(error)) return "앱에서 이 항목을 찾지 못했어요";
-  if (/http_(401|302|307)|Unexpected token/.test(error)) return "로그인이 풀렸어요. 새로고침해 주세요";
-  return error.length > 120 ? `${error.slice(0, 120)}…` : error;
-}
-
 export default function ProjectsPage() {
   const now = new Date();
   const [view, setView] = useState<ViewMode>("month");
@@ -160,8 +147,6 @@ export default function ProjectsPage() {
   const [sourceOptions, setSourceOptions] = useState<SourceOption[]>([]);
   const [showSourceManager, setShowSourceManager] = useState(false);
 
-  /** 시트 반영 실패한 항목 id → 실패 이유 */
-  const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
 
   const loadMonth = useCallback(async (yearMonth: string) => {
     setLoading(true);
@@ -229,16 +214,6 @@ export default function ProjectsPage() {
 
   const monthNetProfit = sumNetProfit(requests);
 
-  const runSync = useCallback(async (id: string) => {
-    const result = await syncProductionRequestToSheet(id);
-    setSyncErrors((s) => {
-      const n = { ...s };
-      if (result.ok) delete n[id];
-      else n[id] = explainSheetError(result.error ?? "");
-      return n;
-    });
-  }, []);
-
   const openNewModal = () => {
     setEditingId(null);
     setEditingRequest(null);
@@ -298,7 +273,6 @@ export default function ProjectsPage() {
         setSelectedYearMonth(saved.yearMonth);
       }
       setAvailableMonths((prev) => (prev.includes(saved.yearMonth) ? prev : [...prev, saved.yearMonth].sort()));
-      runSync(saved.id);
       loadStats();
     } finally {
       setSaving(false);
@@ -309,7 +283,6 @@ export default function ProjectsPage() {
     const nextValue = nextProgressStatus(r[key]);
     setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, [key]: nextValue } : x)));
     await updateProductionRequest(r.id, { [key]: nextValue });
-    runSync(r.id);
   };
 
   const handleDelete = async () => {
@@ -458,8 +431,6 @@ export default function ProjectsPage() {
       ) : (
         <div className="space-y-3">
           {requests.map((r) => {
-            const syncError = syncErrors[r.id];
-            const isSyncError = syncError != null;
             return (
               <Card
                 key={r.id}
@@ -508,12 +479,6 @@ export default function ProjectsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                         </svg>
                       </button>
-                      {isSyncError && (
-                        <button type="button" onClick={() => runSync(r.id)} className="text-xs text-amber-500 hover:underline" title={syncError}>
-                          ⚠ 시트 반영 실패 (재시도)
-                          <span className="ml-1 text-neutral-400">· {syncError}</span>
-                        </button>
-                      )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-baseline gap-2 text-sm text-neutral-400">
                       {r.note || (r.depositAmount > 0 && r.statusPayment !== "O") ? (
@@ -580,7 +545,7 @@ export default function ProjectsPage() {
 
       {deleteTarget && (
         <ConfirmDialog
-          message={`"${deleteTarget.clientName}" 의뢰를 삭제할까요? 구글 시트의 행은 자동으로 지워지지 않습니다.`}
+          message={`"${deleteTarget.clientName}" 의뢰를 삭제할까요?`}
           confirmLabel="삭제"
           danger
           onConfirm={handleDelete}

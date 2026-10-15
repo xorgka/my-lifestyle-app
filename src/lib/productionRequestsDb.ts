@@ -152,33 +152,3 @@ export async function deleteProductionRequest(id: string, client?: SupabaseClien
   const { error } = await db.from("production_requests").delete().eq("id", id);
   if (error) throw error;
 }
-
-export async function setProductionRequestSheetRow(
-  id: string,
-  sheetRow: number,
-  client?: SupabaseClient | null
-): Promise<void> {
-  const db = client ?? supabase;
-  if (!db) return;
-  const { error } = await db
-    .from("production_requests")
-    .update({ sheet_row: sheetRow, sheet_synced_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) console.error("[productionRequestsDb] setSheetRow", error);
-}
-
-/** 저장 후 호출: 구글 시트에 반영 시도. 실패해도 앱 저장 자체엔 영향 없음(별도 재시도용 상태만 반환). */
-export async function syncProductionRequestToSheet(id: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const res = await fetch("/api/production-requests/sync-sheet", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.ok) return { ok: false, error: String(json?.error ?? `http_${res.status}`) };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "unknown_error" };
-  }
-}
