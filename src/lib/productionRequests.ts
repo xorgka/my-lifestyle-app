@@ -1,6 +1,6 @@
 /**
  * 프로젝트(홈페이지&로고 제작 의뢰) 관리 - 타입/순수 로직.
- * DB 입출력은 productionRequestsDb.ts, 구글 시트 동기화는 googleSheets.ts 참고.
+ * DB 입출력은 productionRequestsDb.ts 참고.
  */
 
 export type ProgressStatus = "" | "~" | "O";
