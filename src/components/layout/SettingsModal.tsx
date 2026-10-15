@@ -706,7 +706,8 @@ export function SettingsModal({ onClose }: Props) {
               </label>
             ))}
           </div>
-          {homeTemplateId === "video" && <HomeVideoStorageManager />}
+          {/* 영상 템플릿뿐 아니라 달력·타임라인 템플릿(인사말 옆 동그라미 영상)에서도 쓰므로 항상 보여준다 */}
+          <HomeVideoStorageManager />
           <div className="space-y-2 pt-2">
             <h4 className="text-sm font-semibold text-neutral-700">메모 카드 디자인</h4>
             {MEMO_CARD_STYLE_OPTIONS.map((opt) => (
