@@ -280,9 +280,13 @@ export default function ProjectsPage() {
   };
 
   const handleToggleStatus = async (r: ProductionRequest, key: (typeof PROGRESS_STEPS)[number]["key"]) => {
-    const nextValue = nextProgressStatus(r[key]);
-    setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, [key]: nextValue } : x)));
-    await updateProductionRequest(r.id, { [key]: nextValue });
+    // 완료를 누르면(아직 완료가 아닐 때) 모든 단계를 한 번에 완료로
+    const patch: Partial<ProductionRequest> =
+      key === "statusComplete" && r.statusComplete !== "O"
+        ? Object.fromEntries(PROGRESS_STEPS.map((s) => [s.key, "O"]))
+        : { [key]: nextProgressStatus(r[key]) };
+    setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...patch } : x)));
+    await updateProductionRequest(r.id, patch);
   };
 
   const handleDelete = async () => {
