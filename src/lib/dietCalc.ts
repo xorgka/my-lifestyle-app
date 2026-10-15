@@ -43,7 +43,17 @@ export function bmiLabel(bmi: number): string {
  * 달리기: VO2 = 0.2·속도 + 0.9·속도·경사 + 3.5   (속도 m/분, 경사 0~1, VO2 ml/kg/분)
  * 1L 산소 ≈ 5kcal. 쉬는 몫 3.5를 빼서 순 소모로.
  */
+/**
+ * 트레드밀 보정: 공식 값이 실제 기계 표시보다 높게 나와서 줄인다.
+ * (경사 20%·2km/h·30분이 공식 184kcal, 실제 약 170kcal — 중간에 쉬는 시간 포함)
+ */
+export const TREADMILL_CALIBRATION = 0.92;
+
 export function treadmillKcalPerMin(weightKg: number, speedKmh: number, inclinePct: number): number {
+  return acsmKcalPerMin(weightKg, speedKmh, inclinePct) * TREADMILL_CALIBRATION;
+}
+
+function acsmKcalPerMin(weightKg: number, speedKmh: number, inclinePct: number): number {
   const speed = (speedKmh * 1000) / 60;
   const grade = inclinePct / 100;
   const walking = speedKmh <= 6;
@@ -78,7 +88,8 @@ export function definedExerciseKcal(
 
 /** 평지 걷기 순 소모 (강아지 산책 등 매일 하는 활동) */
 export function walkKcal(weightKg: number, speedKmh: number, minutes: number): number {
-  return treadmillKcal(weightKg, speedKmh, 0, minutes);
+  // 산책은 트레드밀 보정 없이 공식 그대로
+  return acsmKcalPerMin(weightKg, speedKmh, 0) * minutes;
 }
 
 /**
