@@ -677,6 +677,13 @@ export default function DietPage() {
       .sort((x, y) => y.c - x.c || x.i - y.i)
       .map((x) => x.f);
   }, [foods, recent]);
+  /** 간식 칸: 간식으로 자주 먹은 순. 간식으로 안 먹어 본 음식은 그 뒤에 전체 횟수 순 */
+  const foodsBySnackFrequency = useMemo(() => {
+    const counts = new Map<string, number>();
+    recent.forEach((d) => d.meals.forEach((m) => m.meal === "snack" && counts.set(m.name, (counts.get(m.name) ?? 0) + 1)));
+    // foodsByFrequency 가 이미 전체 횟수 순이라, 안정 정렬로 간식 횟수만 앞세운다
+    return [...foodsByFrequency].sort((x, y) => (counts.get(y.name) ?? 0) - (counts.get(x.name) ?? 0));
+  }, [foodsByFrequency, recent]);
 
   // 운동 목표: 날짜별 기록한 운동 칼로리로 연속 달성·최근 7일 계산
   const today = todayDateKey();
@@ -1116,7 +1123,7 @@ export default function DietPage() {
               meal={m.id}
               label={m.label}
               entries={meals.filter((e) => e.meal === m.id)}
-              foods={foodsByFrequency}
+              foods={m.id === "snack" ? foodsBySnackFrequency : foodsByFrequency}
               combos={combos}
               onAdd={(items) => addMealItems(m.id, items)}
               onRemove={(id) => day && update({ ...day, meals: day.meals.filter((e) => e.id !== id) })}
