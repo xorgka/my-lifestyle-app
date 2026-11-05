@@ -13,6 +13,7 @@ import {
   getStartTimeOverrideForKey,
   syncStartTimeOverridesFromSupabase,
   getSlotDisplayHour,
+  slotHour,
   type DayTimetable,
   type TimetableSlot,
 } from "@/lib/timetableDb";
@@ -55,8 +56,8 @@ export function getCurrentSlot(
   }
 
   for (let i = 0; i < sorted.length; i++) {
-    const start = Number(sorted[i].time);
-    const end = Number(sorted[(i + 1) % sorted.length].time);
+    const start = slotHour(sorted[i].time);
+    const end = slotHour(sorted[(i + 1) % sorted.length].time);
     const inSlot = start <= end
       ? currentHour >= start && currentHour < end
       : currentHour >= start || currentHour < end;
@@ -87,11 +88,11 @@ function getNextSlotHour(
   const firstSlotHour = parseInt(String(sorted[0].time).trim(), 10) || 0;
   const nextSlot = sorted[idx + 1];
   const useOverride = startTimeOverride != null && !Number.isNaN(firstSlotHour);
-  const currentStart = useOverride ? getDisplayHour(currentSlot, firstSlotHour, startTimeOverride) : Number(currentSlot.time);
+  const currentStart = useOverride ? getDisplayHour(currentSlot, firstSlotHour, startTimeOverride) : slotHour(currentSlot.time);
 
   // 오늘 마지막 시간대는 다음 날 첫 시간대에 끝남 (getCurrentSlot과 같은 기준)
   const boundarySlot = nextSlot ?? sorted[0];
-  const nextStart = useOverride ? getDisplayHour(boundarySlot, firstSlotHour, startTimeOverride) : Number(boundarySlot.time);
+  const nextStart = useOverride ? getDisplayHour(boundarySlot, firstSlotHour, startTimeOverride) : slotHour(boundarySlot.time);
   return nextBoundaryHour(currentStart, nextStart);
 }
 
@@ -207,7 +208,7 @@ export function useHomeWidgetData() {
     const hourOf = (t: TimetableSlot) =>
       startTimeOverride != null && !Number.isNaN(firstSlotHour)
         ? getDisplayHour(t, firstSlotHour, startTimeOverride)
-        : Number(t.time) % 24;
+        : slotHour(t.time) % 24;
     const next = sortedSlots[i + 1];
     return { slot, start: hourOf(slot), end: next ? hourOf(next) : null };
   });
@@ -215,7 +216,7 @@ export function useHomeWidgetData() {
     currentSlot && startTimeOverride != null && !Number.isNaN(firstSlotHour)
       ? getDisplayHour(currentSlot, firstSlotHour, startTimeOverride)
       : currentSlot
-        ? Number(currentSlot.time)
+        ? slotHour(currentSlot.time)
         : null;
 
   const handleTimetableToggle = async (itemId: string) => {

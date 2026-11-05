@@ -15,7 +15,7 @@ function useIsMobile() {
   }, []);
   return isMobile;
 }
-import type { DayTimetable, TimetableSlot } from "@/lib/timetableDb";
+import { slotHour, type DayTimetable, type TimetableSlot } from "@/lib/timetableDb";
 
 const baseWidget =
   "widget-grain-texture relative flex min-h-[160px] w-full flex-col rounded-3xl px-7 py-5 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition duration-200 hover:-translate-y-1.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.18)]";
@@ -315,7 +315,7 @@ export function TimetableCard({
   variant = "A",
   className = "col-span-2",
 }: TimetableCardProps) {
-  const displayHour = currentSlotDisplayHour ?? (currentSlot ? Number(currentSlot.time) : null);
+  const displayHour = currentSlotDisplayHour ?? (currentSlot ? slotHour(currentSlot.time) : null);
   const isB = variant === "B";
 
   const itemList = (slot: TimetableSlot) => (
@@ -421,7 +421,7 @@ export function TimetableCard({
           <div className="flex min-h-0 min-w-0 flex-1 bg-white/95">
             <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-1 border-r border-[#F19E36]/40 bg-[#F19E36] py-3 md:w-32">
               <span className="text-2xl font-bold text-white md:text-3xl">
-                {displayHour != null ? `${displayHour}시` : `${Number(currentSlot.time)}시`}
+                {displayHour != null ? `${displayHour}시` : `${slotHour(currentSlot.time)}시`}
               </span>
               {remainingText != null && (
                 <span

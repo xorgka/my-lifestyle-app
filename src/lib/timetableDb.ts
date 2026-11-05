@@ -9,9 +9,14 @@ export type TimetableItem = { id: string; text: string };
 export type TimetableSlot = { id: string; time: string; items: TimetableItem[] };
 export type DayTimetable = { slots: TimetableSlot[]; completedIds: string[] };
 
+/** 시간대의 시(숫자). "19시"처럼 글자가 붙어 저장된 것도 19로 읽는다 */
+export function slotHour(time: string): number {
+  return parseInt(String(time).trim(), 10) || 0;
+}
+
 /** 5시를 하루 시작으로, 0~4시는 늦은 시간(맨 뒤). 정렬용 키 반환. */
 export function timetableSlotOrderKey(time: string): number {
-  const n = parseInt(String(time).trim(), 10) || 0;
+  const n = slotHour(time);
   if (n >= 5 && n <= 24) return n - 5;
   return n + 19;
 }
