@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { DietSettingsModal } from "@/components/diet/DietSettingsModal";
@@ -36,6 +36,7 @@ import {
   getDietFoods,
   getDietProfile,
   loadDietDay,
+  mergeDietDay,
   loadDietHistory,
   loadWeightLog,
   rememberDietFood,
@@ -537,6 +538,23 @@ export default function DietPage() {
     };
   }, [date]);
 
+  // 화면을 열어 둔 채 다른 기기·일과에서 기록이 바뀌었을 수 있어, 이 화면으로 돌아오면 다시 읽는다
+  useEffect(() => {
+    const reload = () => {
+      if (document.visibilityState !== "visible") return;
+      loadDietDay(date).then(({ day: d }) => {
+        // 저장 중인 변경이 있으면 건드리지 않는다 (저장이 끝나면 합쳐진 기록으로 바뀜)
+        if (pendingSaves.current === 0) setDay((cur) => (cur && cur.date === d.date ? d : cur));
+      });
+    };
+    document.addEventListener("visibilitychange", reload);
+    window.addEventListener("focus", reload);
+    return () => {
+      document.removeEventListener("visibilitychange", reload);
+      window.removeEventListener("focus", reload);
+    };
+  }, [date]);
+
   const refreshWeights = useCallback(() => {
     loadWeightLog().then(setWeights);
   }, []);
@@ -577,15 +595,36 @@ export default function DietPage() {
     return out;
   }, [historyRange, historyFrom, history]);
 
+  /** 저장은 한 번에 하나씩: 앞 저장이 끝난 뒤의 최신 기록을 읽어야 해서 줄을 세운다 */
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingSaves = useRef(0);
+  const lastShown = useRef<DietDay | null>(null);
+
   const update = (next: DietDay) => {
-    setDay(next);
-    // 기록 탭도 바로 반영
-    const merge = (list: DietDay[]) => [...list.filter((d) => d.date !== next.date), next].sort((a, b) => a.date.localeCompare(b.date));
-    setHistory(merge);
-    setRecent(merge);
-    void saveDietDay(next).then(() => {
-      if (next.weightKg !== day?.weightKg) refreshWeights();
-    });
+    const base = day;
+    const show = (d: DietDay) => {
+      setDay(d);
+      // 기록 탭도 바로 반영
+      const merge = (list: DietDay[]) => [...list.filter((x) => x.date !== d.date), d].sort((a, b) => a.date.localeCompare(b.date));
+      setHistory(merge);
+      setRecent(merge);
+    };
+    show(next);
+    lastShown.current = next;
+    pendingSaves.current += 1;
+    saveQueue.current = saveQueue.current
+      .then(async () => {
+        // 열어 둔 사이 다른 기기·일과 체크로 들어간 기록을 지우지 않도록, 최신 기록 위에 이번 변경만 얹어 저장
+        const { day: latest, source: s } = await loadDietDay(next.date);
+        const merged = base && s === "supabase" ? mergeDietDay(base, next, latest) : next;
+        await saveDietDay(merged);
+        if (lastShown.current === next) show(merged);
+        if (next.weightKg !== base?.weightKg) refreshWeights();
+      })
+      .catch(console.error)
+      .finally(() => {
+        pendingSaves.current -= 1;
+      });
   };
 
   /** 이 날짜 기준 몸무게: 그날 기록, 없으면 그 전 가장 최근 기록, 그것도 없으면 그 뒤 첫 기록 */

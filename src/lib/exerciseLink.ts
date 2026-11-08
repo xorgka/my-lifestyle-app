@@ -97,11 +97,20 @@ function kcalFor(ex: DietExercise, weightKg: number, amount: number, walkSpeedKm
   return definedExerciseKcal(ex, weightKg, amount);
 }
 
+/** 체크를 연달아 하면 둘 다 같은 옛 기록을 읽고 저장해 하나만 남는다. 앞 저장이 끝난 뒤 다음 것을 읽도록 줄을 세운다 */
+let syncQueue: Promise<void> = Promise.resolve();
+
 /**
  * 루틴·일과 항목을 체크/해제했을 때 그날 다이어트 운동을 맞춘다.
  * 운동으로 알아볼 수 없는 제목이면 아무것도 안 한다.
  */
-export async function syncExerciseFromItem(dateKey: string, title: string, completed: boolean, itemId: string): Promise<void> {
+export function syncExerciseFromItem(dateKey: string, title: string, completed: boolean, itemId: string): Promise<void> {
+  const run = syncQueue.then(() => syncNow(dateKey, title, completed, itemId));
+  syncQueue = run.catch(() => {});
+  return run;
+}
+
+async function syncNow(dateKey: string, title: string, completed: boolean, itemId: string): Promise<void> {
   const { day } = await loadDietDay(dateKey);
   const linkedId = `link-${itemId}`;
 

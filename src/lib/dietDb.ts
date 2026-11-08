@@ -367,6 +367,39 @@ function rowToDay(row: Record<string, unknown>): DietDay {
   };
 }
 
+/** base → next 로 바뀐 것(추가·삭제·수정)만 latest 위에 얹는다 */
+function mergeById<T extends { id: string }>(base: T[], next: T[], latest: T[]): T[] {
+  // 그사이 바뀐 게 없으면 화면 그대로 (순서 포함)
+  if (latest.length === base.length && latest.every((x, i) => x.id === base[i].id)) return next;
+  const baseById = new Map(base.map((x) => [x.id, x]));
+  const nextById = new Map(next.map((x) => [x.id, x]));
+  const out = latest
+    .filter((x) => !baseById.has(x.id) || nextById.has(x.id))
+    .map((x) => {
+      const b = baseById.get(x.id);
+      const n = nextById.get(x.id);
+      return b && n && JSON.stringify(b) !== JSON.stringify(n) ? n : x;
+    });
+  const have = new Set(out.map((x) => x.id));
+  next.forEach((x) => {
+    if (!baseById.has(x.id) && !have.has(x.id)) out.push(x);
+  });
+  return out;
+}
+
+/**
+ * 화면에서 고친 내용(base → next)을 방금 다시 읽은 기록(latest) 위에 얹는다.
+ * 화면을 열어 둔 사이 다른 기기나 일과 체크로 들어간 운동·식사를 옛 내용으로 덮어써 지우지 않기 위함.
+ */
+export function mergeDietDay(base: DietDay, next: DietDay, latest: DietDay): DietDay {
+  return {
+    date: next.date,
+    meals: mergeById(base.meals, next.meals, latest.meals),
+    exercises: mergeById(base.exercises, next.exercises, latest.exercises),
+    weightKg: next.weightKg !== base.weightKg ? next.weightKg : latest.weightKg,
+  };
+}
+
 export type DietLoadSource = "supabase" | "local";
 
 export async function loadDietDay(date: string): Promise<{ day: DietDay; source: DietLoadSource }> {
